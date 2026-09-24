@@ -3,7 +3,9 @@ title: Monitoring and alerts
 description: What the agent collects, the built-in alert rules, and how to send alerts to email, Slack, Discord or a webhook.
 ---
 
-Rowsafe watches the databases it protects, with no monitoring stack of your own. The agent collects database and server metrics every minute, and Rowsafe graphs them in the dashboard, evaluates alert rules and notifies you.
+Rowsafe watches your databases with no monitoring stack of your own. The agent collects database and server metrics every minute, and Rowsafe turns them into a **health score**, plain-language findings, graphs, alerts and a weekly email.
+
+Monitoring starts as soon as you add a database with `rowsafe adopt`, before backups are switched on. Monitoring is included in every plan, including Free.
 
 ## What the agent collects
 
@@ -59,6 +61,76 @@ To turn on `pg_stat_statements`, add it to `shared_preload_libraries` (a restart
 
 Resolved alerts are kept 90 days, and sent notifications 30 days.
 
+## Health score
+
+Every database gets a score from **0 to 100** and a short list of findings, worst first. Each finding says what's wrong in plain language, why it matters and what to do, often with the exact command.
+
+| Score | Meaning |
+|---|---|
+| 90-100 | Healthy |
+| 70-89 | Needs attention |
+| 50-69 | At risk |
+| Under 50 | Critical |
+
+The score starts at 100 and loses points for each problem: backups and restore tests, whether PostgreSQL answers, disk space, connections, vacuum and transaction ID wraparound, locks and slow queries, replication. **One critical problem caps the score at 59, and a warning at 89**, so a serious problem is never hidden by an otherwise good score. Missing data means fewer findings, never a false alarm.
+
+```sh
+rowsafe health          # every database, worst first
+rowsafe health app      # one database: score, findings, and what's fine
+```
+
+`rowsafe health` exits with code 3 when a database scores below 70, so you can use it in scripts. The score is recorded every 15 minutes, so the dashboard and the weekly email show how it changes.
+
+## Disk forecast
+
+Rowsafe fits a trend through the last 14 days of disk use and tells you **when the disk will be full**, for example "in about 9 days". It ignores one-off spikes, such as a big file written and deleted. You need about 2 days of history before the first forecast. The `disk_full_forecast` alert warns you 14 days ahead.
+
+## Table and index insights
+
+About every 30 minutes, the agent looks at each database's tables and indexes (catalog statistics only, never your rows):
+
+- the **largest tables and indexes**, and how fast they grow;
+- **unused indexes** that cost disk and slow down writes, and **duplicate indexes**;
+- **estimated wasted space** (bloat) in tables and indexes;
+- tables with many **dead rows** that vacuum hasn't cleaned up;
+- tables read by **full scans** that may need an index;
+- **transaction ID age** per database and table.
+
+```sh
+rowsafe insights app
+```
+
+## Slow queries
+
+With `pg_stat_statements` turned on, Rowsafe keeps 14 days of per-query timing in 5-minute steps. It shows the queries that took the most time in any range, their share of all query time, and **which got slower**: a query whose average time more than doubled against the previous period is flagged.
+
+```sh
+rowsafe top app                   # last 24 hours
+rowsafe top app --since 168h --sort calls   # last 7 days, by number of calls
+```
+
+To turn on `pg_stat_statements`, add it to `shared_preload_libraries` (a restart, which you do), then run `CREATE EXTENSION pg_stat_statements;` in any database.
+
+## Uptime
+
+Each minute the agent reports whether it could query PostgreSQL. Rowsafe shows uptime over 24 hours, 7 days and 30 days, and each outage with its start and length. Minutes when the agent itself was offline aren't counted either way; the `agent_offline` alert covers those.
+
+## Weekly report
+
+Every Monday morning, "Your databases this week" arrives by email: each database's health score and how it changed, backups and restore tests of the week, size and growth, the disk forecast, the top things to fix, the slowest queries, and any open alerts.
+
+It's on for new organizations. It goes to the addresses you choose, or else to your email alert channels. Every email has a one-click unsubscribe link.
+
+```sh
+rowsafe report                    # settings
+rowsafe report --preview          # this week's report, as text
+rowsafe report --to you@example.com,team@example.com
+rowsafe report --send-test        # send it now
+rowsafe report --off
+```
+
+You can change the same settings in the dashboard under **Settings**, then **Notifications**.
+
 ## Alert rules
 
 Rowsafe checks every rule every 30 seconds. A condition must hold for the rule's **for** duration before the alert fires.
@@ -76,14 +148,19 @@ Rowsafe checks every rule every 30 seconds. A condition must hold for the rule's
 | `awaiting_restart` | warning | 24 hours | | A plan was applied, but PostgreSQL wasn't restarted. |
 | `disk_free_low` | warning | 15% | 5m | Free disk on the data directory's filesystem below the threshold. |
 | `disk_free_critical` | critical | 5% | 5m | Same, lower threshold. |
+| `disk_full_forecast` | warning (critical under 3 days) | 14 days | 30m | At the growth rate of the last two weeks, the disk fills up within the threshold. |
 | `connections_high` | warning | 80% | 5m | Connections above the share of `max_connections`. |
 | `connections_critical` | critical | 95% | 2m | Same, higher threshold. |
 | `long_transaction` | warning | 30 minutes | | A transaction has been open longer than the threshold. |
 | `idle_in_transaction` | warning | 10 minutes | | A session sat idle in an open transaction longer than the threshold. |
 | `xid_wraparound` | critical | 50% | | Transaction ID headroom below the threshold. |
 | `replication_slot_inactive` | warning | 1 GiB | 15m | An inactive replication slot holds back more WAL than the threshold. |
+| `blocked_queries` | warning | 60 seconds | 1m | A query has waited longer than the threshold for a lock held by another session. |
+| `replication_lag` | warning | 5 minutes | 5m | A replica is further behind than the threshold. |
 | `deadlocks` | warning | 5 | | More deadlocks than the threshold in 10 minutes. |
 | `cache_hit_low` | info | 90% | 30m | Cache hit ratio below the threshold with real read traffic. |
+
+Backup and archiving rules (`backup_stale`, `wal_archiving_failing`, `postgres_unreachable`, drill rules, `restore_point_unconfirmed`) wait until backups are switched on for the database, so a database you just added doesn't page you. Disk, connection, wraparound, lock and replication rules apply from the start.
 
 **Critical** means recoverability or availability is degrading now. **Warning** needs attention within a working day. **Info** is for the record.
 

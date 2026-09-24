@@ -107,6 +107,10 @@ rowsafe db set app --retention-full 4 --drill-schedule "0 4 * * 3"
 | `rowsafe alerts` | Firing alerts. `--all` adds resolved ones, `--resolved` shows only those. |
 | `rowsafe alerts ack ID` | Acknowledge a firing alert: no more reminders. |
 | `rowsafe alerts rules` | The built-in alert rules with your organization's settings. |
+| `rowsafe health [NAME]` | Health score (0-100) and findings with what to do. Without NAME, every database, worst first. Exit code 3 if one scores below 70. `--json`. |
+| `rowsafe insights [NAME]` | Largest tables and indexes, unused and duplicate indexes, estimated bloat, dead rows and vacuum, transaction ID age. `--limit N`, `--json`. |
+| `rowsafe top [NAME]` | Queries that took the most time in a range, and which got slower. `--since 24h` (e.g. `1h`, `168h`), `--sort total_time\|calls\|mean_time\|rows`, `--query ID` for one query over time, `--json`. Needs `pg_stat_statements`. |
+| `rowsafe report` | The weekly email: show settings, `--preview` (`--html`), `--on`/`--off`, `--to A,B`, `--send-test`. |
 | `rowsafe db top NAME` | Top statements by total time (needs `pg_stat_statements`). `--limit N`, at most 20. |
 | `rowsafe db activity NAME` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe channels list` | Notification channels. |

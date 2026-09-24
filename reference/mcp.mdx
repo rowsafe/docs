@@ -97,6 +97,9 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `list_drills` | read | Restore drills with failures and warnings. |
 | `list_tasks` | read | Tasks, filtered by database, status and type. |
 | `get_task` | read | One task with its result, the end of its log and the next step. |
+| `database_health` | read | Health score (0-100) and plain-language findings with what to do. Without a database, every database's score. |
+| `database_insights` | read | Largest tables, unused and duplicate indexes, estimated bloat, dead rows, tables that may need an index. |
+| `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
 | `list_restore_points` | read | Restore points with their status and the backup to restore from. |
 | `create_restore_point` | restore points | Mark this moment by name, and wait until it is in your bucket. |
@@ -115,6 +118,9 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 | Tool | Parameters |
 |---|---|
 | `get_database`, `safety_check`, `list_restore_points` | `database` (required) |
+| `database_health` | `database` (optional) |
+| `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
+| `query_trends` | `database` (required), `since_hours` (1 to 336, default 24), `sort` (`total_time`, `calls`, `mean_time`, `rows`), `limit` (1 to 50, default 10), `query_id` |
 | `list_backups` | `database` (required), `limit` (1 to 100, default 20) |
 | `list_drills` | `database` (required), `limit` (1 to 50, default 10) |
 | `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`), `limit` (1 to 100, default 20) |

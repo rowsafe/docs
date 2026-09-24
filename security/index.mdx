@@ -9,7 +9,7 @@ Rowsafe is built so that the hosted service never needs your data or your secret
 
 - **The agent** (`rowsafe-agent`), as the `postgres` system user. It refuses to run as root.
 - **pgBackRest**, which the agent and PostgreSQL's `archive_command` run.
-- A systemd unit with `NoNewPrivileges`, a read-only system except its own directories, a private `/dev`, no capabilities and restricted address families. The kernel's out-of-memory killer picks the agent before production PostgreSQL, and it gets half the default CPU and IO weight.
+- A systemd unit with `NoNewPrivileges`, a read-only system except its own directories (and `/etc/postgresql`, where Debian and Ubuntu keep `pg_hba.conf`, for the [security check](/docs/guides/security)), a private `/dev`, no capabilities and restricted address families. The kernel's out-of-memory killer picks the agent before production PostgreSQL, and it gets half the default CPU and IO weight.
 
 The agent:
 

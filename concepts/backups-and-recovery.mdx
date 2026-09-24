@@ -1,0 +1,53 @@
+---
+title: Backups and point-in-time recovery
+description: Full and differential backups plus a continuous change log let you restore to any second in your recovery window.
+---
+
+A nightly dump can only take you back to last night. Rowsafe combines two things so you can go back to any second:
+
+1. **Backups**: a copy of the whole database, taken on a schedule.
+2. **A continuous change log**: every change the database makes, archived to your bucket within minutes.
+
+To restore, Rowsafe's tools start from a backup and replay the change log up to the moment you choose.
+
+## Backup types
+
+| Type | What it copies | Default schedule |
+|---|---|---|
+| **Full** | Everything | Sundays 01:00 UTC |
+| **Differential** | What changed since the last full backup | Monday to Saturday 01:00 UTC |
+| **Incremental** | What changed since the last backup of any type | On demand only |
+
+Run one now with `rowsafe backup app` (a full backup by default), or `rowsafe backup app --type diff`.
+
+Backups are compressed, then **encrypted on your server** before they are uploaded. The bucket only ever holds ciphertext.
+
+## The recovery window
+
+You can restore to any moment from the **start of your oldest kept full backup** up to the **last archived change**.
+
+- **Retention** is a count of full backups. The default is 2, which with weekly fulls keeps about two weeks. Change it with `rowsafe db set app --retention-full 4` (1 to 52).
+- Old backups, and the change log they need, are removed automatically after each backup. Don't add a lifecycle rule to the bucket that deletes objects: it would break restores.
+- `rowsafe status app` and the dashboard show the start of your current recovery window.
+
+## How much can you lose?
+
+At most about **5 minutes** of changes, and usually much less. Changes are archived as soon as a log segment fills up, and at least every 5 minutes on a quiet database.
+
+If archiving stops working (for example the bucket's keys were rotated), Rowsafe raises a critical alert within about 10 minutes and the database stops counting as [protected](/docs/concepts/protection-status).
+
+## Restoring
+
+Restoring a production database is a manual, documented procedure today. You run it on a new server or a scratch directory, never over the only copy. Read [Restore a database](/docs/guides/restore) before you need it.
+
+You can restore to:
+
+- **the latest state**: everything that was archived;
+- **a point in time**: for example one second before a bad migration;
+- **a [restore point](/docs/concepts/restore-points)**: a named moment you marked earlier.
+
+Rowsafe proves every week that restoring works, with a [restore drill](/docs/concepts/restore-drills).
+
+<Callout title="PostgreSQL details">
+  On PostgreSQL the change log is the write-ahead log (WAL), and backups are taken with pgBackRest. See [How PostgreSQL backups work](/docs/concepts/postgresql).
+</Callout>

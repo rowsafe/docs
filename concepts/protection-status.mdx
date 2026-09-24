@@ -1,0 +1,70 @@
+---
+title: Protection status
+description: One conservative yes-or-no answer to "could this database be restored right now?", for people, scripts and AI agents.
+---
+
+**Protected** means: if you had to restore this database right now, you could, to within minutes of now. Rowsafe checks it continuously, and it is deliberately strict.
+
+```sh
+rowsafe status app
+```
+
+```text
+app is PROTECTED.
+
+Last backup:        7.2h ago
+Last WAL archived:  41s ago
+Recoverable from:   Sun, 14 Sep 2026 01:00:12 UTC
+Last passing drill: 3d ago
+```
+
+## The conditions
+
+A database is protected only when **all** of these hold:
+
+| Condition | Why |
+|---|---|
+| The database is `active` | Archiving has been proven to reach your bucket. |
+| The agent reported the archiving status in the last 10 minutes, without an error | Unknown counts as failing. |
+| No archiving failure in the last 15 minutes | Recent changes might not be in the bucket. |
+| A backup finished in the last 26 hours | Restores would replay a very long log. |
+| The latest restore drill passed, less than 8 days ago | Only a drill proves the backups restore. |
+
+When one fails, the status lists every reason:
+
+```text
+app is NOT PROTECTED:
+  - WAL archiving failed at 2026-09-24T09:12:03Z (within the last 15m0s)
+  - no passing restore drill in the last 8 days
+
+Last backup:        7.2h ago
+...
+```
+
+## For scripts and AI agents
+
+`rowsafe status NAME` exits with:
+
+| Exit code | Meaning |
+|---|---|
+| `0` | Protected |
+| `3` | Not protected |
+| `1` | Error (for example not logged in, or the database doesn't exist) |
+
+So you can gate a risky step on it:
+
+```sh
+rowsafe status app && ./migrate.sh
+```
+
+Use `--json` for every detail, including the start of the recovery window. AI agents get the same check through the `safety_check` [MCP tool](/docs/reference/mcp).
+
+## Fleet health
+
+Without a name, `rowsafe status` checks everything: offline agents, stale backups, failing archiving, failed drills, databases waiting for a restart, and more. Each problem comes with the command to run next.
+
+```text
+2 hosts, 3 databases (3 active): 0 critical, 0 warning(s). All good: every active database has recent backups, WAL archiving works and drills pass.
+```
+
+It exits `0` when nothing is critical or a warning, and `3` otherwise.

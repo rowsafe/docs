@@ -1,0 +1,141 @@
+---
+title: Webhooks
+description: The JSON payload Rowsafe sends to a webhook channel, its headers, retries, and how to verify the signature.
+---
+
+A **webhook** channel sends each alert as a signed JSON `POST` to your `https` URL. Create one:
+
+```sh
+rowsafe channels add --type webhook --name pager --url https://hooks.example.com/rowsafe
+```
+
+It prints the **signing secret** (`whsec_...`) once. Store it where your receiver can read it.
+
+## Request
+
+`POST` with `Content-Type: application/json`, `User-Agent: Rowsafe-Notifications/1`, and:
+
+| Header | |
+|---|---|
+| `X-Rowsafe-Event` | `alert.firing`, `alert.resolved`, `alert.reminder` or `test` |
+| `X-Rowsafe-Delivery` | A unique delivery ID (`ntf_...`). The same ID is reused when a delivery is retried. |
+| `X-Rowsafe-Signature` | `t=<unix seconds>,v1=<hex HMAC-SHA256>` |
+
+## Payload
+
+```json
+{
+  "version": 1,
+  "event": "alert.firing",
+  "delivery_id": "ntf_5k2m9x7q4t1v0",
+  "sent_at": "2026-09-24T03:12:00Z",
+  "org_id": "org_0123456789abc",
+  "alert": {
+    "id": "alr_7h3k2m9x7q4t1",
+    "rule": "disk_free_critical",
+    "severity": "critical",
+    "state": "firing",
+    "database": { "id": "db_1a2b3c4d5e6f7", "name": "app" },
+    "host": { "id": "host_9h8g7f6e5d4c3", "hostname": "db-1" },
+    "summary": "app: only 4.2% disk space left on db-1 (1.9 GiB free)",
+    "description": "When the data directory's filesystem fills up, PostgreSQL stops accepting writes and may shut down. ...",
+    "next_step": "On db-1: df -h and du -sh the data directory's pg_wal; rowsafe db protection app shows whether WAL archiving is failing",
+    "value": 4.2,
+    "threshold": 5,
+    "unit": "%",
+    "url": "https://app.rowsafe.sh/databases/app",
+    "started_at": "2026-09-24T03:05:00Z"
+  }
+}
+```
+
+| Field | |
+|---|---|
+| `version` | Payload version, `1`. |
+| `event` | Same as `X-Rowsafe-Event`. |
+| `alert.rule` | One of the [alert rules](/docs/guides/monitoring#alert-rules). |
+| `alert.severity` | `critical`, `warning` or `info`. |
+| `alert.state` | `firing` or `resolved`. |
+| `alert.database`, `alert.host` | The target, when there is one. A host alert has no `database`. |
+| `alert.value`, `threshold`, `unit` | For rules with a threshold. |
+| `alert.resolved_at`, `acknowledged_at`, `acknowledged_by` | Present once they apply. |
+
+Optional fields are left out when empty. Ignore fields you don't recognize.
+
+## Delivery
+
+- Answer with any **2xx** within **10 seconds**. Anything else, including a redirect, counts as a failure.
+- Failed deliveries are retried up to 8 times, waiting 1, 2, 4, 8, 16, 32 and 64 minutes: about 2 hours in all.
+- Use `X-Rowsafe-Delivery` to ignore duplicates.
+- The URL must be public `https`, with no credentials in it. Rowsafe refuses private and internal addresses, also after DNS resolution.
+- `rowsafe channels test ID` sends a `test` event right away.
+
+## Verify the signature
+
+The signature is an HMAC-SHA256, keyed with the signing secret (the whole `whsec_...` string), over the timestamp, a dot, and the **raw** request body. Reject requests whose timestamp is more than 5 minutes off, to stop replays. Compare in constant time.
+
+<Tabs items={["Node.js", "Python", "Go"]}>
+<Tab value="Node.js">
+
+```js
+const crypto = require("node:crypto");
+
+function verify(secret, header, rawBody, toleranceSeconds = 300) {
+  const parts = Object.fromEntries(header.split(",").map((p) => p.split("=", 2)));
+  const t = Number(parts.t);
+  if (Math.abs(Date.now() / 1000 - t) > toleranceSeconds) return false;
+  const expected = crypto.createHmac("sha256", secret).update(`${t}.`).update(rawBody).digest("hex");
+  const a = Buffer.from(expected), b = Buffer.from(parts.v1 ?? "");
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import hmac, hashlib, time
+
+def verify(secret: str, header: str, body: bytes, tolerance: int = 300) -> bool:
+    parts = dict(p.split("=", 1) for p in header.split(","))
+    t = int(parts["t"])
+    if abs(time.time() - t) > tolerance:
+        return False
+    expected = hmac.new(secret.encode(), f"{t}.".encode() + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, parts["v1"])
+```
+
+</Tab>
+<Tab value="Go">
+
+```go
+func verify(secret, header string, body []byte) bool {
+	var t int64
+	var sig string
+	for _, part := range strings.Split(header, ",") {
+		k, v, _ := strings.Cut(part, "=")
+		switch k {
+		case "t":
+			t, _ = strconv.ParseInt(v, 10, 64)
+		case "v1":
+			sig = v
+		}
+	}
+	if d := time.Since(time.Unix(t, 0)); d > 5*time.Minute || d < -5*time.Minute {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	fmt.Fprintf(mac, "%d.", t)
+	mac.Write(body)
+	return hmac.Equal([]byte(hex.EncodeToString(mac.Sum(nil))), []byte(sig))
+}
+```
+
+</Tab>
+</Tabs>
+
+Use the body exactly as received. Parsing and re-serializing the JSON changes the bytes and breaks the signature.
+
+## Slack, Discord and email
+
+These channels get a readable message instead of JSON: the state and severity, the summary, the description, the target, the value and threshold, since when, the next step, and a link to the dashboard. Discord messages never mention anyone. Reminder emails tell you how to acknowledge the alert.

@@ -1,0 +1,86 @@
+---
+title: How Rowsafe works
+description: The agent on your server, the hosted service, and your own storage bucket, and what each of them can and can't do.
+---
+
+Rowsafe has three parts. Only one of them runs on your server.
+
+| Part | Runs on | What it does |
+|---|---|---|
+| **Agent** (`rowsafe-agent`) | your database server, or next to your database container | Runs backups, checks and restore drills. Reports status and metrics. Open source. |
+| **Rowsafe service** | our servers (`api.rowsafe.sh`, dashboard at `app.rowsafe.sh`) | Schedules work, keeps the history, evaluates alerts, serves the dashboard, the API and the CLI. |
+| **Your bucket** | your S3-compatible storage (for example Cloudflare R2) | Holds the encrypted backups and the continuous change log. |
+
+You talk to Rowsafe through the [dashboard](https://app.rowsafe.sh), the [`rowsafe` CLI](/docs/reference/cli), the API, or [AI assistants over MCP](/docs/reference/mcp).
+
+## The agent asks for work
+
+The agent only makes **outbound** HTTPS requests to the Rowsafe service. Nothing on your server listens for Rowsafe, and you don't open any port.
+
+- Every 30 seconds it sends a heartbeat with its status.
+- Every 5 seconds, when idle, it asks for a task.
+- Every minute it sends database and server metrics.
+
+It runs only a fixed set of tasks. The service can't send it anything else, and it never runs commands or SQL sent over the network.
+
+| Task | What it does |
+|---|---|
+| `inspect` | Reads the database's version, settings and sizes. |
+| `adopt` | Plans the changes backups need (read-only), or applies them. |
+| `check` | Proves that changes reach your bucket. |
+| `backup` | Takes a full, differential or incremental backup. |
+| `drill` | Restores the latest backup on a scratch copy and checks it. |
+| `restore_point` | Creates a named point you can restore to. |
+
+The agent runs one task at a time. Restore points have their own fast lane, so they never wait behind a long backup.
+
+## Your data and secrets stay with you
+
+- Backups are **encrypted on your server** before they are uploaded, with a passphrase only you have.
+- The bucket keys and the passphrase live **only on your server**, in files that only the database's system user can read.
+- The Rowsafe service never sees your data, your bucket or your passphrase. It stores metadata: server and database names, sizes, settings, task logs and metrics.
+
+Read the [security model](/docs/security) for what Rowsafe can and can't do.
+
+## The life of a database
+
+When you add a database, it moves through four states:
+
+```text
+ rowsafe adopt        rowsafe apply              you restart,
+      |              (restart needed)            rowsafe verify
+      v                     |                          |
+ pending_adopt ------------+--> awaiting_restart ------+--> verifying --> active
+```
+
+| State | Meaning | Backups scheduled |
+|---|---|---|
+| `pending_adopt` | Registered. Only read-only plans have run. | No |
+| `awaiting_restart` | Settings applied. The database needs a restart before archiving starts. | No |
+| `verifying` | Rowsafe is proving that changes reach your bucket. If the check fails, fix the cause and run `rowsafe verify` again. | No |
+| `active` | Archiving is proven. Backups and drills run on schedule. | Yes |
+
+If applying the plan needs no restart, Rowsafe goes straight to verifying.
+
+## Schedules
+
+Each database has three schedules, in UTC, written as 5-field cron expressions:
+
+| Schedule | Default | |
+|---|---|---|
+| Full backup | `0 1 * * 0` | Sundays at 01:00 |
+| Differential backup | `0 1 * * 1-6` | Monday to Saturday at 01:00 |
+| Restore drill | `15 21 * * 0` | Sundays at 21:15 |
+
+- Schedules start when a database becomes `active`. Missed runs are not replayed as a backlog.
+- If the previous run is still going, the next one is skipped.
+- A schedule may run at most once an hour.
+- Change them with `rowsafe db set` or in the database's settings in the dashboard.
+
+## If the service is down
+
+Your database keeps archiving its changes to your bucket by itself, so point-in-time recovery keeps working. Only scheduled backups, drills and alerts pause until the service is back.
+
+<Callout title="PostgreSQL details">
+  How backups and archiving work on PostgreSQL, with pgBackRest: [How PostgreSQL backups work](/docs/concepts/postgresql).
+</Callout>

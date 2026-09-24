@@ -1,0 +1,147 @@
+---
+title: MCP server
+description: Connect Claude Code, Claude Desktop and other MCP clients to Rowsafe. Every tool, the safety model and setup.
+---
+
+Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI assistants can check your fleet ("is everything backed up?", "why did this alert fire?") and, when you allow it, create restore points or queue backups and drills.
+
+| | Transport | Credentials | Write tools |
+|---|---|---|---|
+| `rowsafe mcp` | stdio, on your machine | The CLI's login, or `ROWSAFE_API_KEY` | Off by default. `--allow-restore-points` or `--allow-writes`. |
+| `https://api.rowsafe.sh/mcp` | Streamable HTTP | `Authorization: Bearer rsk_...` | Always listed. A read-only key can't use them. |
+
+For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents).
+
+## Set up
+
+<Tabs items={["Claude Code", "Claude Desktop", "Remote endpoint"]}>
+<Tab value="Claude Code">
+
+Log in with the CLI first (`rowsafe login`), then pick a mode:
+
+```sh
+# Read-only
+claude mcp add rowsafe -- rowsafe mcp
+
+# Read-only, plus restore points (what the Claude Code plugin uses)
+claude mcp add rowsafe -- rowsafe mcp --allow-restore-points
+
+# Everything: backups, drills, verification, adoption, schedules
+claude mcp add rowsafe -- rowsafe mcp --allow-writes
+
+# A specific key instead of your login, in every project
+claude mcp add --scope user rowsafe -e ROWSAFE_API_KEY=rsk_... -- rowsafe mcp
+```
+
+`--scope project` writes `.mcp.json` into your repository for everyone: don't put a key in it. Use the stdio form (each developer's own login) there.
+
+</Tab>
+<Tab value="Claude Desktop">
+
+Claude Desktop runs local servers from its config file: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows (**Settings**, **Developer**, **Edit Config**).
+
+```json title="claude_desktop_config.json"
+{
+  "mcpServers": {
+    "rowsafe": {
+      "command": "/usr/local/bin/rowsafe",
+      "args": ["mcp"],
+      "env": {
+        "ROWSAFE_API_KEY": "rsk_..."
+      }
+    }
+  }
+}
+```
+
+Use the absolute path of `rowsafe` (`which rowsafe`): Desktop doesn't use your shell's `PATH`. Add `"--allow-restore-points"` or `"--allow-writes"` to `args` for write tools. Restart Claude Desktop afterwards.
+
+Desktop's remote connectors can't send an API-key header, so use this local setup there.
+
+</Tab>
+<Tab value="Remote endpoint">
+
+No local binary needed:
+
+```sh
+claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Authorization: Bearer rsk_..."
+```
+
+- Every request needs an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
+- The endpoint is stateless and answers with plain JSON.
+- Tool calls wait at most 45 seconds.
+
+</Tab>
+</Tabs>
+
+## Safety model
+
+- **Everything goes through the Rowsafe API**, with the same API key, checks, plan limits and audit log as the CLI. Every change a tool makes is in `rowsafe audit`, attributed to the key.
+- **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restarts PostgreSQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
+- **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only. `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
+- **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, and agent update settings.
+- **`apply_adoption` needs your approval.** It refuses unless `confirm` is the database's exact name and a read-only plan succeeded. Its description tells the model to show you the plan and ask first, and never to pass `force` unless you asked.
+- **Annotations.** Read tools are marked read-only. `apply_adoption` and `update_schedule` (lowering retention deletes old backups) are marked destructive, so clients that confirm destructive calls will ask you.
+- **No secrets in output.** Bucket keys and the passphrase never leave your server. Outputs are capped in size.
+
+## Tools
+
+| Tool | Access | What it does |
+|---|---|---|
+| `fleet_health` | read | Every problem in the fleet, worst first, each with the next step. |
+| `get_org` | read | Plan, limits and usage. |
+| `list_hosts` | read | Hosts, online or not, agent version, update channel and state. |
+| `list_databases` | read | Databases with a health summary. |
+| `get_database` | read | One database in depth: settings, schedules, WAL, recent backups, drills, tasks and problems. |
+| `list_backups` | read | Backups, newest first. |
+| `list_drills` | read | Restore drills with failures and warnings. |
+| `list_tasks` | read | Tasks, filtered by database, status and type. |
+| `get_task` | read | One task with its result, the end of its log and the next step. |
+| `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
+| `list_restore_points` | read | Restore points with their status and the backup to restore from. |
+| `create_restore_point` | restore points | Mark this moment by name, and wait until it is in your bucket. |
+| `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |
+| `apply_adoption` | write, destructive | Apply the plan. Needs `confirm: "<database name>"`. |
+| `verify_database` | write | Prove WAL reaches the bucket; activates the schedules. |
+| `run_backup` | write | Queue a `full`, `diff` or `incr` backup. |
+| `run_drill` | write | Queue a restore drill. |
+| `update_schedule` | write, destructive | Change the schedules (UTC cron) and `retention_full`. |
+
+There is also one prompt, `incident_triage`: check the fleet, read the evidence behind each problem, and propose next steps without changing anything.
+
+<Accordions>
+<Accordion title="Tool parameters">
+
+| Tool | Parameters |
+|---|---|
+| `get_database`, `safety_check`, `list_restore_points` | `database` (required) |
+| `list_backups` | `database` (required), `limit` (1 to 100, default 20) |
+| `list_drills` | `database` (required), `limit` (1 to 50, default 10) |
+| `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`), `limit` (1 to 100, default 20) |
+| `get_task` | `task_id` (required), `log_tail_bytes` (0 to 16000, default 4000) |
+| `create_restore_point` | `database` (required), `name` (default `agent-<UTC time>`), `wait_seconds` (0 to 120, default 90; at most 45 on the remote endpoint) |
+| `plan_adoption` | `database` (required), `host`, `port`, `socket_dir`, `retention_full`, `wait_seconds` |
+| `apply_adoption` | `database` and `confirm` (required, the database's name), `force`, `wait_seconds` |
+| `run_backup` | `database` and `type` (required), `wait_seconds` |
+| `run_drill`, `verify_database` | `database` (required), `wait_seconds` |
+| `update_schedule` | `database` (required), and at least one of `schedule_full`, `schedule_diff` (`""` turns diffs off), `schedule_drill`, `retention_full` |
+
+Tasks run in the background. Write tools return the task at once, or wait up to `wait_seconds` (at most 60, and 45 on the remote endpoint); then poll `get_task`.
+
+</Accordion>
+</Accordions>
+
+## Troubleshooting
+
+- **"not logged in"** in the client's MCP log: run `rowsafe login`, or set `ROWSAFE_API_KEY` in the server's environment.
+- **Tools missing:** write tools only appear with `--allow-writes`, restore points with `--allow-restore-points`. Restart the client after changing flags.
+- **`forbidden (403): This API key is read-only.`:** the key can only read.
+- **A 402 error:** a plan limit is reached. `get_org` shows your usage.
+- **Smoke test** without a client:
+
+  ```sh
+  printf '%s\n' \
+    '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"0"}}}' \
+    '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | (cat; sleep 2) | rowsafe mcp
+  ```

@@ -1,0 +1,77 @@
+---
+title: Restore drills
+description: Every week Rowsafe restores your latest backup on a scratch copy and checks it, so you know your backups restore.
+---
+
+A backup you have never restored is a hope. A **restore drill** turns it into proof: Rowsafe restores your latest backup, replays the archived changes, starts the result and checks it. Then it deletes the copy.
+
+Drills run every Sunday at 21:15 UTC by default. Run one now with:
+
+```sh
+rowsafe drill app
+```
+
+## What a drill does
+
+<Steps>
+<Step>
+
+**Checks the disk.** The drill needs free space for a full copy: about **1.3 × the database size + 1 GiB**. With less, it refuses to start and fails with `not enough disk for a drill`.
+
+</Step>
+<Step>
+
+**Restores** the latest backup plus every archived change into a scratch directory on the same server (`/var/lib/rowsafe/drills/<task-id>`). It runs at low CPU and IO priority.
+
+</Step>
+<Step>
+
+**Starts the copy in isolation.** It listens on a private Unix socket only, with no network port. Archiving, replication, background workers and autovacuum are off, and transactions are read-only by default.
+
+</Step>
+<Step>
+
+**Compares it with production.** Every database must be present, and one that has tables in production must have tables in the copy. A different table count only warns, because the schema may have changed since the last archived change.
+
+</Step>
+<Step>
+
+**Deletes the copy**, whether the drill passed or failed.
+
+</Step>
+</Steps>
+
+## Results
+
+```sh
+rowsafe drills app
+```
+
+Each drill shows its result, the backup it used, the time it **recovered to**, and how long it took. That duration is your best estimate of how long a real restore takes.
+
+If the latest drill failed, or no drill has passed in 8 days, the database stops counting as [protected](/docs/concepts/protection-status) and you get an alert. `rowsafe task show ID` has the full log.
+
+## Resources
+
+- **Disk:** about 1.3 × the database size + 1 GiB free in `/var/lib/rowsafe/drills` (change the location with `ROWSAFE_DRILL_DIR`).
+- **Memory:** the scratch copy uses about 128 MB of shared buffers, plus pgBackRest. A few hundred MB in all. If the server runs out of memory, the kernel stops the drill before production PostgreSQL.
+- **Time:** similar to a real restore of the same database.
+
+If Sunday evening is a busy time for you, move the drill:
+
+```sh
+rowsafe db set app --drill-schedule "0 4 * * 3"   # Wednesdays at 04:00 UTC
+```
+
+<Accordions type="single">
+<Accordion title="Extensions loaded with shared_preload_libraries">
+
+A drill first starts the copy without production's `shared_preload_libraries`. If it doesn't start that way, it retries once with them loaded and adds a warning. Set `ROWSAFE_DRILL_PRELOAD=production` to always load them.
+
+</Accordion>
+<Accordion title="Does a drill read production data?">
+
+Yes. It restores your data from the bucket onto the same server that already holds it. The copy has no network listener and is deleted when the drill ends. Nothing leaves your server.
+
+</Accordion>
+</Accordions>

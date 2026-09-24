@@ -1,0 +1,162 @@
+---
+title: Troubleshooting
+description: Common errors, what they mean, and how to fix them.
+---
+
+First, ask Rowsafe what's wrong. `rowsafe status` lists every problem with the command to run next:
+
+```sh
+rowsafe status             # the whole fleet
+rowsafe status app         # one database: why isn't it protected?
+rowsafe tasks app --status failed
+rowsafe task show ID       # the full log of one task
+```
+
+On the server, the agent's log is in `sudo journalctl -u rowsafe-agent`, and pgBackRest's logs are in `/var/log/rowsafe/`.
+
+## archive_command is already set
+
+```text
+archive_command is already set to "...": another archiver may be running; re-run with force to replace it
+```
+
+Another tool archives WAL today, for example WAL-G, Barman or an older pgBackRest setup. The plan refuses to replace it.
+
+- **Find out what it is** before you go on. If it is your current backup, replacing it stops it.
+- If you want Rowsafe to take over: `rowsafe apply app --force`. Keep the old tool's existing backups until Rowsafe has proven itself.
+- The same applies to `archive_library is set to "..."`.
+
+In Docker, a plan also refuses an `archive_command` that runs pgBackRest itself (for example left over from a server install), and a server install refuses a Docker spool command. `--force` doesn't override these. Reset the setting first, then plan again, **only if `archive_mode` is off** (otherwise see [Rollback](/docs/guides/adopt#rollback)):
+
+```sql
+ALTER SYSTEM RESET archive_command; SELECT pg_reload_conf();
+```
+
+## Restart pending
+
+`rowsafe show app` says `Status: awaiting PostgreSQL restart`, or `rowsafe verify` fails with:
+
+```text
+archive_mode is still off: restart PostgreSQL so the adopt settings take effect, then verify again
+```
+
+The plan was applied, but `archive_mode` only takes effect after a restart, and Rowsafe never restarts PostgreSQL. Restart it in a maintenance window, then verify:
+
+```sh
+sudo systemctl restart postgresql@18-main     # your cluster's unit; in Docker: docker compose restart postgres
+rowsafe verify app
+```
+
+After 24 hours you get the `awaiting_restart` alert as a reminder.
+
+## Not enough disk for a drill
+
+```text
+not enough disk for a drill: 8.1 GiB free in /var/lib/rowsafe/drills, need about 14.0 GiB
+```
+
+A drill restores a full copy of the database, so it needs about **1.3 × the database size + 1 GiB** free. Either:
+
+- free up or add disk on the filesystem holding `/var/lib/rowsafe/drills`; or
+- point drills at a bigger filesystem with `ROWSAFE_DRILL_DIR` in `/etc/rowsafe/agent.env` (a short absolute path, outside `/home`, owned by the `postgres` user), then restart the agent.
+
+Until a drill passes again, the database isn't protected: an unproven backup isn't proof.
+
+## Agent offline
+
+You got `agent_offline`, or `rowsafe hosts list` shows the host last seen minutes ago. PostgreSQL keeps archiving, but backups, drills and monitoring have stopped.
+
+On the server:
+
+```sh
+sudo systemctl status rowsafe-agent
+sudo journalctl -u rowsafe-agent -n 50
+```
+
+| You see | Fix |
+|---|---|
+| The service is stopped or crash-looping | Check the last errors in the journal. Run the self-test: `curl -fsSL https://rowsafe.sh \| sudo sh` runs it and names what's wrong. |
+| `repository not configured, missing: ...` | Add the missing settings to `/etc/rowsafe/agent.env`, then run the installer again. |
+| `not enrolled: set ROWSAFE_ENROLL_TOKEN` | Create a token with `rowsafe hosts enroll-token` and run the install command again. |
+| `the control plane rejected this agent's token: the host was removed from Rowsafe` | The host was removed. Enroll it again with a new token, or uninstall the agent. |
+| Connection errors | The server must reach `https://api.rowsafe.sh` over outbound HTTPS (port 443). Check the firewall, proxy and DNS. |
+
+In Docker: `docker compose ps` and `docker compose logs rowsafe-agent`.
+
+## WAL archiving failing
+
+You got `wal_archiving_failing`, or the status says `WAL archiving failed at ...`. **Point-in-time recovery stops at the last archived segment, and `pg_wal` grows until the disk fills.** Fix it soon.
+
+On the server, find the error:
+
+```sh
+sudo -u postgres psql -Xc "select last_failed_wal, last_failed_time, last_archived_time from pg_stat_archiver"
+sudo ls -t /var/log/rowsafe/ | head          # the newest pgBackRest logs
+sudo tail -50 /var/log/rowsafe/app-archive-push.log
+```
+
+Common causes:
+
+- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env`, restart the agent, then run `rowsafe verify app`: it rewrites the configuration `archive_command` uses and proves it works.
+- **The bucket is unreachable** from the server: firewall, DNS or a provider outage. Archiving catches up by itself once it's reachable again.
+- **A full disk** on the server.
+- In **Docker**, the agent container is stopped, or can't reach the bucket: WAL waits in the spool. `docker compose logs rowsafe-agent` shows the pgBackRest error. Don't delete spooled files.
+
+When archiving works again, the alert resolves by itself.
+
+## Other messages
+
+<Accordions>
+<Accordion title="Your free plan allows 1 host. Upgrade to add more.">
+
+You've reached your plan's limit of hosts or databases. See [Plans and limits](/docs/concepts/plans-and-limits).
+
+</Accordion>
+<Accordion title="the agent's database role is not a superuser">
+
+The agent must connect as the `postgres` role (peer authentication over the Unix socket). If your superuser has another name, set `ROWSAFE_PG_USER`.
+
+</Accordion>
+<Accordion title="this server is a standby; adopt the primary instead">
+
+Rowsafe backs up primaries only. Adopt the primary server.
+
+</Accordion>
+<Accordion title="a backup task is already queued or running for app">
+
+Only one task of each type runs per database at a time. Wait for it (`rowsafe tasks app`).
+
+</Accordion>
+<Accordion title="app is pending_adopt: restore points need an active database">
+
+Restore points, backups and drills need an `active` database. Finish adopting it: apply, restart, verify.
+
+</Accordion>
+<Accordion title="This API key is read-only.">
+
+The key can only read. Use a key with write access, or `rowsafe login` again.
+
+</Accordion>
+<Accordion title="not logged in: run rowsafe login">
+
+Run `rowsafe login`, or set `ROWSAFE_API_KEY` (for example in CI).
+
+</Accordion>
+<Accordion title="which database? This organization has N databases">
+
+Pass the name, set `ROWSAFE_DATABASE`, or run `rowsafe init NAME` in your project.
+
+</Accordion>
+<Accordion title="The installer says: ... is not supported (Debian 12/13, Ubuntu 22.04/24.04)">
+
+The agent is built and tested for those systems. `ROWSAFE_ALLOW_UNSUPPORTED_OS=1` lets you try another Debian-based system, at your own risk. On anything else, run PostgreSQL and the agent [in Docker](/docs/guides/docker).
+
+</Accordion>
+<Accordion title="restore point ... was created ... but is not yet confirmed in the repository">
+
+PostgreSQL wrote the restore point, but archiving didn't confirm it within 90 seconds. It's marked `unconfirmed`, and archiving is probably failing: see [WAL archiving failing](#wal-archiving-failing).
+
+</Accordion>
+</Accordions>
+
+Still stuck? Write to hello@rowsafe.sh with the output of `rowsafe status` and the failing task's ID.

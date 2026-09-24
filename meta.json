@@ -1,0 +1,19 @@
+{
+  "title": "Rowsafe docs",
+  "description": "Backups, point-in-time recovery and restore drills for the databases you run on your own servers.",
+  "pages": [
+    "index",
+    "quickstart",
+    "---Concepts---",
+    "...concepts",
+    "---Guides---",
+    "...guides",
+    "---Reference---",
+    "...reference",
+    "---Security---",
+    "...security",
+    "---Help---",
+    "faq",
+    "troubleshooting"
+  ]
+}

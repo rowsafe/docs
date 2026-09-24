@@ -1,0 +1,188 @@
+---
+title: Restore a database
+description: Bring a PostgreSQL database back to its latest state, a point in time, or a named restore point, with pgBackRest.
+---
+
+Rowsafe's weekly drills prove that your backups restore. Bringing a production database back is still a **manual pgBackRest restore**, described here. Practise it once on a scratch server before you need it, and write down how long it took. `rowsafe drills app` shows how long recent drills took: that is your best estimate.
+
+The examples restore a database named `app` on PostgreSQL 18, on a fresh Debian or Ubuntu server.
+
+## Decide first
+
+| Situation | Restore to | Target |
+|---|---|---|
+| Server lost, disk destroyed | A new server, which becomes production | The latest state |
+| Bad migration, deleted rows | A new server or a scratch cluster; copy data back or switch over | A time just before the mistake |
+| A change made after `rowsafe mark` (by you, a migration or an AI agent) | A new server or a scratch cluster | That restore point |
+| Investigation, reporting, testing | A scratch server | Any time in the window |
+
+<Callout type="warn" title="Two rules">
+  **Never restore over the only copy.** Restore to a new server, or at least a new data directory. The old cluster, even a damaged one, is evidence and a fallback.
+
+  **One writer per bucket path.** A restored cluster must not archive into the same repository while the original still runs. Always restore with `--archive-mode=off`.
+</Callout>
+
+You can restore to any moment from the start of your oldest kept full backup up to the last archived WAL: at most about 5 minutes before the failure.
+
+## What you need
+
+- **The bucket settings and the passphrase** from your secret manager: endpoint, bucket, access key and secret, and the **encryption passphrase**. Without the passphrase, nothing can be restored.
+- The repository path, `/rowsafe/<name>` by default, and the stanza, which is the database's name in Rowsafe.
+- If the old server is still reachable, its generated configuration has all of this: `/etc/rowsafe/pgbackrest/app.conf`.
+- A server with the **same PostgreSQL major version**, the same extensions installed (compare `shared_preload_libraries` and `\dx`), pgBackRest at the same or a newer version, and free disk of at least the data directory's size plus room for WAL.
+
+<Steps>
+<Step>
+
+### Prepare the server
+
+With the [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) repository configured:
+
+```sh
+sudo apt-get install -y postgresql-18 pgbackrest     # creates and starts cluster 18/main
+sudo systemctl stop postgresql@18-main
+```
+
+Restoring into this new, empty cluster keeps Debian's layout: configuration in `/etc/postgresql/18/main/`, data in `/var/lib/postgresql/18/main`.
+
+</Step>
+<Step>
+
+### Configure pgBackRest
+
+Write the default configuration file, so every command finds it:
+
+```sh
+sudo install -d -o postgres -g postgres -m 0750 /etc/pgbackrest /var/log/pgbackrest
+sudo install -o postgres -g postgres -m 0600 /dev/null /etc/pgbackrest/pgbackrest.conf
+sudoedit /etc/pgbackrest/pgbackrest.conf
+```
+
+```ini title="/etc/pgbackrest/pgbackrest.conf"
+[global]
+repo1-type=s3
+repo1-s3-endpoint=<account-id>.eu.r2.cloudflarestorage.com
+repo1-s3-bucket=<bucket>
+repo1-s3-region=auto
+repo1-s3-uri-style=path
+repo1-s3-key=<access key id>
+repo1-s3-key-secret=<secret access key>
+repo1-path=/rowsafe/app
+repo1-cipher-type=aes-256-cbc
+repo1-cipher-pass=<passphrase>
+process-max=4
+log-level-console=info
+log-path=/var/log/pgbackrest
+
+[app]
+pg1-path=/var/lib/postgresql/18/main
+```
+
+This server only **reads** the repository. Don't run `backup`, `expire` or `stanza-*` commands from it while the original server is alive. If your bucket token only allows the old server's IP address, create a read-only token (Object Read, this bucket only) for this one.
+
+</Step>
+<Step>
+
+### Choose the backup and target
+
+```sh
+sudo -u postgres pgbackrest --stanza=app info
+```
+
+This lists every backup, with start and stop times, and the WAL archive range. Any moment from the end of the oldest full backup to the end of the archive is reachable.
+
+For a restore point, look it up on your computer:
+
+```sh
+rowsafe marks app
+```
+
+Use points with the status `archived`. Note the **RESTORE FROM BACKUP** column: you need it below.
+
+</Step>
+<Step>
+
+### Restore
+
+The new cluster's data directory must be empty. **Check the path twice**: this deletes the contents of the new, empty cluster, never an existing production one.
+
+```sh
+sudo -u postgres sh -c 'find /var/lib/postgresql/18/main -mindepth 1 -delete'
+```
+
+Then run one of the following.
+
+#### To the latest state
+
+Replays all archived WAL, then promotes:
+
+```sh
+sudo -u postgres pgbackrest --stanza=app --archive-mode=off restore
+```
+
+#### To a point in time
+
+Stops just before the mistake, then promotes. Always give a UTC offset:
+
+```sh
+sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
+  --type=time --target="2026-09-20 14:05:00+00" --target-action=promote restore
+```
+
+pgBackRest picks the newest backup that ends before the target. Pass `--set=<label>` from `pgbackrest info` to choose one yourself.
+
+#### To a restore point
+
+Stops exactly at the point created with `rowsafe mark`, then promotes:
+
+```sh
+sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
+  --set=20260921-010002F \
+  --type=name --target=before-migration-42 --target-action=promote restore
+```
+
+<Callout type="warn" title="Always pass --set for a restore point">
+  With `--type=name`, pgBackRest can't tell which backup comes before the point, so it takes the newest one. If that backup finished after the point, recovery never reaches it and PostgreSQL refuses to start ("recovery ended before configured recovery target was reached"). Pass the **RESTORE FROM BACKUP** label from `rowsafe marks`, or any older backup.
+</Callout>
+
+Recovery stops just after the restore point: everything committed before it is there, nothing after it.
+
+`--archive-mode=off` writes `archive_mode = 'off'` into the restored `postgresql.auto.conf`, so this cluster can't push WAL into the production repository. The file also carries production's other `ALTER SYSTEM` settings, including Rowsafe's `archive_command`, which does nothing while archiving is off.
+
+</Step>
+<Step>
+
+### Start and check
+
+```sh
+sudo systemctl start postgresql@18-main
+sudo tail -f /var/log/postgresql/postgresql-18-main.log    # "ready to accept connections"
+sudo -u postgres psql -Xc "select pg_is_in_recovery()"     # f
+```
+
+Check the data around the target: the newest rows in a busy table, and whether the rows from the bad change are gone or present as intended. Then run your application's smoke tests against this server.
+
+</Step>
+</Steps>
+
+## Afterwards
+
+<Tabs items={["This server becomes production", "It was a scratch restore"]}>
+<Tab value="This server becomes production">
+
+1. **Fence the old primary** so it can never come back and write: stop and disable its PostgreSQL, or shut the server down.
+2. Carry over what the restore doesn't include: `pg_hba.conf`, your files in `conf.d/`, TLS certificates and keys, and any systemd drop-ins. Restart PostgreSQL once they are in place.
+3. Point your application at the new server and redeploy it.
+4. **Protect it again**: install the agent on the new server and adopt it under a **new name**, for example `rowsafe adopt app-2 --host db-2`. The new name gives it a fresh path in the bucket. Leave the old `app` path alone until you no longer need its backups.
+
+</Tab>
+<Tab value="It was a scratch restore">
+
+Copy out what you need, for example `pg_dump --table=...` of the affected tables, and load it into production inside a transaction. Then delete the scratch cluster, and revoke the read-only bucket token if you created one.
+
+</Tab>
+</Tabs>
+
+## Restoring from Docker
+
+The backups of a database that runs in Docker are ordinary pgBackRest backups. Restore them the same way, on a Linux server with the same PostgreSQL major version, using the bucket settings from your `rowsafe-agent.env`.

@@ -1,0 +1,294 @@
+---
+title: Adopt an existing database
+description: The careful, step-by-step way to put a production PostgreSQL server under Rowsafe, with preflight checks and a rollback plan.
+---
+
+This guide adopts a production PostgreSQL server. At the end, every change is archived to your bucket, backups and weekly restore drills run on their own, and you get alerts. If you back up with a nightly `pg_dump` today, the most you can lose drops from up to 24 hours to about 5 minutes.
+
+The examples use a database named `app` on a server named `db-1`. Replace them with yours.
+
+## Safety principles
+
+Rowsafe is built to be safe on a database that matters:
+
+- **Read-only until you apply.** Adopting only prints a plan. Nothing changes until `rowsafe apply`.
+- **No surprise restarts.** Rowsafe never restarts PostgreSQL. You restart once, in your own window.
+- **Never replaces another backup tool silently.** If something else already archives WAL, the plan refuses until you pass `--force`.
+- **Small, known changes.** At most four PostgreSQL settings change, all with `ALTER SYSTEM`, all reversible. See [the settings](/docs/concepts/postgresql#the-settings-rowsafe-changes).
+- **Keep your old backups** running until Rowsafe has proven itself (step 10).
+
+**Time:** about an hour of work, plus one restart of a few seconds.
+
+<Steps>
+<Step>
+
+### Check the server
+
+Collect what you'll need and make sure nothing else archives WAL. On the server:
+
+```sh
+hostname                         # the host name Rowsafe will show
+pg_lsclusters                    # e.g. 18  main  5432  online
+sudo -u postgres psql -Xc "select name, setting from pg_settings where name in
+  ('wal_level','archive_mode','archive_command','archive_library','archive_timeout')"
+apt-cache policy pgbackrest | head -3
+df -h / && free -h
+```
+
+Check that:
+
+- the OS is Debian 12/13 or Ubuntu 22.04/24.04 on amd64 or arm64, and PostgreSQL is 13 to 18, on the **primary**;
+- `archive_command` is empty or `(disabled)`, and `archive_library` is empty. If anything else archives WAL today, find out what before you go on;
+- for PostgreSQL 18, the pgBackRest candidate is **2.55.0 or newer**. Prefer the [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) repository: Rowsafe is tested with its current release;
+- the root filesystem has room for [restore drills](/docs/concepts/restore-drills): about 1.3 × the size of the data directory + 1 GiB free.
+
+</Step>
+<Step>
+
+### Create the bucket
+
+Create a **private** S3-compatible bucket, for example `app-rowsafe`. With Cloudflare R2:
+
+- Under **R2**, **Create bucket**. To keep data in the EU, choose the EU jurisdiction: the endpoint is then `<account-id>.eu.r2.cloudflarestorage.com`.
+- Leave **public access** disabled.
+- **Don't add a lifecycle rule** that deletes objects. Rowsafe expires old backups and WAL itself. A lifecycle rule would delete WAL that backups still need and silently break restores.
+
+Then create an API token with **Object Read & Write** on **this bucket only**. If you can, restrict it to the server's IP addresses. Copy the access key ID and secret: they are shown once.
+
+</Step>
+<Step>
+
+### Create the passphrase and store it first
+
+<Callout type="error" title="Without the passphrase, no backup can be restored">
+  Every backup is encrypted on your server with this passphrase. If it is lost, every backup in the bucket is unreadable forever. Nobody can recover it, Rowsafe included. Store it in two places before the first backup exists.
+</Callout>
+
+```sh
+openssl rand -base64 48
+```
+
+Store it, with the bucket keys, in your secret manager. Keep backup secrets in their own project or vault, separate from the application's secrets: the application should not be able to read or delete its own backups. Put a second copy of the passphrase in your company password manager, and check that someone else can open it.
+
+</Step>
+<Step>
+
+### Install the agent
+
+On your computer, create a one-time enrollment token (valid for 1 hour):
+
+```sh
+rowsafe hosts enroll-token
+```
+
+On the server, run the install command it printed:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
+```
+
+The installer verifies the agent's signature, installs pgBackRest if it is missing, and writes `/etc/rowsafe/agent.env`. It enables the service but doesn't start it yet, because the bucket settings are missing. Check its summary: the signature was verified, and pgBackRest is at least 2.55.0.
+
+</Step>
+<Step>
+
+### Configure the bucket and start the agent
+
+Add the bucket settings to `/etc/rowsafe/agent.env` (`sudoedit /etc/rowsafe/agent.env`):
+
+```sh title="/etc/rowsafe/agent.env"
+ROWSAFE_REPO_S3_ENDPOINT='<account-id>.eu.r2.cloudflarestorage.com'
+ROWSAFE_REPO_S3_BUCKET='app-rowsafe'
+ROWSAFE_REPO_S3_KEY='<access key id>'
+ROWSAFE_REPO_S3_KEY_SECRET='<secret access key>'
+ROWSAFE_REPO_CIPHER_PASS='<passphrase>'
+```
+
+Then run the installer again. It self-tests the configuration (settings, pgBackRest, connection to Rowsafe) and starts the agent, which enrolls on its first start:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh
+```
+
+<Accordions>
+<Accordion title="Keep the secrets out of files you edit by hand">
+
+The installer also reads the settings from its environment and writes them to `agent.env` itself, without printing them. You can send them from your secret manager through SSH's standard input, so they never appear in a shell history, a file you edit or a command line.
+
+For example, with `S3_KEY`, `S3_SECRET` and `CIPHER_PASS` set in your local shell by your secret manager (`printf` is a shell builtin, so the values don't show up in the process list):
+
+```sh
+printf 'export ROWSAFE_REPO_S3_KEY=%s ROWSAFE_REPO_S3_KEY_SECRET=%s ROWSAFE_REPO_CIPHER_PASS=%s\n' \
+  "$S3_KEY" "$S3_SECRET" "$CIPHER_PASS" |
+ssh admin@db-1 'sudo sh -c ". /dev/stdin;
+  export ROWSAFE_REPO_S3_ENDPOINT=<account-id>.eu.r2.cloudflarestorage.com ROWSAFE_REPO_S3_BUCKET=app-rowsafe;
+  curl -fsSL https://rowsafe.sh | sh"'
+```
+
+</Accordion>
+</Accordions>
+
+On your computer, check that the server reports in:
+
+```sh
+rowsafe hosts list        # db-1, the agent version, last seen a few seconds ago
+```
+
+On the server, `sudo journalctl -u rowsafe-agent -n 20` should show `enrolled` and no errors. You can now delete the `ROWSAFE_ENROLL_TOKEN` line from `agent.env`: it is used up.
+
+</Step>
+<Step>
+
+### Register the database and review the plan
+
+```sh
+rowsafe adopt app --host db-1
+```
+
+This only reads. Expect a plan like this:
+
+| Change | From | To | Restart |
+|---|---|---|---|
+| write `/etc/rowsafe/pgbackrest/app.conf` (0600) | | | |
+| `pgbackrest stanza-create` | | | |
+| `archive_mode` | `off` | `on` | **yes** |
+| `archive_command` | (empty) | `/usr/bin/pgbackrest --config=/etc/rowsafe/pgbackrest/app.conf --stanza=app archive-push %p` | no |
+| `archive_timeout` | `0` | `300` | no |
+
+If `wal_level` is `minimal`, it becomes `replica` (also a restart). **Stop if the plan shows anything else**, especially a warning about an existing `archive_command`. `rowsafe plan app` runs the plan again at any time.
+
+Options: `--port` (default 5432) and `--socket-dir` (default `/var/run/postgresql`) if PostgreSQL listens elsewhere, and `--retention-full` (default 2 full backups).
+
+</Step>
+<Step>
+
+### Apply the plan
+
+```sh
+rowsafe apply app
+```
+
+You confirm with `y`. In order, the agent writes the pgBackRest configuration, runs `stanza-create` (the first real test of the bucket, token and passphrase: if it fails, nothing in PostgreSQL has changed yet), then sets the settings with `ALTER SYSTEM` and reloads. There is no downtime.
+
+The database is now `awaiting_restart`:
+
+```text
+Next: restart PostgreSQL in a maintenance window (e.g. `sudo systemctl restart postgresql`), then run `rowsafe verify app`.
+```
+
+</Step>
+<Step>
+
+### Restart PostgreSQL in a maintenance window
+
+This is the only downtime: **usually 2 to 10 seconds of refused connections**. A fast shutdown writes a checkpoint first, so run one yourself right before to keep it short. Make sure your application reconnects by itself.
+
+At your quietest time, on the server:
+
+```sh
+sudo -u postgres psql -Xc "select name from pg_settings where pending_restart"   # archive_mode
+sudo -u postgres psql -Xc "checkpoint"
+time sudo systemctl restart postgresql@18-main                                   # your cluster's unit
+sudo -u postgres psql -Xc "show archive_mode"                                    # on
+```
+
+Restart through the cluster's systemd unit, so its restart policy stays in charge.
+
+</Step>
+<Step>
+
+### Verify and take the first backup
+
+```sh
+rowsafe verify app
+```
+
+Rowsafe forces a WAL switch and proves the segment reached your bucket. The database becomes `active`, its schedules start, and the first full backup is queued. Follow it:
+
+```sh
+rowsafe tasks app      # backup running ... succeeded
+rowsafe backups app    # type, duration, database size, stored size
+```
+
+A few GB take several minutes. Then run the first restore drill, ideally in a quiet hour:
+
+```sh
+rowsafe drill app
+rowsafe drills app     # PASS, recovered to <time>, duration
+```
+
+A passing drill is your first proof that you can restore. `rowsafe status app` now says `app is PROTECTED.`
+
+</Step>
+<Step>
+
+### Keep your old backups for 30 days
+
+If you already back up, keep that job running unchanged for 30 days. During that time:
+
+- **every day**, backups succeed (alerts tell you if not);
+- **every week**, the Sunday drill passes;
+- **once**, you do a real [point-in-time restore](/docs/guides/restore) to a scratch server and run your application's smoke tests against it. Write down how long it took.
+
+Then retire the old job. Also [set up alert channels](/docs/guides/monitoring#notification-channels) now, if you haven't.
+
+</Step>
+</Steps>
+
+## Rollback
+
+You can undo every step. Pick how far to go.
+
+<Accordions>
+<Accordion title="Stop Rowsafe, keep archiving">
+
+```sh
+sudo systemctl disable --now rowsafe-agent
+```
+
+PostgreSQL keeps archiving WAL to your bucket. No backups or drills run until the agent runs again.
+
+</Accordion>
+<Accordion title="Stop WAL archiving now, without a restart">
+
+```sh
+sudo -u postgres psql -Xc "alter system set archive_command = '/bin/true'" -c "select pg_reload_conf()"
+```
+
+PostgreSQL now marks each WAL segment as archived without storing it, so `pg_wal` can't fill up. Point-in-time recovery stops from this moment.
+
+<Callout type="warn">
+  Don't just `ALTER SYSTEM RESET archive_command` while `archive_mode` is on. With an empty `archive_command`, PostgreSQL keeps every WAL segment while it waits, and the disk fills up.
+</Callout>
+
+</Accordion>
+<Accordion title="Return to the original settings (needs a restart)">
+
+In your next maintenance window. `RESET` falls back to `postgresql.conf`:
+
+```sh
+sudo -u postgres psql -Xc "alter system reset archive_mode" -c "alter system reset archive_command" \
+  -c "alter system reset archive_timeout" -c "select pg_reload_conf()"
+sudo -u postgres psql -Xc "checkpoint"
+sudo systemctl restart postgresql@18-main
+sudo -u postgres psql -Xc "show archive_mode"      # off
+```
+
+</Accordion>
+<Accordion title="Stop managing the database in Rowsafe">
+
+```sh
+rowsafe db remove app --keep-archiving
+```
+
+This changes nothing on the server or in the bucket. Without `--keep-archiving`, Rowsafe refuses once a plan was applied, because the server keeps archiving WAL until you turn it off (above).
+
+</Accordion>
+<Accordion title="Uninstall the agent">
+
+See [Uninstall](/docs/guides/agent-updates#uninstall). Turn off archiving first if you want to delete the agent's configuration with `--purge`.
+
+</Accordion>
+</Accordions>
+
+Keep the bucket and the passphrase until you are sure you won't need any backup in it.

@@ -1,0 +1,13 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "how-it-works",
+    "backups-and-recovery",
+    "postgresql",
+    "restore-drills",
+    "restore-points",
+    "protection-status",
+    "hosts-and-agents",
+    "plans-and-limits"
+  ]
+}

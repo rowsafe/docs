@@ -1,0 +1,55 @@
+---
+title: Teams, API keys and audit log
+description: Invite your team with roles, create API keys for scripts and CI, and see who changed what.
+---
+
+## Members and roles
+
+An organization has members with one of three roles:
+
+| Role | Can |
+|---|---|
+| **Member** | View databases, backups, drills and activity. |
+| **Admin** | Everything a member can, plus adopt databases, run tasks, manage hosts, alert rules, API keys and members. |
+| **Owner** | Everything, including billing. |
+
+Invite people in the dashboard under **Settings**, then **Members**. Invitations expire after 7 days. Admins and owners can invite; only owners can make someone an owner or change another owner. Whoever creates the organization is its first owner.
+
+## API keys
+
+The CLI, scripts, CI and AI agents use **API keys** (`rsk_...`).
+
+On your own machine you don't need to create one: `rowsafe login` opens the dashboard, you approve it, and a key is created for you. Only admins and owners can approve a CLI login.
+
+For CI and headless machines, create a key and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key`:
+
+```sh
+rowsafe api-keys create deploy-ci
+rowsafe api-keys create dashboards --read-only
+rowsafe api-keys list
+rowsafe api-keys revoke key_...
+```
+
+- A key is shown **once**. Rowsafe stores only a hash of it.
+- A **read-only** key can only read. Anything else is refused with `This API key is read-only.`
+- A key belongs to the organization, not to a person, and can do everything the API allows. Keep it in a secret manager.
+- Revoking takes effect on the next request. A key can't revoke itself.
+- `rowsafe logout` revokes the key that `rowsafe login` created. Keys given with `--key` stay valid.
+
+## Audit log
+
+Every change is recorded: who did it, what, and to which database or host.
+
+```sh
+rowsafe audit              # newest first
+rowsafe audit --limit 200
+```
+
+```text
+WHEN                 ACTOR                                      ACTION                TARGET  DETAIL
+2026-09-24 14:05:12  key:key_... (CLI · rowsafe CLI on laptop)  restore_point.create  app     before-migration-42
+```
+
+It records, among others: databases added, changed and removed; hosts changed and removed; enrollment tokens created; tasks queued (backups, drills, plans); restore points; API keys created and revoked; alerts acknowledged; alert rules and notification channels changed; plan changes; and CLI logins approved or denied.
+
+The audit log is also in the dashboard under **Settings**, then **Audit log**.

@@ -1,0 +1,136 @@
+---
+title: Use Rowsafe with AI agents
+description: A safety net for coding agents that run migrations and SQL. Check protection, create a restore point, then proceed.
+---
+
+Coding agents run migrations, backfills and ad-hoc SQL, often without a person watching each command. When one goes wrong (a migration that drops the wrong column, a `DELETE` that lost its `WHERE`, `prisma migrate reset` against the wrong `DATABASE_URL`), what matters is whether you can get back to the moment before.
+
+Rowsafe gives you that moment. Before a risky change, the agent checks that the database is recoverable and creates a named [restore point](/docs/concepts/restore-points). If something breaks, you know exactly where to restore to.
+
+## The workflow
+
+Before any destructive or risky database operation:
+
+1. **Check protection.** `safety_check` (or `rowsafe status app`) answers "could this database be restored right now?". If not, the agent tells you why and waits for your OK.
+2. **Create a restore point** with a descriptive name: `create_restore_point` (or `rowsafe mark app before-drop-orders`). It waits until the point is in your bucket, and tells you its name.
+3. **Proceed.**
+4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the restore point, and you decide whether to [restore](/docs/guides/restore#to-a-restore-point).
+
+**Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
+
+## Set it up
+
+Pick one or combine them. First, name the project's database once, in the project directory:
+
+```sh
+rowsafe init app
+```
+
+This writes `.rowsafe.json` (`{"database": "app"}`). The CLI, the MCP server and the guard hook all use it.
+
+<Tabs items={["Claude Code plugin", "MCP server", "AGENTS.md only"]}>
+<Tab value="Claude Code plugin">
+
+The plugin bundles three things:
+
+- the MCP server with restore points (`rowsafe mcp --allow-restore-points`);
+- a skill, `rowsafe-safety`, that teaches the workflow;
+- a hook, `rowsafe guard`, that creates a restore point **right before** destructive commands, whether or not the model remembered to.
+
+```sh
+claude plugin marketplace add rowsafe/rowsafe
+claude plugin install rowsafe@rowsafe
+```
+
+Or inside Claude Code: `/plugin marketplace add rowsafe/rowsafe`, then `/plugin install rowsafe@rowsafe`. The `rowsafe` CLI must be on your `PATH` and logged in.
+
+</Tab>
+<Tab value="MCP server">
+
+Give any MCP client the read tools plus restore points:
+
+```sh
+claude mcp add rowsafe -- rowsafe mcp --allow-restore-points
+```
+
+That adds `safety_check`, `create_restore_point`, `list_restore_points` and the read-only fleet tools, and nothing that queues backups or changes settings. See the [MCP reference](/docs/reference/mcp) for other clients, the remote endpoint and every tool.
+
+</Tab>
+<Tab value="AGENTS.md only">
+
+Any agent that can run shell commands can follow the workflow with the CLI. Add the snippet below to your agent instructions.
+
+</Tab>
+</Tabs>
+
+## Snippet for AGENTS.md or CLAUDE.md
+
+Copy this into your project's agent instructions and set the database name:
+
+```markdown
+## Database safety (Rowsafe)
+
+This project's PostgreSQL is protected by Rowsafe (database: `app`). Before any destructive
+or risky database operation (migrations, schema changes, DROP/TRUNCATE, DELETE or UPDATE
+without a narrow WHERE, backfills, resets, restoring a dump):
+
+1. Run `safety_check` for `app` (or `rowsafe status app`). If it is not protected,
+   tell me the reasons and wait for my OK.
+2. Create a restore point with a descriptive name: `create_restore_point` (or
+   `rowsafe mark app before-<what>`), wait until it is confirmed, and tell
+   me its name.
+3. Then proceed.
+
+If something goes wrong: stop, don't try to repair the data, and never restore anything
+yourself. Tell me what happened and the restore point's name; I'll decide whether to restore.
+```
+
+## The guard hook
+
+`rowsafe guard` runs before every Bash command in Claude Code. For a command that looks destructive, it:
+
+1. finds the project's database, from `ROWSAFE_DATABASE` or the nearest `.rowsafe.json`;
+2. creates the restore point `agent-<UTC time>` and waits up to 90 seconds for it to be confirmed;
+3. lets the command run, and tells you and Claude the restore point's name.
+
+If anything fails (no database configured, not logged in, Rowsafe unreachable, the point not confirmed), it only warns and the command runs.
+
+**To block instead**, require protection:
+
+```json title=".rowsafe.json"
+{ "database": "app", "require_protection": true }
+```
+
+or set `ROWSAFE_REQUIRE_PROTECTION=1`. The hook then checks protection first, and **blocks** the command when the database isn't protected or the restore point can't be confirmed. It tells Claude to report the problem to you rather than work around it.
+
+### What it matches
+
+| | Examples |
+|---|---|
+| Migration tools | `prisma migrate deploy/reset/dev`, `prisma db push`; `rails`/`rake db:migrate`, `db:rollback`, `db:drop`, `db:reset`, `db:schema:load`; `alembic upgrade/downgrade`; `manage.py migrate/flush`; `knex migrate:latest`, `seed:run`; `sequelize db:migrate`; `typeorm migration:run`, `schema:sync`; `drizzle-kit push/migrate`; `goose up/down/reset`; `migrate ... up/down/drop`; `dbmate up`; `atlas schema apply`; `sqlx migrate run`; `diesel migration run`; `flyway migrate/clean`; `liquibase update/rollback`; `mix ecto.migrate`; `artisan migrate`; `supabase db reset/push`; `npm run db:migrate` and similar script names |
+| SQL sent to `psql` | `DROP ...`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without `WHERE`, in `-c`, a heredoc, a pipe, or a small file passed with `-f` |
+| PostgreSQL tools | `dropdb`, `pg_restore --clean` |
+
+It ignores status, dry-run and help commands (`migrate status`, `alembic upgrade --sql`, `manage.py migrate --plan`, `--help`), generating migrations, and commands that only mention a tool (`git commit -m "..."`, `grep`, `echo`, `cat`).
+
+Test a command:
+
+```sh
+rowsafe guard --check 'npx prisma migrate deploy'   # destructive: ... (exit 0)
+rowsafe guard --check 'npx prisma migrate status'   # not destructive (exit 1)
+```
+
+<Callout title="A safety net, not a sandbox">
+  A destructive statement hidden in application code, an ORM script or an unusual wrapper won't match. The skill and the MCP tools cover what the hook can't see.
+</Callout>
+
+## Keep agents apart
+
+Give each agent environment its own API key, so its actions show up separately in `rowsafe audit`:
+
+```sh
+rowsafe api-keys create ci-agent
+rowsafe api-keys create reviewer-bot --read-only
+```
+
+A **read-only** key can still run `safety_check`, but can't create restore points or change anything.

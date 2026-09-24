@@ -1,0 +1,34 @@
+---
+title: Plans and limits
+description: Every plan has every feature. Plans only differ in how many servers and databases you can protect.
+---
+
+| Plan | Price | Servers (hosts) | Databases |
+|---|---|---|---|
+| Free | $0 | 1 | 3 |
+| Pro | $39 per month | 5 | 25 |
+| Business | $149 per month | 25 | 200 |
+
+**No plan gates a feature.** Point-in-time recovery, restore drills, restore points, monitoring, alerts, the MCP server and the audit log are in every plan. See [pricing](/pricing).
+
+- A **database** is one PostgreSQL cluster (server instance), with all the databases inside it.
+- Prices are in USD per organization, billed monthly. Payments are handled by Polar, our merchant of record. Cancel any time.
+- **Storage** is billed by your bucket provider, not by Rowsafe.
+
+## Usage
+
+```sh
+rowsafe org
+```
+
+shows your plan, limits and current usage. Owners manage billing in the dashboard under **Settings**, then **Billing**.
+
+## Reaching a limit
+
+Adding a host or database over your plan's limit fails with:
+
+```text
+Your free plan allows 1 host. Upgrade to add more.
+```
+
+Lowering your plan never deletes anything. It only stops you adding more until you are under the limit.

@@ -1,0 +1,66 @@
+---
+title: Security model
+description: What runs on your server, what Rowsafe can and can't see or do, how backups are encrypted, and which credentials exist.
+---
+
+Rowsafe is built so that the hosted service never needs your data or your secrets. The part that touches your data, the agent, is [open source](https://github.com/rowsafe/rowsafe) under Apache-2.0, so you can read exactly what runs on your servers.
+
+## What runs on your server
+
+- **The agent** (`rowsafe-agent`), as the `postgres` system user. It refuses to run as root.
+- **pgBackRest**, which the agent and PostgreSQL's `archive_command` run.
+- A systemd unit with `NoNewPrivileges`, a read-only system except its own directories, a private `/dev`, no capabilities and restricted address families. The kernel's out-of-memory killer picks the agent before production PostgreSQL, and it gets half the default CPU and IO weight.
+
+The agent:
+
+- connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
+- makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket. Nothing listens on your server;
+- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill and restore point. It never runs commands or SQL sent over the network.
+
+Restore drills restore your data onto the same server, into a scratch cluster with no network listener, and delete it afterwards.
+
+## What Rowsafe can and can't do
+
+Someone who controlled the Rowsafe service, or held one of your API keys, **could**:
+
+- queue the fixed tasks for your databases: plans, backups, checks, drills and restore points, and apply an adoption plan (which sets `archive_mode`, `archive_command`, `archive_timeout` and, if it is `minimal`, `wal_level`);
+- read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
+- withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back.
+
+They **could not**:
+
+- run arbitrary commands or SQL on your server;
+- read or write your backups, or reach your bucket at all: the keys and the passphrase never leave your server;
+- make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
+- restart or stop PostgreSQL, delete data, or change settings other than the archiving settings above.
+
+## Encryption
+
+- Backups and WAL are compressed, then **encrypted on your server** with `aes-256-cbc`, using your passphrase, before they are uploaded. Your bucket holds only ciphertext.
+- The passphrase and the bucket keys live **only on your server**, in `/etc/rowsafe/agent.env` and the generated pgBackRest configuration, both mode 0600 and owned by `postgres`. Anyone who can become `postgres` can already read the database itself.
+- Rowsafe can't recover a lost passphrase. Keep it in your secret manager.
+- All traffic between the agent, the CLI and Rowsafe uses HTTPS.
+
+## Credentials
+
+| Credential | Prefix | Held by | Allows |
+|---|---|---|---|
+| API key | `rsk_` | You: CLI, scripts, CI, AI agents | The Rowsafe API for one organization. Read-only keys can only read. |
+| Enrollment token | `rse_` | The installer, once | Enrolling one host. Single use, 1 hour by default. |
+| Agent token | `rsa_` | `/var/lib/rowsafe/agent.json` (0600) | The agent API for one host: its own tasks and heartbeats. |
+| Bucket keys | | `agent.env` and pgBackRest configuration, on your server | Your bucket. |
+| Encryption passphrase | | The same files, and your secret manager | Decrypting every backup. |
+
+Rowsafe stores only SHA-256 hashes of API keys, enrollment tokens and agent tokens.
+
+## Signed releases
+
+The installer and the agent only install releases signed with Rowsafe's Ed25519 release key, which is built into them and never stored on the Rowsafe service. Every release also has build provenance, an SBOM and reproducible builds that you can check yourself: see [Verifying releases](/docs/security/verifying-releases).
+
+## Webhooks
+
+Webhook notifications are signed with a per-channel secret ([verify them](/docs/reference/webhooks#verify-the-signature)). Rowsafe only sends them to public `https` URLs, checks every address after DNS resolution, and never follows redirects.
+
+## Report a vulnerability
+
+See [Responsible disclosure](/docs/security/disclosure).

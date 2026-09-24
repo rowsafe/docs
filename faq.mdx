@@ -1,0 +1,82 @@
+---
+title: FAQ
+description: Short answers to common questions about Rowsafe.
+---
+
+<Accordions type="multiple">
+<Accordion title="Does Rowsafe ever restart my database?">
+
+No. Settings that need a restart (`archive_mode`, and `wal_level` if it is `minimal`) are written with `ALTER SYSTEM`. You restart PostgreSQL in your own maintenance window, usually a few seconds of refused connections, then run `rowsafe verify`.
+
+</Accordion>
+<Accordion title="Which databases are supported?">
+
+PostgreSQL 13 to 18: on Debian 12/13 and Ubuntu 22.04/24.04 servers (amd64 or arm64), and in Docker with the official `postgres` images 14 to 18. MySQL, MariaDB, MongoDB and Redis/Valkey are planned, without dates yet.
+
+</Accordion>
+<Accordion title="What counts as a database?">
+
+One PostgreSQL cluster: one server instance, on one host and port. Every database inside it is backed up and checked together.
+
+</Accordion>
+<Accordion title="Can Rowsafe read my data?">
+
+No. Backups are encrypted on your server before they are uploaded to your bucket, and the bucket keys and passphrase never leave your server. Rowsafe stores metadata only: names, sizes, settings, task logs and metrics. See the [security model](/docs/security).
+
+</Accordion>
+<Accordion title="Which storage can I use?">
+
+Any S3-compatible bucket you own. The docs use Cloudflare R2. Other S3-compatible stores, such as MinIO, work with the same settings plus `ROWSAFE_REPO_S3_PORT` or `ROWSAFE_REPO_S3_CA_FILE` if they need them. Storage is billed by your provider, not by Rowsafe.
+
+</Accordion>
+<Accordion title="How much data can I lose?">
+
+At most about 5 minutes of changes, usually less. PostgreSQL archives each WAL segment as it fills, and at least every 5 minutes (`archive_timeout = 300`). A nightly `pg_dump` can lose up to 24 hours.
+
+</Accordion>
+<Accordion title="How far back can I restore?">
+
+From the start of your oldest kept full backup to the last archived change. By default Rowsafe keeps 2 weekly full backups: about two weeks. Change it with `rowsafe db set NAME --retention-full N`.
+
+</Accordion>
+<Accordion title="Does Rowsafe restore for me?">
+
+Not yet. Restoring a production database is a documented pgBackRest procedure: see [Restore a database](/docs/guides/restore). The weekly drill runs the same kind of restore, so you know it works and how long it takes.
+
+</Accordion>
+<Accordion title="What if I lose the encryption passphrase?">
+
+Then nobody can restore those backups, Rowsafe included. Store the passphrase in your secret manager, and in a second place, before the first backup exists.
+
+</Accordion>
+<Accordion title="What happens if Rowsafe is down?">
+
+PostgreSQL keeps archiving its changes to your bucket by itself, so point-in-time recovery keeps working. Scheduled backups, drills and alerts resume when the service is back.
+
+</Accordion>
+<Accordion title="What happens if the agent stops?">
+
+The same: PostgreSQL keeps archiving. Backups, drills and metrics pause, you get the `agent_offline` alert after 5 minutes, and the database stops counting as protected after 10.
+
+</Accordion>
+<Accordion title="Does it slow down my database?">
+
+Barely. Archiving copies WAL files PostgreSQL has already written. Backups and drills run with half the default CPU and IO weight, and drills also at low priority. Monitoring queries are cheap and time out after 2 seconds. Drills need free disk of about 1.3 × the database size plus 1 GiB.
+
+</Accordion>
+<Accordion title="Can I keep my existing backups?">
+
+Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: four passing drills and one manual restore, then retire it.
+
+</Accordion>
+<Accordion title="Does it do replicas and failover?">
+
+Not yet. Rowsafe backs up and proves your backups today. Standbys can't be adopted: adopt the primary.
+
+</Accordion>
+<Accordion title="Is it open source?">
+
+Everything that runs on your servers is: the agent, the CLI (including the MCP server and the Claude Code plugin) and the installer, under Apache-2.0 on [GitHub](https://github.com/rowsafe/rowsafe). These docs are [open source](https://github.com/rowsafe/docs) too, under CC BY 4.0. The hosted service and dashboard are proprietary.
+
+</Accordion>
+</Accordions>

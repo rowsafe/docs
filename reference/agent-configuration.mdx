@@ -1,0 +1,142 @@
+---
+title: Agent configuration
+description: Every setting of the Rowsafe agent and its installer, the files it installs, and its commands.
+---
+
+The agent reads its configuration from environment variables. On a server, systemd loads them from `/etc/rowsafe/agent.env` (owned by `postgres`, mode 0600). In Docker, they come from the `env_file` of the agent service.
+
+In `agent.env`, values are single-quoted and must not contain single quotes or newlines. After a change, run the installer again (it self-tests first) or `sudo systemctl restart rowsafe-agent`.
+
+## Bucket (repository)
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_REPO_S3_ENDPOINT` | **required** | Host name without `https://`, e.g. `<account-id>.eu.r2.cloudflarestorage.com`. |
+| `ROWSAFE_REPO_S3_BUCKET` | **required** | A private bucket. |
+| `ROWSAFE_REPO_S3_KEY` | **required** | Access key ID of a token that can read and write only this bucket. |
+| `ROWSAFE_REPO_S3_KEY_SECRET` | **required** | Its secret. |
+| `ROWSAFE_REPO_CIPHER_PASS` | **required** | Encryption passphrase, at least 20 characters. **Store it in your secret manager before the first backup.** |
+| `ROWSAFE_REPO_S3_REGION` | `auto` | `auto` for R2. |
+| `ROWSAFE_REPO_S3_URI_STYLE` | `path` | `path` or `host`. |
+| `ROWSAFE_REPO_PATH_PREFIX` | `/rowsafe` | Each database lives under `<prefix>/<name>` in the bucket. |
+| `ROWSAFE_REPO_S3_PORT` | `443` | For other S3-compatible stores. |
+| `ROWSAFE_REPO_S3_CA_FILE` | system store | Absolute path to a PEM bundle to trust instead, e.g. for a private MinIO. |
+| `ROWSAFE_REPO_S3_VERIFY_TLS` | `true` | `false` turns off certificate checks. For tests only. |
+
+Never change the passphrase, bucket or prefix of a repository that holds backups. See [Change the configuration](/docs/guides/agent-updates#change-the-configuration).
+
+## Connection to Rowsafe
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_ENROLL_TOKEN` | | The one-time enrollment token (`rse_...`). Only needed until the first start; delete it afterwards. |
+| `ROWSAFE_URL` | `https://api.rowsafe.sh` | The API URL. Leave it unset. |
+| `ROWSAFE_AUTO_UPDATE` | `true` | `false` (or `0`, `no`, `off`) turns self-update off. Any value other than true/false stops the agent from starting. Always off in Docker. |
+| `ROWSAFE_POLL_INTERVAL` | `5s` | How often an idle agent asks for work. |
+| `ROWSAFE_HEARTBEAT_INTERVAL` | `30s` | How often it reports in. |
+
+## PostgreSQL and the server
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_PG_USER` | `postgres` | The database role the agent connects as, over the Unix socket. Must be a superuser. |
+| `ROWSAFE_PG_BIN_DIR` | `/usr/lib/postgresql/%d/bin` | PostgreSQL server binaries, used by drills. `%d` is the major version. |
+| `ROWSAFE_PGBACKREST_BIN` | `/usr/bin/pgbackrest` | pgBackRest, also used in `archive_command`. |
+| `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Scratch space for restore drills. |
+| `ROWSAFE_DRILL_PORT` | `55432` | Names the drill cluster's Unix socket. Drills never listen on TCP. |
+| `ROWSAFE_DRILL_PRELOAD` | `auto` | `auto`: start drills without production's `shared_preload_libraries`, and retry with them if needed. `production`: always load them. |
+| `ROWSAFE_RESTORE_POINT_TIMEOUT` | `90s` | How long to wait for a restore point to be archived, up to `4m`. |
+| `ROWSAFE_MONITORING` | `true` | `false` turns metrics off. |
+| `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |
+
+The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
+
+## Docker
+
+The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set these defaults:
+
+| Variable | Image default | |
+|---|---|---|
+| `ROWSAFE_MODE` | `docker-sidecar` | `native` outside the image. |
+| `ROWSAFE_SPOOL_DIR` | `/rowsafe-spool` | The spool volume shared with PostgreSQL. Each database uses `<dir>/<name>`. |
+| `ROWSAFE_SPOOL_STALL_AFTER` | `5m` | How long the oldest spooled file may wait before it counts as an archiving failure (at least `1m`). |
+| `ROWSAFE_STATE_DIR` | `/var/lib/rowsafe` | Identity and state: the `rowsafe-state` volume. |
+| `ROWSAFE_CONFIG_DIR` | `/var/lib/rowsafe/pgbackrest` | Generated pgBackRest configuration, in the state volume. |
+| `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Drill scratch space: about 1.3 × the database size + 1 GiB free. |
+| `ROWSAFE_AUTO_UPDATE` | `false` | Always off in Docker. |
+
+See [Run the agent in Docker](/docs/guides/docker).
+
+## Installer
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s rse_...           # install with an enrollment token
+curl -fsSL https://rowsafe.sh | sudo sh                      # run again: update, re-test, start
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall    # options go after `sh -s --`
+```
+
+`https://rowsafe.sh/install` serves the same script.
+
+| Option | |
+|---|---|
+| `rse_...` | The enrollment token. `ROWSAFE_ENROLL_TOKEN=rse_...` in the environment works too. |
+| `--download-only DIR` | Download and verify the agent into `DIR`; install nothing. Needs no root. |
+| `--uninstall` | Stop and remove the service and `/opt/rowsafe`. Keep the configuration, state and logs. |
+| `--uninstall --purge` | Also delete `/etc/rowsafe`, `/var/lib/rowsafe`, `/var/log/rowsafe` and the logrotate file. Refused while PostgreSQL still archives with Rowsafe's configuration. |
+| `-h`, `--help` | Help. |
+
+| Environment variable | |
+|---|---|
+| `ROWSAFE_VERSION=1.2.3` | Install exactly this version instead of the channel's latest. |
+| `ROWSAFE_CHANNEL=stable` | The channel to install from. Later updates follow the host's channel in Rowsafe. |
+| `ROWSAFE_ALLOW_DOWNGRADE=1` | Allow `ROWSAFE_VERSION` to be older than the installed version. |
+| `ROWSAFE_ALLOW_UNSUPPORTED_OS=1` | Try an OS other than Debian 12/13 or Ubuntu 22.04/24.04. |
+
+The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, every `ROWSAFE_REPO_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
+
+What the installer does:
+
+1. Checks the system: root, Debian 12/13 or Ubuntu 22.04/24.04, amd64 or arm64, a `postgres` user and PostgreSQL server binaries, OpenSSL 3.
+2. Downloads the release manifest and its signature, verifies the **Ed25519 signature** with the key built into the installer, then checks the binary's size and SHA-256. If any check fails, nothing on the server changes.
+3. Installs pgBackRest if it is missing: from apt.postgresql.org when that repository is configured, otherwise from your distribution.
+4. Installs the agent, the systemd unit and a logrotate file.
+5. Writes `agent.env`, keeping settings already in it.
+6. If settings are missing, enables the service without starting it and lists what's missing. Otherwise self-tests the new agent, and only then starts or restarts it.
+
+## Files on the server
+
+```text
+/opt/rowsafe/                          postgres 0755
+  rowsafe-agent -> versions/<v>/...    the binary systemd runs; swapped on update
+  versions/<v>/rowsafe-agent           current and previous version
+  bin/rowsafe-agent-guard              root 0755; rolls back an update that keeps crashing
+/etc/rowsafe/                          root:postgres 0750
+  agent.env                            postgres 0600; settings and secrets
+  pgbackrest/<name>.conf               postgres 0600; generated, local edits are overwritten
+/var/lib/rowsafe/                      postgres 0700; identity, state, running drills
+/var/log/rowsafe/                      postgres 0700; pgBackRest logs, rotated daily, 14 kept
+/etc/systemd/system/rowsafe-agent.service
+/etc/logrotate.d/rowsafe
+```
+
+**Logs:** `journalctl -u rowsafe-agent` (JSON lines), and `/var/log/rowsafe/<name>-<command>.log`. Each task's log, including pgBackRest's output, is also in `rowsafe task show ID`.
+
+**The systemd unit** runs the agent as `postgres` with `NoNewPrivileges`, a read-only system, a private `/dev`, no capabilities and restricted address families. It is rewritten by the installer: put local changes in a drop-in (`sudo systemctl edit rowsafe-agent`).
+
+## Agent commands
+
+```text
+rowsafe-agent run         enroll if needed, then run tasks (what systemd runs)
+rowsafe-agent inspect     print what the agent sees in PostgreSQL (read-only)
+                          [--port 5432] [--socket-dir /var/run/postgresql] [--user postgres]
+rowsafe-agent selftest    check the configuration, pgBackRest, Rowsafe and every database
+rowsafe-agent health      container health check (Docker)
+rowsafe-agent version
+```
+
+Run the self-test exactly as the service would:
+
+```sh
+sudo systemd-run --quiet --wait --pipe --collect -p User=postgres \
+  -p EnvironmentFile=/etc/rowsafe/agent.env /opt/rowsafe/rowsafe-agent selftest
+```

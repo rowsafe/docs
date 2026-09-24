@@ -1,0 +1,86 @@
+---
+title: Introduction
+description: Rowsafe backs up the databases you run on your own servers, lets you restore to any second, and proves every week that your backups restore.
+---
+
+Rowsafe protects the databases you already run, on your own servers or in Docker. It takes backups, keeps a continuous record of every change, and restores your latest backup every week to prove it works. If something goes wrong, you can get your data back to the second before it happened.
+
+You keep your database where it is. You don't move it to a hosted service.
+
+## What you get
+
+- **Continuous backups.** Every change is saved to your own storage bucket within minutes, on top of regular full backups.
+- **Point-in-time recovery.** Restore to any second in your recovery window, or to a named point you marked before a risky change.
+- **Weekly restore drills.** Rowsafe restores your latest backup on a scratch copy and checks it. You get proof, not hope.
+- **Monitoring and alerts.** Disk, connections, long transactions, failed backups and more, sent to email, Slack, Discord or a webhook.
+- **A safety net for AI agents.** Coding agents can check that a database is protected and create a restore point before a migration.
+
+## How it works
+
+```text
+You: dashboard, CLI, AI agents
+        │
+        │ HTTPS
+        ▼
+┌─────────────────────────┐
+│ Rowsafe service         │
+│ schedules, history,     │
+│ alerts                  │
+└─────────────────────────┘
+        ▲
+        │ HTTPS, outbound only
+        │ (the agent asks for work)
+┌─────────────────────────┐
+│ Your server             │
+│ agent ──▶ your database │
+└─────────────────────────┘
+        │
+        │ encrypted backups
+        ▼
+Your S3-compatible bucket
+```
+
+1. A small open-source **agent** runs next to your database. It only makes outbound HTTPS requests. Nothing on your server listens for Rowsafe.
+2. The agent encrypts backups **on your server** and sends them to **your own bucket**. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
+3. The hosted **Rowsafe service** schedules backups and drills, keeps the history, watches for problems and alerts you.
+
+Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
+
+## Supported databases
+
+| Database | Status | Where |
+|---|---|---|
+| PostgreSQL 13 to 18 | **Supported** | Linux servers (Debian 12/13, Ubuntu 22.04/24.04) and Docker (official `postgres` images, 14 to 18) |
+| MySQL | Planned | |
+| MariaDB | Planned | |
+| MongoDB | Planned | |
+| Redis / Valkey | Planned | |
+
+Planned engines are not available yet, and we don't give dates. The rest of these docs describe PostgreSQL.
+
+## Safety first
+
+Rowsafe works on production databases, so it is careful by design:
+
+- **It never restarts your database.** When a setting needs a restart, Rowsafe tells you, and you restart in your own maintenance window.
+- **Plan before apply.** Adopting a database first shows a read-only plan. Nothing changes until you apply it.
+- **Drills are isolated.** A drill restores into a scratch directory on a private socket, then deletes it. It can't touch production or its backups.
+- **Your secrets stay on your server.** Backups are encrypted before they leave it.
+- **Signed releases.** The agent only installs and runs releases signed by Rowsafe, and rolls back a bad update by itself.
+
+## Next steps
+
+<Cards>
+  <Card title="Quickstart" href="/docs/quickstart">
+    Protect your first database in about 10 minutes.
+  </Card>
+  <Card title="Adopt a production database" href="/docs/guides/adopt">
+    The careful, step-by-step version for a server that matters.
+  </Card>
+  <Card title="Restore a database" href="/docs/guides/restore">
+    Get your data back to a point in time or a named restore point.
+  </Card>
+  <Card title="Use Rowsafe with AI agents" href="/docs/guides/ai-agents">
+    Restore points before every migration an agent runs.
+  </Card>
+</Cards>

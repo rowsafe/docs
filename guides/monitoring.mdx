@@ -1,0 +1,126 @@
+---
+title: Monitoring and alerts
+description: What the agent collects, the built-in alert rules, and how to send alerts to email, Slack, Discord or a webhook.
+---
+
+Rowsafe watches the databases it protects, with no monitoring stack of your own. The agent collects database and server metrics every minute, and Rowsafe graphs them in the dashboard, evaluates alert rules and notifies you.
+
+## What the agent collects
+
+Every 60 seconds the agent opens one short session (`rowsafe-agent-monitor`) over the Unix socket and runs a few cheap catalog queries. Each query has a 2-second timeout, so on a struggling server you get a gap in the graphs, never a pile-up of monitoring queries. Monitoring never blocks a backup, drill or restore point.
+
+<Accordions>
+<Accordion title="Database metrics">
+
+| Metric | Meaning |
+|---|---|
+| Connections | Active, idle, idle in transaction, total, and the share of `max_connections` |
+| Transactions | Commits and rollbacks per second |
+| Rows | Returned, fetched, inserted, updated and deleted per second |
+| Cache hit ratio | Share of block reads served from shared buffers (only with real read traffic) |
+| Deadlocks, temporary files | Per minute, plus bytes written to temporary files |
+| Size and WAL | Total database size (every 5 minutes), WAL generated per second |
+| Checkpoints | Scheduled and requested per minute |
+| Long-running work | Oldest open transaction, longest query, oldest idle-in-transaction session, waiting locks |
+| Replication slots | Inactive slots and the WAL they hold back |
+| Wraparound | Transaction ID age and the headroom left before PostgreSQL stops writes |
+| Disk | Free space on the data directory's filesystem |
+
+</Accordion>
+<Accordion title="Server metrics">
+
+CPU use and count, load averages, memory and swap, and disk use of the filesystem holding the data directory.
+
+</Accordion>
+<Accordion title="Snapshots: long queries and top statements">
+
+- **Activity:** sessions running one query, or idle in a transaction, for more than 60 seconds (up to 50), with the query text (first 500 characters). See it with `rowsafe db activity app`.
+- **Top statements** (every 5 minutes): the 20 statements with the highest total execution time, from `pg_stat_statements`. See them with `rowsafe db top app`.
+
+To turn on `pg_stat_statements`, add it to `shared_preload_libraries` (a restart, which you do), then run `CREATE EXTENSION pg_stat_statements;` in any database.
+
+</Accordion>
+</Accordions>
+
+### Privacy
+
+- `pg_stat_statements` text is normalized by PostgreSQL: literal values become `$1`, `$2`.
+- **Activity query text is not normalized**: it is the statement as the client sent it, which can include personal data. Set `ROWSAFE_COLLECT_QUERY_TEXT=false` in `/etc/rowsafe/agent.env` to send activity without query text.
+- A statement that looks like it carries a password (`CREATE ROLE ... PASSWORD`, `password=` in a connection string, and similar) is redacted on your server before it is sent.
+- `ROWSAFE_MONITORING=false` turns monitoring off. The agent then sends only heartbeats and task results.
+
+### Retention
+
+| Resolution | Kept for |
+|---|---|
+| 1 minute | 48 hours |
+| 5 minutes | 14 days |
+| 1 hour | 90 days |
+
+Resolved alerts are kept 90 days, and sent notifications 30 days.
+
+## Alert rules
+
+Rowsafe checks every rule every 30 seconds. A condition must hold for the rule's **for** duration before the alert fires.
+
+| Rule | Severity | Default threshold | For | Fires when |
+|---|---|---|---|---|
+| `backup_stale` | critical | 26 hours | 15m | No successful backup in the threshold, or an active database was never backed up after 12 hours. |
+| `full_backup_stale` | warning | 8 days | 15m | No successful full backup in the threshold. |
+| `drill_failed` | warning | | | The latest restore drill failed. |
+| `drill_overdue` | warning | 8 days | 15m | No restore drill passed in the threshold. |
+| `wal_archiving_failing` | critical | | 10m | Archiving keeps failing. Point-in-time recovery stops at the last archived segment, and `pg_wal` grows. |
+| `postgres_unreachable` | critical | | 5m | The agent is up but can't query PostgreSQL. |
+| `agent_offline` | critical | 5 minutes | 1m | No heartbeat from the agent. |
+| `restore_point_unconfirmed` | warning | | 15m | A restore point was written but archiving hasn't moved past it. |
+| `awaiting_restart` | warning | 24 hours | | A plan was applied, but PostgreSQL wasn't restarted. |
+| `disk_free_low` | warning | 15% | 5m | Free disk on the data directory's filesystem below the threshold. |
+| `disk_free_critical` | critical | 5% | 5m | Same, lower threshold. |
+| `connections_high` | warning | 80% | 5m | Connections above the share of `max_connections`. |
+| `connections_critical` | critical | 95% | 2m | Same, higher threshold. |
+| `long_transaction` | warning | 30 minutes | | A transaction has been open longer than the threshold. |
+| `idle_in_transaction` | warning | 10 minutes | | A session sat idle in an open transaction longer than the threshold. |
+| `xid_wraparound` | critical | 50% | | Transaction ID headroom below the threshold. |
+| `replication_slot_inactive` | warning | 1 GiB | 15m | An inactive replication slot holds back more WAL than the threshold. |
+| `deadlocks` | warning | 5 | | More deadlocks than the threshold in 10 minutes. |
+| `cache_hit_low` | info | 90% | 30m | Cache hit ratio below the threshold with real read traffic. |
+
+**Critical** means recoverability or availability is degrading now. **Warning** needs attention within a working day. **Info** is for the record.
+
+You can turn each rule off, or change its threshold, duration and severity, in the dashboard under **Alerts** (admins). `rowsafe alerts rules` lists the rules with your settings.
+
+### How alerts behave
+
+- There is at most one open alert per rule and target. When the condition clears, the alert **resolves** and you are notified.
+- A **critical** alert that keeps firing is sent again every **4 hours** until someone acknowledges it. Acknowledging stops the reminders; you still hear when it resolves.
+- **No data is not good news.** Without fresh metrics, an alert keeps its state. A silent agent raises `agent_offline` rather than resolving a disk alert.
+
+```sh
+rowsafe alerts                # firing alerts (--all adds resolved ones, --resolved shows only those)
+rowsafe alerts ack alr_...    # acknowledge: no more reminders
+```
+
+## Notification channels
+
+Each channel has a **minimum severity** (default `warning`): it receives alerts of that severity and above. Every message says what is wrong, where, since when, the value and threshold, the next step (usually a `rowsafe` command) and a link to the dashboard.
+
+```sh
+rowsafe channels add --type email --name oncall --address oncall@example.com --min-severity critical
+rowsafe channels add --type slack --name team --url https://hooks.slack.com/services/T000/B000/XXXX
+rowsafe channels add --type discord --name ops --url https://discord.com/api/webhooks/...
+rowsafe channels add --type webhook --name pager --url https://hooks.example.com/rowsafe
+rowsafe channels test chn_...
+rowsafe channels list
+rowsafe channels remove chn_...
+```
+
+| Type | Destination | Notes |
+|---|---|---|
+| `email` | Up to 20 addresses (repeat `--address`) | Plain text. |
+| `slack` | A Slack [incoming webhook](https://api.slack.com/messaging/webhooks) | |
+| `discord` | A Discord webhook | Mentions are off, so nobody is pinged. |
+| `webhook` | Any public `https` URL | JSON, signed. The signing secret is printed **once**. See [Webhooks](/docs/reference/webhooks). |
+
+- `channels test` sends a test notification right away, whatever the minimum severity.
+- URLs are secrets: Rowsafe never shows them again in full.
+- An organization can have up to 20 channels. You can also manage them in the dashboard under **Settings**, then **Notifications**.

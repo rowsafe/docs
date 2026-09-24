@@ -1,0 +1,210 @@
+---
+title: Run the agent in Docker
+description: Protect PostgreSQL running in the official postgres image, with the Rowsafe agent as a sidecar container. No changes to your image.
+---
+
+If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you don't install anything on the Docker host. The agent runs as a **sidecar container** in the same compose project. You add a few volume mounts and one service. Adoption then works like on a server: plan, apply, restart the container yourself, verify.
+
+<Callout title="Linux Docker hosts only for production">
+  Docker Desktop on macOS or Windows runs containers in a VM whose disk and `fsync` behaviour Rowsafe doesn't guarantee. Use it to try Rowsafe, not for data you need to recover. Kubernetes isn't covered.
+</Callout>
+
+## How it works
+
+```text
+ compose project
+ +-------------------------------+        +------------------------------------------+
+ | postgres (postgres:17, stock) |        | rowsafe-agent (ghcr.io/rowsafe/agent:    |
+ |                               |        |                <version>-pg17)           |
+ |  archive_command:             |        |                                          |
+ |   cp + fsync + rename --------+--+     |  spool pusher: pgbackrest archive-push   |
+ |                               |  |     |    each file in order, delete after OK --+--> your bucket
+ |  /var/lib/postgresql/data  <--+--+-----+-- same volume, same path, read-only      |    (encrypted)
+ |  /var/run/postgresql       <--+--+-----+-- socket: SQL                            |
+ |  /rowsafe-spool/<db>/      <--+--+-----+-- spool: WAL waiting to be pushed        |
+ +-------------------------------+        +------------------------------------------+
+```
+
+- The stock `postgres` image has no pgBackRest. So `archive_command` only **copies** each WAL file into a shared **spool** volume, with standard tools (`cp`, `sync`, `mv`), and never overwrites a different file.
+- The agent **pushes** spooled files to your bucket with pgBackRest, in order, and deletes each one only after it is stored.
+- Backups, checks, restore points and drills run in the agent container. It reads the data volume **read-only**, at the same path.
+- Nothing runs inside the PostgreSQL container except `archive_command`. Rowsafe never restarts it.
+
+<Callout type="warn" title="The spool must be on durable disk">
+  PostgreSQL treats a WAL file as archived once it is in the spool. Until the agent has pushed it, the spool holds the only copy. Use a named volume on local disk, never `tmpfs` or a network filesystem that ignores `fsync`. Don't delete spooled files by hand.
+</Callout>
+
+## Set up
+
+You need a one-time enrollment token (`rowsafe hosts enroll-token`), a bucket and its keys, and an encryption passphrase **stored in your secret manager first**. See steps 2 and 3 of [Adopt an existing database](/docs/guides/adopt).
+
+Put the agent's settings in `rowsafe-agent.env` next to your compose file. Make it readable only by you (`chmod 600`) and never commit it:
+
+```sh title="rowsafe-agent.env"
+ROWSAFE_ENROLL_TOKEN=rse_...        # first start only; delete it afterwards
+ROWSAFE_REPO_S3_ENDPOINT=<account-id>.eu.r2.cloudflarestorage.com
+ROWSAFE_REPO_S3_BUCKET=app-rowsafe
+ROWSAFE_REPO_S3_KEY=...
+ROWSAFE_REPO_S3_KEY_SECRET=...
+ROWSAFE_REPO_CIPHER_PASS=...
+# ROWSAFE_PG_USER=app               # if POSTGRES_USER is not postgres
+```
+
+Then add the agent to your compose file. Your `postgres` service keeps its image, environment, networks and ports.
+
+<Tabs items={["PostgreSQL 14 to 17", "PostgreSQL 18", "Alpine images"]}>
+<Tab value="PostgreSQL 14 to 17">
+
+```yaml title="compose.yml"
+services:
+  postgres:
+    image: postgres:17
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgsocket:/var/run/postgresql        # added
+      - rowsafe-spool:/rowsafe-spool        # added
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:<version>-pg17
+    hostname: db-1                          # the host name Rowsafe shows
+    user: "999:999"                         # the postgres user of the Debian images
+    restart: unless-stopped
+    depends_on: [postgres]
+    env_file: rowsafe-agent.env
+    shm_size: 256m                          # drills start a scratch PostgreSQL here
+    volumes:
+      - pgdata:/var/lib/postgresql/data:ro  # same volume, same path, read-only
+      - pgsocket:/var/run/postgresql
+      - rowsafe-spool:/rowsafe-spool
+      - rowsafe-state:/var/lib/rowsafe
+
+volumes:
+  pgdata:
+  pgsocket:
+  rowsafe-spool:
+  rowsafe-state:
+```
+
+</Tab>
+<Tab value="PostgreSQL 18">
+
+The `postgres:18` images keep their data in `/var/lib/postgresql/18/docker` and expect the volume at `/var/lib/postgresql`. Mount it there in **both** services, and use the `-pg18` tag:
+
+```yaml title="compose.yml"
+services:
+  postgres:
+    image: postgres:18
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - pgsocket:/var/run/postgresql
+      - rowsafe-spool:/rowsafe-spool
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:<version>-pg18
+    hostname: db-1
+    user: "999:999"
+    restart: unless-stopped
+    depends_on: [postgres]
+    env_file: rowsafe-agent.env
+    shm_size: 256m
+    volumes:
+      - pgdata:/var/lib/postgresql:ro
+      - pgsocket:/var/run/postgresql
+      - rowsafe-spool:/rowsafe-spool
+      - rowsafe-state:/var/lib/rowsafe
+
+volumes:
+  pgdata:
+  pgsocket:
+  rowsafe-spool:
+  rowsafe-state:
+```
+
+</Tab>
+<Tab value="Alpine images">
+
+For `postgres:NN-alpine`, use the agent's `-alpine` tag and the Alpine `postgres` user, `70:70`. Mount the data volume as for your major version.
+
+```yaml
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:<version>-pg17-alpine
+    user: "70:70"
+```
+
+</Tab>
+</Tabs>
+
+Pick the agent image's `<version>` from the [releases](https://github.com/rowsafe/rowsafe/releases). Its PostgreSQL major must match your server's.
+
+Start it:
+
+```sh
+docker compose up -d
+docker compose logs rowsafe-agent      # "enrolled"
+rowsafe hosts list                     # db-1
+```
+
+Adding the two mounts recreates the `postgres` container: a few seconds of downtime, so do it in a maintenance window. With a bind mount instead of a named volume, mount the same host directory in both services at the same path.
+
+Keep the `rowsafe-state` volume: it holds the host's identity and the generated pgBackRest configuration. If you lose it, enroll again with a new token.
+
+## Adopt
+
+Adoption works like on a server. Only the restart differs:
+
+```sh
+rowsafe adopt app --host db-1        # read-only plan
+rowsafe apply app                    # config, spool directory, ALTER SYSTEM + reload
+docker compose restart postgres      # you, in a maintenance window
+rowsafe verify app                   # proves WAL reaches the bucket, through the spool
+```
+
+The settings are written with `ALTER SYSTEM` into `postgresql.auto.conf` in the data volume, so they survive container restarts and re-creation.
+
+## Upgrade
+
+The agent never updates itself in Docker. To upgrade, change the tag and recreate the container, ideally between backups:
+
+```sh
+docker compose up -d rowsafe-agent
+```
+
+If a backup or drill is interrupted, the new container reports it as failed and the schedule runs it again. WAL waiting in the spool is pushed by the new container.
+
+Rowsafe doesn't do PostgreSQL **major** upgrades. After one, switch to the agent tag for the new major and adopt the database again, so its repository starts a new history.
+
+## Watch the spool
+
+The agent reports the spool with every heartbeat. In Docker, the WAL status that `rowsafe show app` prints describes your **bucket**, not the spool: "last archived" is the last file pushed to the bucket, and failed pushes count as archiving failures. If the oldest spooled file waits longer than 5 minutes (`ROWSAFE_SPOOL_STALL_AFTER`), that counts as a failure too: you get the `wal_archiving_failing` alert and the database stops counting as protected. The API (`GET /v1/databases/{ref}`) also has the spool's file count, size and last push error.
+
+The image's health check fails when a spool is stalled, so `docker ps` shows the container as `unhealthy`.
+
+## Troubleshooting
+
+The agent checks its environment at startup and names the fix:
+
+| Message | Fix |
+|---|---|
+| `refusing to run as root` | Set `user: "999:999"` (or `"70:70"` for Alpine images). |
+| `PostgreSQL's socket directory /var/run/postgresql is owned by uid 70, but the agent runs as uid 999` | Alpine image: use the agent's `-alpine` tag and `user: "70:70"`. |
+| `the agent runs as uid N, which has no user in this image` | Use the agent tag that matches your postgres image flavour. |
+| `the WAL spool /rowsafe-spool is missing` | Mount the spool volume in both services. |
+| `the WAL spool ... is owned by uid 0` | Another container created the volume first. Recreate it while empty, or `chown 999:999` it. |
+| `PostgreSQL's data directory ... is not visible in the agent container` | Mount the data volume at the same path in both services (for 18+, at `/var/lib/postgresql`). |
+| `... belongs to another cluster (system identifier ...)` | The agent sees a different volume at that path. |
+| `this agent image has no PostgreSQL N server binaries` | Use the `-pgN` tag for your server's major version. |
+
+If WAL piles up in the spool, `docker compose logs rowsafe-agent` shows the pgBackRest error. The spool drains by itself once the cause is fixed.
+
+<Accordions>
+<Accordion title="Other settings">
+
+- **`POSTGRES_USER` other than `postgres`:** set `ROWSAFE_PG_USER` to that role. The agent must connect as a superuser over the socket.
+- **Locales:** the agent image includes `C.UTF-8` and `en_US.UTF-8`. A database created with another locale can't be opened by a drill.
+- **Several PostgreSQL containers:** give each one its own agent.
+- **Throughput:** the pusher sends one WAL segment at a time, typically tens of MB/s. A database that writes WAL faster for long periods builds a backlog, and the stall alert tells you.
+- **Other images** work if they have `sh`, `test`, `cmp`, `cp`, `sync` and `mv`, a `postgres` user the agent can match, and a data directory mounted at the same path.
+- Image defaults: see [Agent configuration](/docs/reference/agent-configuration#docker).
+
+</Accordion>
+</Accordions>

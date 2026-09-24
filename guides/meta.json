@@ -4,6 +4,7 @@
     "storage",
     "adopt",
     "restore",
+    "standby",
     "docker",
     "ai-agents",
     "monitoring",

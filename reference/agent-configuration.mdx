@@ -50,6 +50,8 @@ Never change the passphrase, bucket or prefix of a repository that holds backups
 | `ROWSAFE_RESTORE_POINT_TIMEOUT` | `90s` | How long to wait for a Mark (restore point) to be archived, up to `4m`. |
 | `ROWSAFE_MONITORING` | `true` | `false` turns metrics off. |
 | `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |
+| `ROWSAFE_STANDBY` | `on` | [Standby servers](/docs/guides/standby). `on`: this server pairs with the servers a person confirms in the dashboard. `pinned`: only with the key fingerprints in `ROWSAFE_STANDBY_PEERS`, so even a compromised Rowsafe can't pair a server of its own. `off`: it takes no part in standbys at all. |
+| `ROWSAFE_STANDBY_PEERS` | | With `ROWSAFE_STANDBY=pinned`: comma-separated key fingerprints (`sudo -u postgres rowsafe-agent key` on each server) this server may send its bucket settings to or receive them from. |
 
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 

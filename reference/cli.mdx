@@ -86,6 +86,22 @@ Commands that run something wait for it to finish, and exit `1` if it fails. Pas
 
 With one argument, `rowsafe mark X` treats `X` as the database if it names one, and otherwise as the label for the inferred database. So in a project whose `.rowsafe.json` names `app`, `rowsafe mark before-drop` marks `app` as `before-drop`.
 
+## Standby
+
+A [standby](/docs/guides/standby) is a second server that stays in sync, is readable, and takes over if the primary dies.
+
+| Command | What it does |
+|---|---|
+| `rowsafe standby [NAME]` | The standby, how far behind it is, fenced old primaries, automatic failover and connection strings that follow the primary. `--json` prints JSON. |
+| `rowsafe standby add [NAME] --host SERVER` | Restore the latest backup on an empty cluster of `SERVER` and follow the primary. `--port N` picks the cluster when there are several; `--fingerprint F` confirms the server's key without asking; `--no-stream` follows through the bucket only; `--no-wait` returns at once. |
+| `rowsafe standby promote [NAME]` | Make the standby the primary. The old primary is stopped for good first. When its agent isn't reporting, `--primary-down` confirms it is down. `--force` promotes even if the standby misses some of the stopped primary's last changes. Asks you to type the name unless `--yes`. |
+| `rowsafe standby rebuild [NAME] [--host SERVER]` | Turn the fenced old primary into the new standby. |
+| `rowsafe standby unfence [NAME]` | Start the fenced primary again when the standby wasn't promoted. |
+| `rowsafe standby failover [NAME] --on\|--off` | Automatic failover. `--after 3m` is how long every condition must hold; `--max-data-loss 1m` bounds the changes it may lose. |
+| `rowsafe standby remove [NAME]` | Remove the standby: its cluster gets its own data back. |
+
+On the server, `sudo -u postgres rowsafe-agent key` prints the agent's key fingerprint, to compare with the one Rowsafe shows before pairing.
+
 ## Database settings
 
 ```sh

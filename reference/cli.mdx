@@ -79,6 +79,7 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | `rowsafe proofs [NAME]` | Proof history: every run and its result. |
 | `rowsafe mark [NAME] [LABEL]` | Set a [Mark](/docs/concepts/restore-points) (a named restore point). `LABEL` defaults to `manual-<UTC time>`. |
 | `rowsafe marks [NAME]` | Marks, with the backup to restore from. |
+| `rowsafe rewind find [NAME]` | [Find the moment](/docs/guides/find-the-moment): when rows were deleted or changed, or a table emptied or dropped. `--table T`, `--since 24h` or `--from`/`--to`, `--kind`, `--json`. Read-only. |
 | `rowsafe tasks [NAME]` | Recent tasks, for one database or all. `--status S`, `--type T`, `--limit N` (default 30). |
 | `rowsafe task ID` | One task with its full log. |
 

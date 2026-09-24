@@ -27,7 +27,7 @@ description: Every input and output of rowsafe/action, what it checks, what it w
 |---|---|---|
 | `api-key` | (required) | A read-write API key (`rsk_...`). Pass it from a secret. A read-only key can check protection but not save the Mark. |
 | `database` | see step 2 | The Rowsafe database name. |
-| `label` | `before-deploy-<7-character SHA>` | The Mark's name. It is lowercased and every run of characters other than letters, digits, `-` and `_` becomes `-`, cut to 63 characters. When the default name is taken (a re-run), `-2`, `-3`, ... up to `-20` is added. A `label` you set that is taken fails the step. |
+| `label` | `before-deploy-<sha>` | The Mark's name; `<sha>` is the commit's first 7 characters. It is lowercased and every run of characters other than letters, digits, `-` and `_` becomes `-`, cut to 63 characters. When the default name is taken (a re-run), `-2`, `-3`, ... up to `-20` is added. A `label` you set that is taken fails the step. |
 | `wait` | `true` | Wait until the Mark is confirmed in your bucket. `false` returns once it is requested. |
 | `require-protected` | `false` | Fail when the database isn't protected, instead of warning. |
 | `preview-sql` | | Glob patterns, separated by spaces or new lines, relative to `working-directory`. `**` matches across directories. |
@@ -77,8 +77,10 @@ Linux and macOS, x64 and ARM64, GitHub-hosted or self-hosted. Windows runners ar
 |---|---|
 | no API key | `api-key` is empty. On `pull_request` from a fork, secrets aren't available. |
 | API key rejected | The key is wrong or was revoked. |
+| database not found | No database with that name in the API key's organization. |
+| can't reach Rowsafe | The API didn't answer. |
 | which database? | No `database` input, no `.rowsafe.json`, and the organization has several databases. |
 | *database* is not protected | With `require-protected: true`. The summary lists the reasons and links to the database. |
 | migration looks dangerous | With `preview-fail-on`. No Mark was saved and production wasn't touched. |
 | Mark not confirmed | The Mark was written but your bucket didn't confirm it in time (usually archiving is failing), or the agent didn't pick it up within `wait-timeout-minutes`. |
-| Mark not saved | Anything else: a `label` that is taken, a read-only key, the API unreachable. |
+| Mark not saved | Anything else: a `label` that is taken, a read-only key. |

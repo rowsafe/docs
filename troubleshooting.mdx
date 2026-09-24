@@ -3,11 +3,12 @@ title: Troubleshooting
 description: Common errors, what they mean, and how to fix them.
 ---
 
-First, ask Rowsafe what's wrong. `rowsafe status` lists every problem with the command to run next:
+First, ask Rowsafe what's wrong. In the dashboard, open the database's **Pulse** tab: **Health** lists every problem, worst first, and when Rowsafe can fix it, **Apply fix** does it for you (see [Apply fix](/docs/guides/monitoring#apply-fix)). From a terminal:
 
 ```sh
 rowsafe status             # the whole fleet
 rowsafe status app         # one database: why isn't it protected?
+rowsafe fix app            # what Rowsafe can fix for you, and apply it
 rowsafe tasks app --status failed
 rowsafe task ID       # the full log of one task
 ```
@@ -40,19 +41,17 @@ ALTER SYSTEM RESET archive_command; SELECT pg_reload_conf();
 archive_mode is still off: restart PostgreSQL so the adopt settings take effect, then verify again
 ```
 
-The plan was applied, but `archive_mode` only takes effect after a restart, and Rowsafe never restarts PostgreSQL on its own. Restart it when it suits you:
+The plan was applied, but `archive_mode` only takes effect after a restart, and Rowsafe never restarts PostgreSQL on its own. When it suits you, click **Restart PostgreSQL now** on the database's page (or on the Health page, **Apply fix**). Rowsafe restarts it and finishes: it checks that changes reach your bucket, and the first full backup starts.
+
+That button is there if you allowed restarts during install. Otherwise the button is disabled and says why; restart PostgreSQL yourself:
 
 ```sh
 sudo systemctl restart postgresql@18-main     # your cluster's unit; in Docker: docker compose restart postgres
 ```
 
-**Rowsafe notices the restart by itself** and finishes: it checks that changes reach your bucket, and the first full backup starts. If the database still says it is awaiting a restart a few minutes later, click **Check now** on the database's page, or run:
+**Rowsafe notices the restart by itself** and finishes. If the database still says it is awaiting a restart a few minutes later, click **Check now** on the database's page (or run `rowsafe verify app`).
 
-```sh
-rowsafe verify app
-```
-
-If you allowed restarts during install, you can instead click **Restart PostgreSQL now** on the database's page, or run `rowsafe restart app`. To get that button on a server where you didn't allow it, run the installer again with `--allow-restart`:
+To get the Restart button on a server where you didn't allow it, run the installer again with `--allow-restart`:
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart
@@ -108,12 +107,16 @@ sudo tail -50 /var/log/rowsafe/app-archive-push.log
 
 Common causes:
 
-- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env`, restart the agent, then run `rowsafe verify app`: it rewrites the configuration `archive_command` uses and proves it works.
+- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env` and restart the agent (the keys never leave your server, so this part is yours). Then click **Test again** on the Health page (or run `rowsafe verify app`): it rewrites the configuration `archive_command` uses and proves it works.
 - **The bucket is unreachable** from the server: firewall, DNS or a provider outage. Archiving catches up by itself once it's reachable again.
 - **A full disk** on the server.
 - In **Docker**, the agent container is stopped, or can't reach the bucket: WAL waits in the spool. `docker compose logs rowsafe-agent` shows the pgBackRest error. Don't delete spooled files.
 
 When archiving works again, the alert resolves by itself.
+
+## Stuck sessions, slots and cleanup
+
+A session idle in a transaction, a query blocking others, an inactive replication slot holding WAL, tables vacuum hasn't cleaned up, unused indexes: Rowsafe can fix these for you. Open the finding on the Health page (the alert links to it) and click **Apply fix**, or run `rowsafe fix app`. Ending a session or removing an index or a slot asks you to type the database name first, and removing an index saves a Mark first. See [Apply fix](/docs/guides/monitoring#apply-fix) for what each fix does.
 
 ## Other messages
 
@@ -131,6 +134,11 @@ The agent must connect as the `postgres` role (peer authentication over the Unix
 <Accordion title="this server is a standby; adopt the primary instead">
 
 Rowsafe backs up primaries only. Adopt the primary server.
+
+</Accordion>
+<Accordion title="This fix no longer applies; the page refreshed.">
+
+The problem changed or went away between loading the page and clicking: the session ended, the index was used, the slot reconnected. Rowsafe only runs fixes that still match the current health, so nothing was changed. Look at the refreshed page: if the problem is still there, it has a new fix.
 
 </Accordion>
 <Accordion title="a backup task is already queued or running for app">

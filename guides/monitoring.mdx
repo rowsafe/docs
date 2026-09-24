@@ -1,9 +1,9 @@
 ---
 title: "Pulse: monitoring and alerts"
-description: Pulse is Rowsafe's monitoring. The health score, what the agent collects, the built-in alert rules, the weekly email, and how to send alerts to email, Slack, Discord or a webhook.
+description: Pulse is Rowsafe's monitoring. The health score, fixing problems with one click, what the agent collects, the built-in alert rules, the weekly email, and how to send alerts to email, Slack, Discord or a webhook.
 ---
 
-**Pulse** watches your databases, with no monitoring stack of your own. The agent collects database and server metrics every minute, and Rowsafe turns them into a **health score**, plain-language findings, graphs, alerts, slow-query insights and a weekly email, "Your weekly Pulse".
+**Pulse** watches your databases, with no monitoring stack of your own. The agent collects database and server metrics every minute, and Rowsafe turns them into a **health score**, plain-language findings, graphs, alerts, slow-query insights and a weekly email, "Your weekly Pulse". Most problems it finds, it can also fix: click **Apply fix** and confirm.
 
 Pulse starts as soon as you add a database, before backups are switched on. It is included in every plan, including Free.
 
@@ -63,7 +63,7 @@ Resolved alerts are kept 90 days, and sent notifications 30 days.
 
 ## Health score
 
-Every database gets a score from **0 to 100** and a short list of findings, worst first. Each finding says what's wrong in plain language, why it matters and what to do, often with the exact command.
+Every database gets a score from **0 to 100** and a short list of findings, worst first. Each finding says what's wrong in plain language, why it matters and what to do, and, when Rowsafe can do it for you, has a button that does it (see [Apply fix](#apply-fix)).
 
 | Score | Meaning |
 |---|---|
@@ -81,6 +81,49 @@ rowsafe pulse app      # one database: score, findings, and what's fine
 
 `rowsafe pulse` exits with code 3 when a database scores below 70, so you can use it in scripts. The score is recorded every 15 minutes, so the dashboard and the weekly email show how it changes.
 
+## Apply fix
+
+Most findings come with a button that fixes them: on the database's **Pulse** tab, under **Health**, and next to the same problem on **Insights**, **Monitoring**, **Queries** and **Alerts**. Click it, confirm if Rowsafe asks, and Rowsafe does the work on your server through the agent. The page shows each step (waiting for the agent, running, done) and what happened, for example "Cleaned up 3 tables; about 1.2 million dead rows removed." Then the finding goes away and the score goes up.
+
+What Rowsafe can fix:
+
+| Problem | Button | What Rowsafe does |
+|---|---|---|
+| No backup yet, or the last one is too old | **Back up now** | Starts a full backup. |
+| The latest Proof failed, or none passed this week | **Run Proof now** | Runs a restore test. |
+| Backups can't reach your storage | **Check again** | Tests that changes reach your bucket, once you've fixed what the check reported. |
+| Backups aren't on yet | **Turn on backups** | Applies the setup plan (after you confirm). |
+| PostgreSQL is waiting for a restart | **Restart PostgreSQL now** | Restarts it, on servers where you allowed restarts during install. |
+| Dead rows piling up, vacuum behind, transaction ID wraparound | **Clean up** | `VACUUM (ANALYZE)` on those tables, with `FREEZE` for wraparound. |
+| A query got slower | **Refresh statistics** | `ANALYZE` on the tables it reads, so PostgreSQL can pick a better plan. |
+| An index with a lot of wasted space | **Rebuild index** | `REINDEX INDEX CONCURRENTLY` (PostgreSQL 12 and later). |
+| An unused or duplicate index | **Remove** | `DROP INDEX CONCURRENTLY`, after saving a Mark. |
+| A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
+| An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
+| The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
+
+Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
+
+### What keeps it safe
+
+- **Only fixes Rowsafe proposes.** The dashboard and the CLI only name a finding and one of its fixes. Rowsafe checks the database's health again and runs that exact fix, with its own parameters. Nothing sends SQL, and there is no way to run your own. If the problem is gone by then, you're told the fix no longer applies.
+- **A short, fixed list of actions**, checked again on your server right before they run: the table or index still exists, an "unused" index still hasn't been used, the session is still the same one (process ID and start time) and isn't a Rowsafe, replication or autovacuum session, the slot is still inactive. An index that backs a primary key, unique or exclusion constraint is never removed.
+- **Owners and admins only.** Members see the buttons, disabled. API keys need write access: read-only keys can't apply fixes. Every fix is in the audit log, for example "applied a fix to app: Remove orders_legacy_idx".
+- **You confirm what disrupts.** Ending a session, removing an index or a slot, and restarting PostgreSQL show what will happen first. Ending a session and removing an index or a slot ask you to type the database name.
+- **A Mark first.** Before removing an index, Rowsafe saves a Mark (a restore point named `before-fix-...`), so you can [restore to just before it](/docs/guides/restore).
+- **Gentle on the server.** Changes to indexes wait at most 5 seconds for a lock and then give up rather than queue behind your traffic. Indexes are rebuilt and removed `CONCURRENTLY`, so reads and writes carry on. Vacuum runs with a small cost delay. One fix runs at a time per database.
+- **AI agents can't.** The [MCP server](/docs/reference/mcp) has no tool for fixes: a person clicks, or runs `rowsafe fix`.
+
+From a terminal, `rowsafe fix` lists the same fixes and applies one:
+
+```sh
+rowsafe fix app                                        # what Rowsafe can fix, numbered; asks which one
+rowsafe fix app 2                                      # apply fix number 2 from that list
+rowsafe fix app unused_indexes drop:public.orders_legacy_idx
+```
+
+It asks you to confirm like the dashboard does; `--yes` skips the questions (for fixes that ask for the database name, too).
+
 ## Disk forecast
 
 Rowsafe fits a trend through the last 14 days of disk use and tells you **when the disk will be full**, for example "in about 9 days". It ignores one-off spikes, such as a big file written and deleted. You need about 2 days of history before the first forecast. The `disk_full_forecast` alert warns you 14 days ahead.
@@ -95,6 +138,8 @@ About every 30 minutes, the agent looks at each database's tables and indexes (c
 - tables with many **dead rows** that vacuum hasn't cleaned up;
 - tables read by **full scans** that may need an index;
 - **transaction ID age** per database and table.
+
+Next to each suggestion Rowsafe can act on, a button does it: **Remove** an unused or duplicate index, **Rebuild index**, **Clean up** a table. See [Apply fix](#apply-fix).
 
 ```sh
 rowsafe insights app
@@ -171,6 +216,7 @@ You can turn each rule off, or change its threshold, duration and severity, in t
 - There is at most one open alert per rule and target. When the condition clears, the alert **resolves** and you are notified.
 - A **critical** alert that keeps firing is sent again every **4 hours** until someone acknowledges it. Acknowledging stops the reminders; you still hear when it resolves.
 - **No data is not good news.** Without fresh metrics, an alert keeps its state. A silent agent raises `agent_offline` rather than resolving a disk alert.
+- In the dashboard, an alert Rowsafe can fix has a **Fix it** button: it applies the fix, or opens the problem on the Health page when there's more than one way to fix it.
 
 ```sh
 rowsafe alerts                # firing alerts (--all adds resolved ones, --resolved shows only those)
@@ -179,7 +225,7 @@ rowsafe alerts ack alr_...    # acknowledge: no more reminders
 
 ## Notification channels
 
-Each channel has a **minimum severity** (default `warning`): it receives alerts of that severity and above. Every message says what is wrong, where, since when, the value and threshold, the next step (usually a `rowsafe` command) and a link to the dashboard.
+Each channel has a **minimum severity** (default `warning`): it receives alerts of that severity and above. Every message says what is wrong, where, since when, the value and threshold, and links to the problem in the dashboard, where **Fix it** applies the fix when Rowsafe has one.
 
 ```sh
 rowsafe channels add --type email --name oncall --address oncall@example.com --min-severity critical

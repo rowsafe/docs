@@ -86,7 +86,13 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--protect NAME` | Set up the database without questions: register it as `NAME`, plan and apply. Never restarts PostgreSQL. The storage settings must then be in the environment (`ROWSAFE_REPO_*`). |
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
-| `--no-allow-restart` | Don't allow it, without asking. |
+| `--no-allow-restart` | Don't allow it, without asking. Also turns off the three options below. |
+| `--allow-updates` | Allow installing PostgreSQL minor updates and upgrading PostgreSQL from Rowsafe, without asking. Only when someone clicks **Update** or **Upgrade** and confirms. Needs `--allow-restart`. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
+| `--no-allow-updates` | Don't allow it, without asking. |
+| `--allow-security-updates` | Allow installing the server's security updates from Rowsafe, without asking. Needs `--allow-restart`. |
+| `--no-allow-security-updates` | Don't allow it, without asking. |
+| `--allow-reboot` | Allow rebooting the server from Rowsafe, without asking. Needs `--allow-restart`. |
+| `--no-allow-reboot` | Don't allow it, without asking. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
@@ -127,6 +133,9 @@ On a terminal, a first install asks:
 | `Name it in Rowsafe [app]:` | After `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`. Enter accepts the suggestion. |
 | `Turn on backups for app now? [Y/n]` | After the plan, in plain words. Nothing changes until you say yes. |
 | `Allow restarting PostgreSQL from the Rowsafe dashboard? [Y/n]` | Only when someone clicks **Restart** and confirms. |
+| `Allow Rowsafe to install PostgreSQL updates when you click Update? [Y/n]` | Only when restarts are allowed. Minor updates and major upgrades, only when someone confirms; a Mark is saved first. |
+| `Allow Rowsafe to install this server's security updates when you click Install? [y/N]` | Only when restarts are allowed. |
+| `Allow Rowsafe to reboot this server when you click Reboot? [y/N]` | Only after a yes to security updates. |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.
@@ -145,6 +154,14 @@ Secrets are never printed, and nothing is saved until you have answered the stor
 /var/log/rowsafe/                      postgres 0700; pgBackRest logs, rotated daily, 14 kept
 /etc/systemd/system/rowsafe-agent.service
 /etc/logrotate.d/rowsafe
+
+Only when you allowed restarts, updates, security updates or reboots:
+/etc/rowsafe/restart-allowed           root 0644; "PORT UNIT" per cluster Rowsafe may restart or stop
+/etc/rowsafe/updates-allowed           root 0644; postgresql, security, reboot: what Rowsafe may do
+/usr/local/lib/rowsafe/rowsafe-pg-restart   root 0755; the root helper
+/etc/systemd/system/rowsafe-pg-restart.{service,path}   restarts, stops, starts
+/etc/systemd/system/rowsafe-pg-update.{service,path}    updates, upgrades, reboots
+/var/lib/rowsafe-pg-restart/           root 0700; what an upgrade keeps for undo
 ```
 
 **Logs:** `journalctl -u rowsafe-agent` (JSON lines), and `/var/log/rowsafe/<name>-<command>.log`. Each task's log, including pgBackRest's output, is also in `rowsafe task ID`.

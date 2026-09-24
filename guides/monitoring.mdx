@@ -72,7 +72,7 @@ Every database gets a score from **0 to 100** and a short list of findings, wors
 | 50-69 | At risk |
 | Under 50 | Critical |
 
-The score starts at 100 and loses points for each problem: backups and Proof (restore tests), whether PostgreSQL answers, disk space, connections, vacuum and transaction ID wraparound, locks and slow queries, replication. **One critical problem caps the score at 59, and a warning at 89**, so a serious problem is never hidden by an otherwise good score. Missing data means fewer findings, never a false alarm.
+The score starts at 100 and loses points for each problem: backups and Proof (restore tests), whether PostgreSQL answers, disk space, connections, vacuum and transaction ID wraparound, locks and slow queries, replication, and [security](/docs/guides/security) (at most 25 points). **One critical problem caps the score at 59, and a warning at 89**, so a serious problem is never hidden by an otherwise good score. Missing data means fewer findings, never a false alarm.
 
 ```sh
 rowsafe pulse          # every database, worst first
@@ -101,6 +101,7 @@ What Rowsafe can fix:
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
 | The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
+| Connections aren't encrypted, weak password hashing, `CREATE` on schema `public` for everyone | **Turn on encryption**, **Use modern password hashing**, **Remove CREATE from everyone** | See the [security check](/docs/guides/security); who may connect and new passwords are chosen on its page. |
 
 Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 

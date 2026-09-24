@@ -87,6 +87,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
 | `--no-allow-restart` | Don't allow it, without asking. |
+| `--allow-firewall` | Allow Rowsafe to limit who can reach PostgreSQL's port with the server's firewall (nftables), without asking. Only PostgreSQL's port, never SSH; only when someone chooses the addresses under [Security](/docs/guides/security#the-firewall) and confirms. |
+| `--no-allow-firewall` | Don't allow it, without asking; removes Rowsafe's firewall rule and helper. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
@@ -127,6 +129,7 @@ On a terminal, a first install asks:
 | `Name it in Rowsafe [app]:` | After `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`. Enter accepts the suggestion. |
 | `Turn on backups for app now? [Y/n]` | After the plan, in plain words. Nothing changes until you say yes. |
 | `Allow restarting PostgreSQL from the Rowsafe dashboard? [Y/n]` | Only when someone clicks **Restart** and confirms. |
+| `Allow Rowsafe to limit who can reach PostgreSQL's port with the firewall? [y/N]` | Only when nftables is installed. Only PostgreSQL's port, never SSH; only when someone picks the addresses in the dashboard and confirms. See [the firewall](/docs/guides/security#the-firewall). |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.
@@ -150,6 +153,8 @@ Secrets are never printed, and nothing is saved until you have answered the stor
 **Logs:** `journalctl -u rowsafe-agent` (JSON lines), and `/var/log/rowsafe/<name>-<command>.log`. Each task's log, including pgBackRest's output, is also in `rowsafe task ID`.
 
 **The systemd unit** runs the agent as `postgres` with `NoNewPrivileges`, a read-only system, a private `/dev`, no capabilities and restricted address families. It is rewritten by the installer: put local changes in a drop-in (`sudo systemctl edit rowsafe-agent`).
+
+**The firewall helper** (only with `--allow-firewall`): `/usr/local/lib/rowsafe/rowsafe-firewall` (root 0755), started by `rowsafe-firewall.path` when the agent asks, and loaded at boot by `rowsafe-firewall-restore.service`. It changes only its own nftables table (`inet rowsafe`), only for the ports in `/etc/rowsafe/firewall-allowed` (root 0644), and keeps its rules in `/var/lib/rowsafe-firewall`.
 
 ## Agent commands
 

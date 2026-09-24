@@ -15,7 +15,7 @@ The agent:
 
 - connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
 - makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket. Nothing listens on your server;
-- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), and maintenance, a short list of fixes described below. It never runs commands or SQL sent over the network.
+- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, and the [security check](/docs/guides/security) and its fixes. It never runs commands or SQL sent over the network.
 
 Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards.
 
@@ -23,12 +23,17 @@ Proof, the weekly restore test, restores your data onto the same server, into a 
 
 **Restarts are opt-in.** Rowsafe never restarts PostgreSQL on its own. It restarts only when someone clicks **Restart** in the dashboard (or runs `rowsafe restart`) and confirms, and only on servers where you allowed it during install. The installer asks; `--no-allow-restart` answers no. The installer itself can also restart PostgreSQL during setup, when you answer yes on the server. Only admins and owners can restart, never with a read-only API key or through MCP, and at most once every 2 minutes. In Docker, Rowsafe can't restart PostgreSQL at all.
 
+**Security fixes run only when a person asks.** The [security check](/docs/guides/security) reads, every 15 minutes, which addresses may connect, the pg_hba rules, TLS, `password_encryption` and the *kind* of each user's password (none, MD5 or SCRAM, never the hash). Rowsafe's servers also try the database's port from the internet like a stranger, without ever logging in, and only at the server's own addresses. The fixes are a fixed list, each confirmed by an owner or admin and audited: allow only chosen addresses in `pg_hba.conf` (a backup first, checked by PostgreSQL before it takes effect, put back if anything is off), turn on or require TLS, renew a self-signed certificate, `scram-sha-256` hashing, remove `CREATE` on schema `public` from everyone, and set a user's password. A new password is made in the person's browser; only its SCRAM verifier reaches your server, and Rowsafe never sees the password.
+
+**The firewall is opt-in.** With `--allow-firewall` at install, a small root helper can let only chosen addresses reach PostgreSQL's port, in an nftables table of its own. It never touches SSH or other ports, and puts the previous rules back unless the agent confirms within a minute that it still reaches Rowsafe.
+
 ## What Rowsafe can and can't do
 
 Someone who controlled the Rowsafe service, or held one of your API keys, **could**:
 
 - queue the fixed tasks for your databases: plans, backups, checks, Proof runs and Marks, and apply an adoption plan (which sets `archive_mode`, `archive_command`, `archive_timeout` and, if it is `minimal`, `wal_level`);
 - restart PostgreSQL, a few seconds of downtime, but only on a server where you allowed restarts during install;
+- change who can connect to your database (to addresses they choose, or back to the previous rules), turn on or require TLS, and set a user's password, which would lock out apps using the old one; and, where you allowed the firewall, limit PostgreSQL's port to chosen addresses;
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
 - withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back.
@@ -39,8 +44,10 @@ They **could not**:
 - read or write your backups, or reach your bucket at all: the keys and the passphrase never leave your server;
 - make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
 - restart PostgreSQL on a server where you didn't allow it, or stop it;
+- change the firewall on a server where you didn't allow it, or touch any port but PostgreSQL's;
+- learn a password: a new one is made in the person's browser, and roles are reported without their hashes;
 - read, change or delete your rows, or drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped;
-- change settings other than the archiving settings above.
+- change settings other than the archiving settings above and the security settings of the security check (`ssl` and its certificate files, `password_encryption`, `listen_addresses`).
 
 ## Encryption
 

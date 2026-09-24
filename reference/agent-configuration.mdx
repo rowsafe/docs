@@ -53,6 +53,22 @@ Never change the passphrase, bucket or prefix of a repository that holds backups
 
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 
+## Connection pooling
+
+For [Connection pooling](/docs/guides/connection-pooling) (PgBouncer). All are optional.
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_POOLER_STATS_URL` | | A PgBouncer that Rowsafe doesn't manage, to monitor: its admin console as a `postgres://` URL, e.g. `postgres://stats:PASSWORD@pgbouncer:6432/pgbouncer` in Docker. Rowsafe reads its statistics and never changes it. |
+| `ROWSAFE_POOLER_DATABASE` | | With `ROWSAFE_POOLER_STATS_URL`: the name in Rowsafe of the database that PgBouncer serves. Only needed when the agent has more than one database. |
+| `ROWSAFE_POOLER_ALLOW_FILE` | `/etc/rowsafe/pooler-allowed` | The PostgreSQL ports root allowed Rowsafe to put PgBouncer in front of. Written by the installer (`--allow-pooler`). |
+| `ROWSAFE_POOLER_DIR` | `<ROWSAFE_STATE_DIR>/pooler` | Where the agent writes requests for the root helper. |
+| `ROWSAFE_POOLER_RESULT_DIR` | `/run/rowsafe-pooler` | Where the root helper writes its answers. |
+| `ROWSAFE_POOLER_SOCKET_DIR` | `/var/run/postgresql` | The directory of PgBouncer's Unix socket, for its admin console. |
+| `ROWSAFE_POOLER_USERLIST` | `/etc/pgbouncer/userlist.txt` | PgBouncer's user list, where the agent reads the password of `rowsafe_pgbouncer`. |
+
+The root helper and its systemd units use the default paths, so on a server, leave all but the first two unset. Paths must be absolute.
+
 ## Docker
 
 The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set these defaults:
@@ -87,6 +103,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
 | `--no-allow-restart` | Don't allow it, without asking. |
+| `--allow-pooler` | Allow Rowsafe to install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)), without asking. Nothing is installed until someone turns pooling on and confirms. |
+| `--no-allow-pooler` | Don't allow it, without asking. A PgBouncer Rowsafe already set up keeps running, but Rowsafe can no longer change it. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
@@ -127,6 +145,7 @@ On a terminal, a first install asks:
 | `Name it in Rowsafe [app]:` | After `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`. Enter accepts the suggestion. |
 | `Turn on backups for app now? [Y/n]` | After the plan, in plain words. Nothing changes until you say yes. |
 | `Allow restarting PostgreSQL from the Rowsafe dashboard? [Y/n]` | Only when someone clicks **Restart** and confirms. |
+| `Allow Rowsafe to install and manage PgBouncer? ... [Y/n]` | Nothing is installed now: only when someone turns [connection pooling](/docs/guides/connection-pooling) on and confirms. |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.
@@ -146,6 +165,8 @@ Secrets are never printed, and nothing is saved until you have answered the stor
 /etc/systemd/system/rowsafe-agent.service
 /etc/logrotate.d/rowsafe
 ```
+
+With `--allow-pooler`, the installer also writes `/etc/rowsafe/pooler-allowed` and the `rowsafe-pooler` systemd units: see [Connection pooling](/docs/guides/connection-pooling#files-on-the-server) for the files PgBouncer uses.
 
 **Logs:** `journalctl -u rowsafe-agent` (JSON lines), and `/var/log/rowsafe/<name>-<command>.log`. Each task's log, including pgBackRest's output, is also in `rowsafe task ID`.
 

@@ -29,6 +29,22 @@ Every 60 seconds the agent opens one short session (`rowsafe-agent-monitor`) ove
 | Disk | Free space on the data directory's filesystem |
 
 </Accordion>
+<Accordion title="PgBouncer metrics">
+
+Only when [connection pooling](/docs/guides/connection-pooling) is on, or the agent watches a PgBouncer you run yourself.
+
+| Metric | Meaning |
+|---|---|
+| `pooler_up` | 1 when PgBouncer answered that minute, 0 when it didn't |
+| `pooler_clients_active` | Client connections to PgBouncer using a server connection or idle |
+| `pooler_clients_waiting` | Client connections waiting for PgBouncer to give them a server connection |
+| `pooler_servers_active`, `pooler_servers_idle` | PgBouncer's server connections in use by a client, and open and free |
+| `pooler_pool_used_pct` | Server connections in use in the busiest pool, as a percentage of its pool size |
+| `pooler_wait_max_seconds` | How long the longest-waiting client has waited for a server connection |
+| `pooler_wait_avg_ms` | Average time clients waited for a server connection over the last minute |
+| `pooler_xact_rate`, `pooler_query_rate` | Transactions and queries per second through PgBouncer |
+
+</Accordion>
 <Accordion title="Server metrics">
 
 CPU use and count, load averages, memory and swap, and disk use of the filesystem holding the data directory.
@@ -100,16 +116,19 @@ What Rowsafe can fix:
 | An unused or duplicate index | **Remove** | `DROP INDEX CONCURRENTLY`, after saving a Mark. |
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
+| Most connections are in use, or almost none are left | **Turn on pooling** | Installs PgBouncer and starts it in front of PostgreSQL, on servers where you allowed it during install. See [Connection pooling](/docs/guides/connection-pooling). |
+| PgBouncer isn't answering | **Start PgBouncer again** | Rewrites its configuration with the current settings and starts it. |
+| Apps wait for a connection in PgBouncer | **Raise the pool size**, or **Switch to transaction mode** | Raises the pool size by half, within what `max_connections` allows, or switches a session-mode PgBouncer to transaction mode. Nothing is disconnected. |
 | The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
 
-Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
+Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), a **PgBouncer you run yourself** (in Docker, for example) and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 
 ### What keeps it safe
 
 - **Only fixes Rowsafe proposes.** The dashboard and the CLI only name a finding and one of its fixes. Rowsafe checks the database's health again and runs that exact fix, with its own parameters. Nothing sends SQL, and there is no way to run your own. If the problem is gone by then, you're told the fix no longer applies.
 - **A short, fixed list of actions**, checked again on your server right before they run: the table or index still exists, an "unused" index still hasn't been used, the session is still the same one (process ID and start time) and isn't a Rowsafe, replication or autovacuum session, the slot is still inactive. An index that backs a primary key, unique or exclusion constraint is never removed.
 - **Owners and admins only.** Members see the buttons, disabled. API keys need write access: read-only keys can't apply fixes. Every fix is in the audit log, for example "applied a fix to app: Remove orders_legacy_idx".
-- **You confirm what disrupts.** Ending a session, removing an index or a slot, and restarting PostgreSQL show what will happen first. Ending a session and removing an index or a slot ask you to type the database name.
+- **You confirm what disrupts.** Ending a session, removing an index or a slot, restarting PostgreSQL and turning on pooling show what will happen first. Ending a session and removing an index or a slot ask you to type the database name.
 - **A Mark first.** Before removing an index, Rowsafe saves a Mark (a restore point named `before-fix-...`), so you can [restore to just before it](/docs/guides/restore).
 - **Gentle on the server.** Changes to indexes wait at most 5 seconds for a lock and then give up rather than queue behind your traffic. Indexes are rebuilt and removed `CONCURRENTLY`, so reads and writes carry on. Vacuum runs with a small cost delay. One fix runs at a time per database.
 - **AI agents can't.** The [MCP server](/docs/reference/mcp) has no tool for fixes: a person clicks, or runs `rowsafe fix`.
@@ -204,6 +223,8 @@ Rowsafe checks every rule every 30 seconds. A condition must hold for the rule's
 | `replication_lag` | warning | 5 minutes | 5m | A replica is further behind than the threshold. |
 | `deadlocks` | warning | 5 | | More deadlocks than the threshold in 10 minutes. |
 | `cache_hit_low` | info | 90% | 30m | Cache hit ratio below the threshold with real read traffic. |
+| `pooler_down` | critical | | 2m | PgBouncer in front of the database doesn't answer (only where [pooling](/docs/guides/connection-pooling) is on or monitored). |
+| `pooler_clients_waiting` | warning | 2 seconds | 5m | Clients waited longer than the threshold for a PostgreSQL connection in PgBouncer. |
 
 Backup and archiving rules (`backup_stale`, `wal_archiving_failing`, `postgres_unreachable`, the Proof rules, `restore_point_unconfirmed`) wait until backups are switched on for the database, so a database you just added doesn't page you. Disk, connection, wraparound, lock and replication rules apply from the start.
 

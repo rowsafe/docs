@@ -123,6 +123,26 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 
 `channels add` takes `--min-severity info|warning|critical` (default `warning`).
 
+## Connection pooling
+
+| Command | What it does |
+|---|---|
+| `rowsafe pooling status [NAME]` | [Connection pooling](/docs/guides/connection-pooling) (PgBouncer): state, settings, the direct and pooled connection strings, and the busiest pools. `--json`. |
+| `rowsafe pooling on [NAME]` | Turn pooling on: Rowsafe installs PgBouncer on the server if needed and starts it. When pooling is on, changes the settings you pass and keeps the others. Asks to confirm; `--yes` skips it. |
+| `rowsafe pooling off [NAME]` | Stop PgBouncer and remove what Rowsafe installed. Apps that connect through it must connect directly again. Asks to confirm; `--yes` skips it. |
+
+**`pooling on` flags** (left out: Rowsafe picks, or keeps the current value):
+
+| Flag | Default | |
+|---|---|---|
+| `--mode transaction\|session` | `transaction` | How PgBouncer shares connections. See [Transaction or session mode](/docs/guides/connection-pooling#transaction-or-session-mode). |
+| `--pool-size N` | From `max_connections` and CPUs | PostgreSQL connections per database and user. |
+| `--max-client-conn N` | `1000` | Client connections PgBouncer accepts. |
+| `--listen local\|private\|public` | `private` | This server only; also its private network; or every address. |
+| `--port N` | `6432` | PgBouncer's port. |
+
+Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. AI agents (MCP) and read-only API keys can't change it.
+
 ## Hosts
 
 | Command | What it does |

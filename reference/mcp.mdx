@@ -77,7 +77,8 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 ## Safety model
 
 - **Everything goes through the Rowsafe API**, with the same API key, checks, plan limits and audit log as the CLI. Every change a tool makes is in `rowsafe audit`, attributed to the key.
-- **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
+- **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL or reads backup contents: Rowsafe can't do those at all.
+- **No restores.** `rewind_window` only shows how far back a database can go. No tool restores a copy, brings rows back or rewinds a database: a person does that, on the **Rewind** page in the dashboard or with `rowsafe rewind`, after confirming. See [Restore a database](/docs/guides/restore).
 - **No restarts.** No tool restarts PostgreSQL, even on a server where restarts from the dashboard are allowed. Only a person can, in the dashboard or with `rowsafe restart`.
 - **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only. `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
 - **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, and agent update settings.
@@ -103,6 +104,7 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
+| `rewind_window` | read | How far back the database can be rewound: the earliest and latest second, the newest Marks, a restored copy if there is one, data kept aside by a rewind, and whether the whole database can be rewound on its server. Tells the assistant to leave the rewinding to you. |
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
 | `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |
 | `apply_adoption` | write, destructive | Apply the plan. Needs `confirm: "<database name>"`. |
@@ -118,13 +120,13 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 
 | Tool | Parameters |
 |---|---|
-| `get_database`, `safety_check`, `list_restore_points` | `database` (required) |
+| `get_database`, `safety_check`, `list_restore_points`, `rewind_window` | `database` (required) |
 | `database_health` | `database` (optional) |
 | `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
 | `query_trends` | `database` (required), `since_hours` (1 to 336, default 24), `sort` (`total_time`, `calls`, `mean_time`, `rows`), `limit` (1 to 50, default 10), `query_id` |
 | `list_backups` | `database` (required), `limit` (1 to 100, default 20) |
 | `list_drills` | `database` (required), `limit` (1 to 50, default 10) |
-| `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`), `limit` (1 to 100, default 20) |
+| `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`, `restart`, `maintenance`, `rewind_copy`, `rewind_drop`, `rewind_compare`, `rewind_rows`, `rewind_in_place`, `rewind_undo`, `rewind_cleanup`), `limit` (1 to 100, default 20) |
 | `get_task` | `task_id` (required), `log_tail_bytes` (0 to 16000, default 4000) |
 | `create_restore_point` | `database` (required), `name` (default `agent-<UTC time>`), `wait_seconds` (0 to 120, default 90; at most 45 on the remote endpoint) |
 | `plan_adoption` | `database` (required), `host`, `port`, `socket_dir`, `retention_full`, `wait_seconds` |

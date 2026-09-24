@@ -10,18 +10,21 @@ Rowsafe is built so that the hosted service never needs your data or your secret
 - **The agent** (`rowsafe-agent`), as the `postgres` system user. It refuses to run as root.
 - **pgBackRest**, which the agent and PostgreSQL's `archive_command` run.
 - A systemd unit with `NoNewPrivileges`, a read-only system except its own directories, a private `/dev`, no capabilities and restricted address families. The kernel's out-of-memory killer picks the agent before production PostgreSQL, and it gets half the default CPU and IO weight.
+- **Only if you allow it at install**, a small root helper, `rowsafe-pg-restart`, the one part that runs as root. It restarts, stops or starts PostgreSQL when a person asked for it (Restart, and Rewind the whole database). It reads the agent's request with the agent's own privileges, accepts one strict line, and acts only on the PostgreSQL units that root listed in `/etc/rowsafe/restart-allowed` at install. Restarts happen at most once a minute.
 
 The agent:
 
 - connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
 - makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket. Nothing listens on your server;
-- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), and maintenance, a short list of fixes described below. It never runs commands or SQL sent over the network.
+- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, and the Rewind tasks: restore a copy, compare, bring back rows, rewind in place, undo and clean up. It never runs commands or SQL sent over the network.
 
-Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards.
+Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards. A Rewind copy is restored the same way and kept until it expires (24 hours by default, at most 7 days); the agent deletes it on time even when it can't reach Rowsafe.
+
+**Rewind runs only when a person asks.** Restoring a copy, bringing rows back, rewinding a whole database, undoing it and deleting the data kept aside all start from the dashboard or `rowsafe rewind`, by an owner or admin. Bringing rows back and rewinding ask you to type the database name, and Rowsafe saves a Mark first. The comparison and the rows stay on your server: only table names, counts and sizes reach Rowsafe. Read-only API keys and the MCP server (AI agents) can't do any of it. See [Restore a database](/docs/guides/restore).
 
 **Fixes run only when a person asks.** Rowsafe can run a fixed set of maintenance actions: `VACUUM` and `ANALYZE` tables, `REINDEX INDEX CONCURRENTLY`, `DROP INDEX CONCURRENTLY`, cancel a query (`pg_cancel_backend`), end a session (`pg_terminate_backend`) and drop an inactive replication slot. It never runs them on its own: only when an owner or admin clicks **Apply fix** in the dashboard (or runs `rowsafe fix`) and confirms. The service proposes each fix from a health finding and the client can only pick one by its ID, never send SQL or object names. The agent checks again right before it runs: the object still exists, the session is still the same one and isn't a Rowsafe, replication or autovacuum session, the slot is still inactive, and an index that backs a constraint is never dropped. Before dropping an index, Rowsafe saves a Mark so you can restore to just before it. Read-only API keys and the MCP server (AI agents) can't apply fixes. See [Apply fix](/docs/guides/monitoring#apply-fix).
 
-**Restarts are opt-in.** Rowsafe never restarts PostgreSQL on its own. It restarts only when someone clicks **Restart** in the dashboard (or runs `rowsafe restart`) and confirms, and only on servers where you allowed it during install. The installer asks; `--no-allow-restart` answers no. The installer itself can also restart PostgreSQL during setup, when you answer yes on the server. Only admins and owners can restart, never with a read-only API key or through MCP, and at most once every 2 minutes. In Docker, Rowsafe can't restart PostgreSQL at all.
+**Restarts are opt-in.** Rowsafe never restarts or stops PostgreSQL on its own. It restarts it only when someone clicks **Restart** in the dashboard (or runs `rowsafe restart`) and confirms, and stops and starts it only to rewind the whole database, and only on servers where you allowed it during install ("Allow Rowsafe to restart or stop PostgreSQL when you ask?"). The installer asks; `--no-allow-restart` answers no and removes the helper. The installer itself can also restart PostgreSQL during setup, when you answer yes on the server. Only admins and owners can restart, never with a read-only API key or through MCP, and at most once every 2 minutes. In Docker, Rowsafe can't restart or stop PostgreSQL at all.
 
 ## What Rowsafe can and can't do
 
@@ -29,6 +32,8 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 
 - queue the fixed tasks for your databases: plans, backups, checks, Proof runs and Marks, and apply an adoption plan (which sets `archive_mode`, `archive_command`, `archive_timeout` and, if it is `minimal`, `wal_level`);
 - restart PostgreSQL, a few seconds of downtime, but only on a server where you allowed restarts during install;
+- restore copies of your databases next to production (they use disk and some CPU until they expire), compare them with production, and bring rows back from a copy: insert rows that are missing in production, or set changed rows back to their older values. It never deletes rows this way;
+- on a server where you allowed restarts, rewind a whole database to an earlier moment (downtime while it restores), and delete the data kept aside for undo. Every change is still in your bucket until retention removes it, so you could still [restore it by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server);
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
 - withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back.
@@ -38,8 +43,9 @@ They **could not**:
 - run arbitrary commands or SQL on your server;
 - read or write your backups, or reach your bucket at all: the keys and the passphrase never leave your server;
 - make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
-- restart PostgreSQL on a server where you didn't allow it, or stop it;
-- read, change or delete your rows, or drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped;
+- restart or stop PostgreSQL on a server where you didn't allow it;
+- read your rows: comparisons and restores run on your server and report only counts and sizes;
+- drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped;
 - change settings other than the archiving settings above.
 
 ## Encryption

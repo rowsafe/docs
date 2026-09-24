@@ -16,9 +16,9 @@ Before any destructive or risky database operation:
 1. **Is it safe?** `safety_check` (or `rowsafe status app`) answers "could this database be restored right now?". If not, the agent tells you why and waits for your OK.
 2. **Set a Mark** with a descriptive name: `create_restore_point` (or `rowsafe mark app before-drop-orders`). It waits until the Mark is in your bucket, and tells you its name.
 3. **Proceed.**
-4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore#to-a-restore-point).
+4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore): in the dashboard, restore a copy at that Mark and bring back what was lost, or rewind the whole database.
 
-Agents can't restore, and they can't restart PostgreSQL: no MCP tool does either.
+Agents can't restore a copy, bring rows back, rewind a database or restart PostgreSQL: no MCP tool does any of it. They can show you how far back you can go (`rewind_window`), and you click.
 
 **Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
 
@@ -57,7 +57,7 @@ Give any MCP client the read tools plus Marks:
 claude mcp add rowsafe -- rowsafe mcp --allow-restore-points
 ```
 
-That adds `safety_check`, `create_restore_point`, `list_restore_points` and the read-only fleet tools, and nothing that queues backups or changes settings. See the [MCP reference](/docs/reference/mcp) for other clients, the remote endpoint and every tool.
+That adds `safety_check`, `create_restore_point`, `list_restore_points`, `rewind_window` and the read-only fleet tools, and nothing that queues backups or changes settings. See the [MCP reference](/docs/reference/mcp) for other clients, the remote endpoint and every tool.
 
 </Tab>
 <Tab value="AGENTS.md only">
@@ -85,8 +85,9 @@ without a narrow WHERE, backfills, resets, restoring a dump):
    me its name.
 3. Then proceed.
 
-If something goes wrong: stop, don't try to repair the data, and never restore anything
-yourself. Tell me what happened and the Mark's name; I'll decide whether to restore.
+If something goes wrong: stop, don't try to repair the data, and never restore, rewind or
+restart anything yourself. Tell me what happened and the Mark's name; I'll decide whether
+to Rewind from the Rowsafe dashboard.
 ```
 
 ## The guard hook

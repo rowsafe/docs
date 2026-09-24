@@ -86,6 +86,34 @@ Commands that run something wait for it to finish, and exit `1` if it fails. Pas
 
 With one argument, `rowsafe mark X` treats `X` as the database if it names one, and otherwise as the label for the inferred database. So in a project whose `.rowsafe.json` names `app`, `rowsafe mark before-drop` marks `app` as `before-drop`.
 
+## Rewind
+
+The same as the **Rewind** page in the dashboard: restore a copy as it was at any second or at a Mark, compare it with production, bring rows back, or rewind the whole database. See [Restore a database](/docs/guides/restore) for what each one does.
+
+| Command | What it does |
+|---|---|
+| `rowsafe rewind [NAME]` | The recovery window, the newest Marks, the copy, and data kept aside by a rewind, with the next command to run. `--json`. |
+| `rowsafe rewind copy [NAME] (--at TIME \| --mark LABEL)` | Restore a copy next to production. It never touches production. `--hours N` keeps it N hours (default 24, 1 to 168). Waits until the copy is ready; `--no-wait` returns at once. |
+| `rowsafe rewind compare [NAME] [TABLE...]` | Count, by primary key, the rows missing in production, changed, and added since. No `TABLE`: every table. `--db DB`, `--json`. |
+| `rowsafe rewind rows [NAME] TABLE...` | Bring back the rows missing in production from the copy. Rowsafe saves a Mark first. `--include-changed` also sets changed rows back to the copy's values. `--db DB`. Asks you to type the database name; `--yes` skips it. |
+| `rowsafe rewind extend [NAME]` | Keep the copy longer: `--hours N` from now (default 24, at most 168). |
+| `rowsafe rewind drop [NAME]` | Delete the copy. Asks first; `--yes` skips it. |
+| `rowsafe rewind database [NAME] (--at TIME \| --mark LABEL)` | Rewind the whole live database. PostgreSQL is stopped while Rowsafe restores it, and the current data is kept aside for 7 days. Only on servers that allow it. Asks you to type the database name; `--yes` skips it. |
+| `rowsafe rewind undo [NAME]` | Undo the latest rewind: put the data from before it back. Asks you to type the database name; `--yes` skips it. |
+| `rowsafe rewind cleanup [NAME]` | Delete the data kept aside by a rewind, to free disk. The rewind can't be undone afterwards. Asks first; `--yes` skips it. |
+
+`TIME` is in your time zone: `"2026-09-24 14:04"` or `"2026-09-24 14:04:05"`, `"14:04"` (today), `"10m ago"`, `"2h ago"`, `"1h30m ago"`, or RFC 3339 such as `2026-09-24T12:04:00Z`. It can't be in the future.
+
+`TABLE` is `schema.table`, or `table` for `public.table`. When the copy has several PostgreSQL databases, write `DB:schema.table` or pass `--db DB`.
+
+```sh
+rowsafe rewind copy app --at "14:04"
+rowsafe rewind compare app
+rowsafe rewind rows app public.orders public.order_items
+```
+
+The commands wait for the work to finish and print what happened, for example `Brought back 1,204 rows in public.orders and 3,310 in public.order_items.` Only owners and admins can run them, never with a read-only API key.
+
 ## Database settings
 
 ```sh

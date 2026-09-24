@@ -27,7 +27,7 @@ If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you d
 
 - The stock `postgres` image has no pgBackRest. So `archive_command` only **copies** each WAL file into a shared **spool** volume, with standard tools (`cp`, `sync`, `mv`), and never overwrites a different file.
 - The agent **pushes** spooled files to your bucket with pgBackRest, in order, and deletes each one only after it is stored.
-- Backups, checks, Marks and Proof (the weekly restore test) run in the agent container. It reads the data volume **read-only**, at the same path.
+- Backups, checks, Marks, Proof (the weekly restore test) and Rewind copies run in the agent container. It reads the data volume **read-only**, at the same path.
 - Nothing runs inside the PostgreSQL container except `archive_command`. Rowsafe never restarts it.
 
 <Callout type="warn" title="The spool must be on durable disk">
@@ -161,6 +161,11 @@ docker compose restart postgres      # you, in a maintenance window
 Rowsafe notices the restart by itself and proves that WAL reaches the bucket, through the spool. To check right away, click **Check now** on the database's page or run `rowsafe verify app`.
 
 The settings are written with `ALTER SYSTEM` into `postgresql.auto.conf` in the data volume, so they survive container restarts and re-creation.
+
+## Rewind in Docker
+
+- **Restore a copy, compare and bring back rows work** as on a server: see [Restore a database](/docs/guides/restore). The copy runs in the agent container, like Proof, and lives in the `rowsafe-state` volume, so that volume needs free disk of about 1.3 × the database size + 1 GB. Rows are brought back into production over the shared socket.
+- **Rewinding the whole database in place isn't available in Docker.** Rowsafe never stops or restarts the PostgreSQL container, and the agent sees the data volume read-only. Restore a copy and bring back the rows you need instead, or [restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server) into a new volume.
 
 ## Upgrade
 

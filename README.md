@@ -11,7 +11,7 @@ Found a mistake, or something unclear? Every page has an **Edit on GitHub** link
 ```text
 index.mdx            Introduction (/docs)
 quickstart.mdx       /docs/quickstart
-concepts/            How Rowsafe works, backups, drills, restore points, ...
+concepts/            How Rowsafe works, backups, Proof, Marks, ...
 guides/              Adopt, restore, Docker, AI agents, monitoring, teams, updates
 reference/           CLI, agent configuration, MCP server, webhooks
 security/            Security model, verifying releases, disclosure

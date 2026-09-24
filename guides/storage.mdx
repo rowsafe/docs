@@ -1,17 +1,17 @@
 ---
 title: Set up backup storage
-description: Create a storage bucket and an access key for your backups, with step-by-step instructions for Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces and other S3-compatible storage.
+description: Create a storage bucket and an access key for your backups, and find the bucket URL the installer asks for. Step by step for Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces and other S3-compatible storage.
 ---
 
 Rowsafe keeps your backups in a storage bucket **that you own**. Rowsafe never stores your data itself, and it never sees the keys to your bucket: they stay on your database server.
 
 You need three things:
 
-1. **An empty, private bucket** just for Rowsafe.
+1. **The bucket URL** of an empty, private bucket just for Rowsafe.
 2. **An access key** (an ID and a secret) that can read, write and delete files in that bucket.
-3. **An encryption passphrase.** The installer can generate one for you.
+3. **An encryption passphrase.** The installer generates one for you.
 
-The agent installer asks for these in your terminal and **tests the bucket before it finishes**, so you'll know right away if anything is wrong. You never paste keys into the Rowsafe dashboard.
+The installer asks for the **bucket URL first**. It works out the provider, region and bucket name from it, then asks for the access key. It **tests the bucket before it finishes**, so you'll know right away if anything is wrong. You never paste keys into the Rowsafe dashboard.
 
 <Callout title="Which provider should I pick?">
   If you don't have a preference, use **Cloudflare R2**: the first 10 GB are free and downloads (restores) cost nothing. Any provider below works the same way with Rowsafe.
@@ -21,19 +21,31 @@ The agent installer asks for these in your terminal and **tests the bucket befor
 
 <Steps>
 <Step>
+
 ### Create a bucket
 
 In the [Cloudflare dashboard](https://dash.cloudflare.com), open **R2 Object Storage** and choose **Create bucket**. Give it a name such as `mycompany-rowsafe`. If your data must stay in the EU, set the location to **European Union (EU jurisdiction)**. Leave public access off.
+
 </Step>
 <Step>
+
+### Copy the bucket URL
+
+Open the bucket, then **Settings**. Copy the **S3 API** URL:
+
+```text
+https://<account-id>.r2.cloudflarestorage.com/mycompany-rowsafe
+```
+
+For a bucket in the EU jurisdiction, it has `.eu` in it: `https://<account-id>.eu.r2.cloudflarestorage.com/mycompany-rowsafe`.
+
+</Step>
+<Step>
+
 ### Create an access key
 
-Still in R2, open **Manage API tokens** and choose **Create API token**. Pick **Object Read & Write**, and under "Specify bucket(s)" select only your new bucket. After you create it, keep the page open: it shows the **Access Key ID**, the **Secret Access Key** (only once) and your **account ID**.
-</Step>
-<Step>
-### Run the installer
+Back in R2, open **Manage API tokens** and choose **Create API token**. Pick **Object Read & Write**, and under "Specify bucket(s)" select only your new bucket. After you create it, keep the page open: it shows the **Access Key ID** and the **Secret Access Key**, only once.
 
-When the installer asks where to store backups, choose **Cloudflare R2** and paste the account ID, bucket name, access key ID and secret. Answer "yes" to the EU question if you created the bucket with the EU location.
 </Step>
 </Steps>
 
@@ -41,19 +53,29 @@ When the installer asks where to store backups, choose **Cloudflare R2** and pas
 
 <Steps>
 <Step>
+
 ### Create a bucket
 
-In your [Backblaze account](https://secure.backblaze.com/b2_buckets.htm), choose **Create a Bucket**. Make it **Private**. Note the **Endpoint** shown on the bucket, for example `s3.us-west-004.backblazeb2.com`: the part after `s3.` and before `.backblazeb2.com` is your region (`us-west-004`).
+In your [Backblaze account](https://secure.backblaze.com/b2_buckets.htm), choose **Create a Bucket**. Make it **Private**.
+
 </Step>
 <Step>
+
+### Copy the bucket URL
+
+The bucket's page shows its **Endpoint**, for example `s3.us-west-004.backblazeb2.com`. Your bucket URL is that endpoint followed by the bucket name:
+
+```text
+https://s3.us-west-004.backblazeb2.com/mycompany-rowsafe
+```
+
+</Step>
+<Step>
+
 ### Create an application key
 
-Open **Application Keys** and choose **Add a New Application Key**. Allow access to **your new bucket only**, with **Read and Write** access. Copy the **keyID** and the **applicationKey**; the application key is shown only once.
-</Step>
-<Step>
-### Run the installer
+Open **Application Keys** and choose **Add a New Application Key**. Allow access to **your new bucket only**, with **Read and Write** access. Copy the **keyID** (the installer's access key ID) and the **applicationKey** (the secret). The application key is shown only once.
 
-Choose **Backblaze B2** and enter the region, bucket name, keyID (as the access key ID) and applicationKey (as the secret).
 </Step>
 </Steps>
 
@@ -61,11 +83,26 @@ Choose **Backblaze B2** and enter the region, bucket name, keyID (as the access 
 
 <Steps>
 <Step>
+
 ### Create a bucket
 
 In the [S3 console](https://console.aws.amazon.com/s3/), choose **Create bucket**, pick a region close to your database server, and keep **Block all public access** turned on.
+
 </Step>
 <Step>
+
+### Copy the bucket URL
+
+Use either form, with your bucket's name and region:
+
+```text
+https://mycompany-rowsafe.s3.eu-central-1.amazonaws.com
+https://s3.eu-central-1.amazonaws.com/mycompany-rowsafe
+```
+
+</Step>
+<Step>
+
 ### Create an access key for Rowsafe only
 
 In IAM, create a user for Rowsafe (no console access) and attach a policy that allows only this bucket:
@@ -81,11 +118,7 @@ In IAM, create a user for Rowsafe (no console access) and attach a policy that a
 ```
 
 Then create an **access key** for that user and copy the access key ID and secret.
-</Step>
-<Step>
-### Run the installer
 
-Choose **Amazon S3** and enter the bucket's region (for example `eu-central-1`), the bucket name, and the key.
 </Step>
 </Steps>
 
@@ -93,19 +126,29 @@ Choose **Amazon S3** and enter the bucket's region (for example `eu-central-1`),
 
 <Steps>
 <Step>
+
 ### Create a bucket
 
 In the [Wasabi console](https://console.wasabisys.com), choose **Create Bucket** and pick a region. Keep it private.
+
 </Step>
 <Step>
+
+### Copy the bucket URL
+
+It is the region's endpoint followed by the bucket name, for example:
+
+```text
+https://s3.eu-central-1.wasabisys.com/mycompany-rowsafe
+```
+
+</Step>
+<Step>
+
 ### Create an access key
 
 Create a sub-user for Rowsafe with programmatic access, give it a policy limited to this bucket (read, write, delete), and create an **access key** for it. Copy the key and secret.
-</Step>
-<Step>
-### Run the installer
 
-Choose **Wasabi** and enter the bucket's region (for example `eu-central-1`), the bucket name, and the key.
 </Step>
 </Steps>
 
@@ -113,33 +156,49 @@ Choose **Wasabi** and enter the bucket's region (for example `eu-central-1`), th
 
 <Steps>
 <Step>
+
 ### Create a Space
 
 In the [DigitalOcean control panel](https://cloud.digitalocean.com/spaces), choose **Create a Spaces Bucket**, pick a datacenter region (for example `fra1`) and keep file listing restricted.
+
 </Step>
 <Step>
+
+### Copy the bucket URL
+
+Copy the Space's **Origin Endpoint** from its page:
+
+```text
+https://mycompany-rowsafe.fra1.digitaloceanspaces.com
+```
+
+</Step>
+<Step>
+
 ### Create an access key
 
 Open **Spaces Object Storage > Access Keys** and create a key with read, write and delete access, limited to this bucket if you can. Copy the access key and secret.
-</Step>
-<Step>
-### Run the installer
 
-Choose **DigitalOcean Spaces** and enter the region slug (for example `fra1`), the bucket name, and the key.
 </Step>
 </Steps>
 
 ## Other S3-compatible storage
 
-Rowsafe works with any storage that speaks the S3 protocol over HTTPS: MinIO, Ceph, Hetzner Object Storage, OVHcloud Object Storage, Scaleway and others. Create a private bucket and an access key limited to it, then choose **Other S3-compatible storage** in the installer and enter the endpoint (for example `s3.example.com` or `s3.example.com:9000`), bucket name and key.
+Rowsafe works with any storage that speaks the S3 protocol over HTTPS: MinIO, Ceph, Hetzner Object Storage, OVHcloud Object Storage, Scaleway and others. Create a private bucket and an access key limited to it.
+
+When the installer asks for the bucket URL, paste the storage's endpoint followed by the bucket name, for example `https://s3.example.com/mycompany-rowsafe` or `https://s3.example.com:9000/mycompany-rowsafe`.
 
 ## The encryption passphrase
 
-Backups are encrypted **on your server** before they're uploaded, so your storage provider only ever sees scrambled data. The installer offers to generate a strong passphrase and shows it **once**.
+Backups are encrypted **on your server** before they're uploaded, so your storage provider only ever sees scrambled data. The installer generates a strong passphrase and shows it **once**.
 
 <Callout type="warn" title="Save the passphrase in your password manager">
   Without it, your backups can't be restored. Rowsafe doesn't have a copy and can't recover it. The installer asks you to type its last 4 characters to confirm you've saved it.
 </Callout>
+
+## Without questions
+
+For automation (cloud-init, configuration management, CI), give the installer the storage settings in its environment instead: `ROWSAFE_REPO_S3_ENDPOINT`, `ROWSAFE_REPO_S3_BUCKET`, `ROWSAFE_REPO_S3_KEY`, `ROWSAFE_REPO_S3_KEY_SECRET` and `ROWSAFE_REPO_CIPHER_PASS`. It then asks nothing about storage. See [Adopt an existing database](/docs/guides/adopt) for an example, and [Agent configuration](/docs/reference/agent-configuration#bucket-repository) for every setting.
 
 ## Good to know
 

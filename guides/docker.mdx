@@ -3,7 +3,7 @@ title: Run the agent in Docker
 description: Protect PostgreSQL running in the official postgres image, with the Rowsafe agent as a sidecar container. No changes to your image.
 ---
 
-If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you don't install anything on the Docker host. The agent runs as a **sidecar container** in the same compose project. You add a few volume mounts and one service. Adoption then works like on a server: plan, apply, restart the container yourself, verify.
+If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you don't install anything on the Docker host. The agent runs as a **sidecar container** in the same compose project. You add a few volume mounts and one service. Then you add the database from the dashboard or the CLI: plan, apply, and restart the container yourself. Rowsafe notices the restart.
 
 <Callout title="Linux Docker hosts only for production">
   Docker Desktop on macOS or Windows runs containers in a VM whose disk and `fsync` behaviour Rowsafe doesn't guarantee. Use it to try Rowsafe, not for data you need to recover. Kubernetes isn't covered.
@@ -27,7 +27,7 @@ If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you d
 
 - The stock `postgres` image has no pgBackRest. So `archive_command` only **copies** each WAL file into a shared **spool** volume, with standard tools (`cp`, `sync`, `mv`), and never overwrites a different file.
 - The agent **pushes** spooled files to your bucket with pgBackRest, in order, and deletes each one only after it is stored.
-- Backups, checks, restore points and drills run in the agent container. It reads the data volume **read-only**, at the same path.
+- Backups, checks, Marks and Proof (the weekly restore test) run in the agent container. It reads the data volume **read-only**, at the same path.
 - Nothing runs inside the PostgreSQL container except `archive_command`. Rowsafe never restarts it.
 
 <Callout type="warn" title="The spool must be on durable disk">
@@ -71,7 +71,7 @@ services:
     restart: unless-stopped
     depends_on: [postgres]
     env_file: rowsafe-agent.env
-    shm_size: 256m                          # drills start a scratch PostgreSQL here
+    shm_size: 256m                          # Proof starts a scratch PostgreSQL here
     volumes:
       - pgdata:/var/lib/postgresql/data:ro  # same volume, same path, read-only
       - pgsocket:/var/run/postgresql
@@ -150,14 +150,15 @@ Keep the `rowsafe-state` volume: it holds the host's identity and the generated 
 
 ## Adopt
 
-Adoption works like on a server. Only the restart differs:
+The one-command installer is for servers. In Docker, add the database in the dashboard (**Databases**, then **Add database**) or with the CLI:
 
 ```sh
 rowsafe adopt app --host db-1        # read-only plan
 rowsafe apply app                    # config, spool directory, ALTER SYSTEM + reload
 docker compose restart postgres      # you, in a maintenance window
-rowsafe verify app                   # proves WAL reaches the bucket, through the spool
 ```
+
+Rowsafe notices the restart by itself and proves that WAL reaches the bucket, through the spool. To check right away, click **Check now** on the database's page or run `rowsafe verify app`.
 
 The settings are written with `ALTER SYSTEM` into `postgresql.auto.conf` in the data volume, so they survive container restarts and re-creation.
 
@@ -169,7 +170,7 @@ The agent never updates itself in Docker. To upgrade, change the tag and recreat
 docker compose up -d rowsafe-agent
 ```
 
-If a backup or drill is interrupted, the new container reports it as failed and the schedule runs it again. WAL waiting in the spool is pushed by the new container.
+If a backup or Proof run is interrupted, the new container reports it as failed and the schedule runs it again. WAL waiting in the spool is pushed by the new container.
 
 Rowsafe doesn't do PostgreSQL **major** upgrades. After one, switch to the agent tag for the new major and adopt the database again, so its repository starts a new history.
 
@@ -200,7 +201,7 @@ If WAL piles up in the spool, `docker compose logs rowsafe-agent` shows the pgBa
 <Accordion title="Other settings">
 
 - **`POSTGRES_USER` other than `postgres`:** set `ROWSAFE_PG_USER` to that role. The agent must connect as a superuser over the socket.
-- **Locales:** the agent image includes `C.UTF-8` and `en_US.UTF-8`. A database created with another locale can't be opened by a drill.
+- **Locales:** the agent image includes `C.UTF-8` and `en_US.UTF-8`. A database created with another locale can't be opened by Proof.
 - **Several PostgreSQL containers:** give each one its own agent.
 - **Throughput:** the pusher sends one WAL segment at a time, typically tens of MB/s. A database that writes WAL faster for long periods builds a backlog, and the stall alert tells you.
 - **Other images** work if they have `sh`, `test`, `cmp`, `cp`, `sync` and `mv`, a `postgres` user the agent can match, and a data directory mounted at the same path.

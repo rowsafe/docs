@@ -1,20 +1,24 @@
 ---
-title: Use Rowsafe with AI agents
-description: A safety net for coding agents that run migrations and SQL. Check protection, create a restore point, then proceed.
+title: "Guard: a safety net for AI agents"
+description: Guard is Rowsafe's safety net for coding agents that run migrations and SQL. Check that the database is safe, set a Mark, then proceed.
 ---
 
 Coding agents run migrations, backfills and ad-hoc SQL, often without a person watching each command. When one goes wrong (a migration that drops the wrong column, a `DELETE` that lost its `WHERE`, `prisma migrate reset` against the wrong `DATABASE_URL`), what matters is whether you can get back to the moment before.
 
-Rowsafe gives you that moment. Before a risky change, the agent checks that the database is recoverable and creates a named [restore point](/docs/concepts/restore-points). If something breaks, you know exactly where to restore to.
+**Guard** gives you that moment. Before a risky change, the agent asks Rowsafe "is it safe?" (could this database be restored right now?) and sets a [Mark](/docs/concepts/restore-points), a named restore point. If something breaks, you know exactly where to rewind to.
+
+Guard is three things you can combine: the MCP tools, a Claude Code hook (`rowsafe guard`), and a snippet for your agent instructions.
 
 ## The workflow
 
 Before any destructive or risky database operation:
 
-1. **Check protection.** `safety_check` (or `rowsafe status app`) answers "could this database be restored right now?". If not, the agent tells you why and waits for your OK.
-2. **Create a restore point** with a descriptive name: `create_restore_point` (or `rowsafe mark app before-drop-orders`). It waits until the point is in your bucket, and tells you its name.
+1. **Is it safe?** `safety_check` (or `rowsafe status app`) answers "could this database be restored right now?". If not, the agent tells you why and waits for your OK.
+2. **Set a Mark** with a descriptive name: `create_restore_point` (or `rowsafe mark app before-drop-orders`). It waits until the Mark is in your bucket, and tells you its name.
 3. **Proceed.**
-4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the restore point, and you decide whether to [restore](/docs/guides/restore#to-a-restore-point).
+4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore#to-a-restore-point).
+
+Agents can't restore, and they can't restart PostgreSQL: no MCP tool does either.
 
 **Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
 
@@ -33,9 +37,9 @@ This writes `.rowsafe.json` (`{"database": "app"}`). The CLI, the MCP server and
 
 The plugin bundles three things:
 
-- the MCP server with restore points (`rowsafe mcp --allow-restore-points`);
+- the MCP server with Marks (`rowsafe mcp --allow-restore-points`);
 - a skill, `rowsafe-safety`, that teaches the workflow;
-- a hook, `rowsafe guard`, that creates a restore point **right before** destructive commands, whether or not the model remembered to.
+- a hook, `rowsafe guard`, that sets a Mark **right before** destructive commands, whether or not the model remembered to.
 
 ```sh
 claude plugin marketplace add rowsafe/rowsafe
@@ -47,7 +51,7 @@ Or inside Claude Code: `/plugin marketplace add rowsafe/rowsafe`, then `/plugin 
 </Tab>
 <Tab value="MCP server">
 
-Give any MCP client the read tools plus restore points:
+Give any MCP client the read tools plus Marks:
 
 ```sh
 claude mcp add rowsafe -- rowsafe mcp --allow-restore-points
@@ -76,13 +80,13 @@ without a narrow WHERE, backfills, resets, restoring a dump):
 
 1. Run `safety_check` for `app` (or `rowsafe status app`). If it is not protected,
    tell me the reasons and wait for my OK.
-2. Create a restore point with a descriptive name: `create_restore_point` (or
-   `rowsafe mark app before-<what>`), wait until it is confirmed, and tell
+2. Set a Mark (a named restore point) with a descriptive name: `create_restore_point`
+   (or `rowsafe mark app before-<what>`), wait until it is confirmed, and tell
    me its name.
 3. Then proceed.
 
 If something goes wrong: stop, don't try to repair the data, and never restore anything
-yourself. Tell me what happened and the restore point's name; I'll decide whether to restore.
+yourself. Tell me what happened and the Mark's name; I'll decide whether to restore.
 ```
 
 ## The guard hook
@@ -90,10 +94,10 @@ yourself. Tell me what happened and the restore point's name; I'll decide whethe
 `rowsafe guard` runs before every Bash command in Claude Code. For a command that looks destructive, it:
 
 1. finds the project's database, from `ROWSAFE_DATABASE` or the nearest `.rowsafe.json`;
-2. creates the restore point `agent-<UTC time>` and waits up to 90 seconds for it to be confirmed;
-3. lets the command run, and tells you and Claude the restore point's name.
+2. sets the Mark `agent-<UTC time>` and waits up to 90 seconds for it to be confirmed;
+3. lets the command run, and tells you and Claude the Mark's name.
 
-If anything fails (no database configured, not logged in, Rowsafe unreachable, the point not confirmed), it only warns and the command runs.
+If anything fails (no database configured, not logged in, Rowsafe unreachable, the Mark not confirmed), it only warns and the command runs.
 
 **To block instead**, require protection:
 
@@ -101,7 +105,7 @@ If anything fails (no database configured, not logged in, Rowsafe unreachable, t
 { "database": "app", "require_protection": true }
 ```
 
-or set `ROWSAFE_REQUIRE_PROTECTION=1`. The hook then checks protection first, and **blocks** the command when the database isn't protected or the restore point can't be confirmed. It tells Claude to report the problem to you rather than work around it.
+or set `ROWSAFE_REQUIRE_PROTECTION=1`. The hook then checks protection first, and **blocks** the command when the database isn't protected or the Mark can't be confirmed. It tells Claude to report the problem to you rather than work around it.
 
 ### What it matches
 
@@ -133,4 +137,4 @@ rowsafe api-keys create ci-agent
 rowsafe api-keys create reviewer-bot --read-only
 ```
 
-A **read-only** key can still run `safety_check`, but can't create restore points or change anything.
+A **read-only** key can still run `safety_check`, but can't set Marks or change anything.

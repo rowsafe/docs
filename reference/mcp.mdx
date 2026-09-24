@@ -3,7 +3,7 @@ title: MCP server
 description: Connect Claude Code, Claude Desktop and other MCP clients to Rowsafe. Every tool, the safety model and setup.
 ---
 
-Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI assistants can check your fleet ("is everything backed up?", "why did this alert fire?") and, when you allow it, create restore points or queue backups and drills.
+Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI assistants can check your fleet ("is everything backed up?", "why did this alert fire?") and, when you allow it, set Marks (restore points) or queue backups and Proof runs. The MCP tools are part of [Guard](/docs/guides/ai-agents), the safety net for AI agents.
 
 | | Transport | Credentials | Write tools |
 |---|---|---|---|
@@ -23,10 +23,10 @@ Log in with the CLI first (`rowsafe login`), then pick a mode:
 # Read-only
 claude mcp add rowsafe -- rowsafe mcp
 
-# Read-only, plus restore points (what the Claude Code plugin uses)
+# Read-only, plus Marks (what the Claude Code plugin uses)
 claude mcp add rowsafe -- rowsafe mcp --allow-restore-points
 
-# Everything: backups, drills, verification, adoption, schedules
+# Everything: backups, Proof, verification, adoption, schedules
 claude mcp add rowsafe -- rowsafe mcp --allow-writes
 
 # A specific key instead of your login, in every project
@@ -77,7 +77,8 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 ## Safety model
 
 - **Everything goes through the Rowsafe API**, with the same API key, checks, plan limits and audit log as the CLI. Every change a tool makes is in `rowsafe audit`, attributed to the key.
-- **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restarts PostgreSQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
+- **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
+- **No restarts.** No tool restarts PostgreSQL, even on a server where restarts from the dashboard are allowed. Only a person can, in the dashboard or with `rowsafe restart`.
 - **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only. `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
 - **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, and agent update settings.
 - **`apply_adoption` needs your approval.** It refuses unless `confirm` is the database's exact name and a read-only plan succeeded. Its description tells the model to show you the plan and ask first, and never to pass `force` unless you asked.
@@ -92,22 +93,22 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `get_org` | read | Plan, limits and usage. |
 | `list_hosts` | read | Hosts, online or not, agent version, update channel and state. |
 | `list_databases` | read | Databases with a health summary. |
-| `get_database` | read | One database in depth: settings, schedules, WAL, recent backups, drills, tasks and problems. |
+| `get_database` | read | One database in depth: settings, schedules, WAL, recent backups, Proof runs, tasks and problems. |
 | `list_backups` | read | Backups, newest first. |
-| `list_drills` | read | Restore drills with failures and warnings. |
+| `list_drills` | read | Proof runs (restore tests) with failures and warnings. |
 | `list_tasks` | read | Tasks, filtered by database, status and type. |
 | `get_task` | read | One task with its result, the end of its log and the next step. |
-| `database_health` | read | Health score (0-100) and plain-language findings with what to do. Without a database, every database's score. |
+| `database_health` | read | Pulse: health score (0-100) and plain-language findings with what to do. Without a database, every database's score. |
 | `database_insights` | read | Largest tables, unused and duplicate indexes, estimated bloat, dead rows, tables that may need an index. |
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
-| `list_restore_points` | read | Restore points with their status and the backup to restore from. |
-| `create_restore_point` | restore points | Mark this moment by name, and wait until it is in your bucket. |
+| `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
+| `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
 | `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |
 | `apply_adoption` | write, destructive | Apply the plan. Needs `confirm: "<database name>"`. |
 | `verify_database` | write | Prove WAL reaches the bucket; activates the schedules. |
 | `run_backup` | write | Queue a `full`, `diff` or `incr` backup. |
-| `run_drill` | write | Queue a restore drill. |
+| `run_drill` | write | Queue a Proof run (restore test). |
 | `update_schedule` | write, destructive | Change the schedules (UTC cron) and `retention_full`. |
 
 There is also one prompt, `incident_triage`: check the fleet, read the evidence behind each problem, and propose next steps without changing anything.
@@ -140,7 +141,7 @@ Tasks run in the background. Write tools return the task at once, or wait up to 
 ## Troubleshooting
 
 - **"not logged in"** in the client's MCP log: run `rowsafe login`, or set `ROWSAFE_API_KEY` in the server's environment.
-- **Tools missing:** write tools only appear with `--allow-writes`, restore points with `--allow-restore-points`. Restart the client after changing flags.
+- **Tools missing:** write tools only appear with `--allow-writes`, Marks with `--allow-restore-points`. Restart the client after changing flags.
 - **`forbidden (403): This API key is read-only.`:** the key can only read.
 - **A 402 error:** a plan limit is reached. `get_org` shows your usage.
 - **Smoke test** without a client:

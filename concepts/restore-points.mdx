@@ -1,9 +1,9 @@
 ---
-title: Restore points
-description: Name a moment before a risky change, so you can restore exactly to it later.
+title: Marks
+description: A Mark is a named restore point. Set one before a risky change, so you can rewind exactly to it later.
 ---
 
-A **restore point** gives a moment a name. `before-drop-legacy-orders` is much easier to find at 3 a.m. than a timestamp. If a change goes wrong, you can restore to exactly that point: everything committed before it is there, nothing after it.
+A **Mark** is a named restore point: it gives a moment a name. `before-drop-legacy-orders` is much easier to find at 3 a.m. than a timestamp. If a change goes wrong, you can [rewind](/docs/guides/restore) to exactly that Mark: everything committed before it is there, nothing after it.
 
 Create one right before a migration, a backfill, a bulk delete, or anything an AI agent is about to run:
 
@@ -11,13 +11,13 @@ Create one right before a migration, a backfill, a bulk delete, or anything an A
 rowsafe mark app before-migration-42
 ```
 
-Rowsafe waits until the point is safely in your bucket before it returns, usually within a few seconds.
+Rowsafe waits until the Mark is safely in your bucket before it returns, usually within a few seconds. You can also set one from the database's page in the dashboard, and AI agents set them through [Guard](/docs/guides/ai-agents).
 
 ## Names
 
 - 1 to 63 characters: lowercase letters, digits, `-` and `_`, starting with a letter or digit.
 - Unique per database.
-- Without a name, `rowsafe mark app` uses `manual-<UTC time>`, for example `manual-20260924-140500`. Restore points created by AI agents are named `agent-<UTC time>` by default.
+- Without a name, `rowsafe mark app` uses `manual-<UTC time>`, for example `manual-20260924-140500`. Marks set by AI agents are named `agent-<UTC time>` by default.
 
 In a project with a [`.rowsafe.json`](/docs/reference/cli#rowsafejson), you can leave out the database: `rowsafe mark before-drop`.
 
@@ -38,15 +38,15 @@ before-migration-42  archived  2026-09-24 14:05:12  20260921-010002F     0/5A000
 | `unconfirmed` | Written, but archiving didn't confirm it within the timeout (90 seconds by default). Usable only if the archive has since moved past it. You also get an alert. |
 | `pending` | Being created. |
 
-**Restore from backup** is the newest backup that finished before the point was created. You need it to restore to the point: see [Restore to a restore point](/docs/guides/restore#to-a-restore-point).
+**Restore from backup** is the newest backup that finished before the Mark was set. You need it to rewind to the Mark: see [Restore to a restore point](/docs/guides/restore#to-a-restore-point).
 
 ## Good to know
 
-- Restore points are cheap: two SQL calls and one WAL segment on PostgreSQL.
+- Marks are cheap: two SQL calls and one WAL segment on PostgreSQL.
 - They need an `active` database (archiving proven).
-- They don't pause or wait behind a running backup or drill.
-- Creating one is recorded in the [audit log](/docs/guides/teams#audit-log) with who created it.
-- A restore point doesn't restore anything by itself. It marks a moment you can restore to.
+- They don't pause or wait behind a running backup or Proof.
+- Setting one is recorded in the [audit log](/docs/guides/teams#audit-log) with who set it.
+- A Mark doesn't restore anything by itself. It names a moment you can rewind to.
 
 <Callout title="On PostgreSQL">
   Rowsafe calls `pg_create_restore_point(name)`, then `pg_switch_wal()`, and waits until the segment holding the point is archived.

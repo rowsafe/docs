@@ -9,7 +9,7 @@ First, ask Rowsafe what's wrong. `rowsafe status` lists every problem with the c
 rowsafe status             # the whole fleet
 rowsafe status app         # one database: why isn't it protected?
 rowsafe tasks app --status failed
-rowsafe task show ID       # the full log of one task
+rowsafe task ID       # the full log of one task
 ```
 
 On the server, the agent's log is in `sudo journalctl -u rowsafe-agent`, and pgBackRest's logs are in `/var/log/rowsafe/`.
@@ -40,11 +40,22 @@ ALTER SYSTEM RESET archive_command; SELECT pg_reload_conf();
 archive_mode is still off: restart PostgreSQL so the adopt settings take effect, then verify again
 ```
 
-The plan was applied, but `archive_mode` only takes effect after a restart, and Rowsafe never restarts PostgreSQL. Restart it in a maintenance window, then verify:
+The plan was applied, but `archive_mode` only takes effect after a restart, and Rowsafe never restarts PostgreSQL on its own. Restart it when it suits you:
 
 ```sh
 sudo systemctl restart postgresql@18-main     # your cluster's unit; in Docker: docker compose restart postgres
+```
+
+**Rowsafe notices the restart by itself** and finishes: it checks that changes reach your bucket, and the first full backup starts. If the database still says it is awaiting a restart a few minutes later, click **Check now** on the database's page, or run:
+
+```sh
 rowsafe verify app
+```
+
+If you allowed restarts during install, you can instead click **Restart PostgreSQL now** on the database's page, or run `rowsafe restart app`. To get that button on a server where you didn't allow it, run the installer again with `--allow-restart`:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart
 ```
 
 After 24 hours you get the `awaiting_restart` alert as a reminder.
@@ -55,16 +66,16 @@ After 24 hours you get the `awaiting_restart` alert as a reminder.
 not enough disk for a drill: 8.1 GiB free in /var/lib/rowsafe/drills, need about 14.0 GiB
 ```
 
-A drill restores a full copy of the database, so it needs about **1.3 × the database size + 1 GiB** free. Either:
+Proof, the weekly restore test (a `drill` task), restores a full copy of the database, so it needs about **1.3 × the database size + 1 GiB** free. Either:
 
 - free up or add disk on the filesystem holding `/var/lib/rowsafe/drills`; or
-- point drills at a bigger filesystem with `ROWSAFE_DRILL_DIR` in `/etc/rowsafe/agent.env` (a short absolute path, outside `/home`, owned by the `postgres` user), then restart the agent.
+- point Proof at a bigger filesystem with `ROWSAFE_DRILL_DIR` in `/etc/rowsafe/agent.env` (a short absolute path, outside `/home`, owned by the `postgres` user), then restart the agent.
 
-Until a drill passes again, the database isn't protected: an unproven backup isn't proof.
+Until Proof passes again, the database isn't protected: an unproven backup isn't proof.
 
 ## Agent offline
 
-You got `agent_offline`, or `rowsafe hosts list` shows the host last seen minutes ago. PostgreSQL keeps archiving, but backups, drills and monitoring have stopped.
+You got `agent_offline`, or `rowsafe hosts list` shows the host last seen minutes ago. PostgreSQL keeps archiving, but backups, Proof and monitoring have stopped.
 
 On the server:
 
@@ -129,7 +140,7 @@ Only one task of each type runs per database at a time. Wait for it (`rowsafe ta
 </Accordion>
 <Accordion title="app is pending_adopt: restore points need an active database">
 
-Restore points, backups and drills need an `active` database. Finish adopting it: apply, restart, verify.
+Marks, backups and Proof need an `active` database. Finish adding it: say yes to the plan (or `rowsafe apply app`), then restart PostgreSQL. Rowsafe notices the restart by itself.
 
 </Accordion>
 <Accordion title="This API key is read-only.">
@@ -154,7 +165,7 @@ The agent is built and tested for those systems. `ROWSAFE_ALLOW_UNSUPPORTED_OS=1
 </Accordion>
 <Accordion title="restore point ... was created ... but is not yet confirmed in the repository">
 
-PostgreSQL wrote the restore point, but archiving didn't confirm it within 90 seconds. It's marked `unconfirmed`, and archiving is probably failing: see [WAL archiving failing](#wal-archiving-failing).
+PostgreSQL wrote the Mark (restore point), but archiving didn't confirm it within 90 seconds. It's marked `unconfirmed`, and archiving is probably failing: see [WAL archiving failing](#wal-archiving-failing).
 
 </Accordion>
 </Accordions>

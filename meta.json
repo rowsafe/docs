@@ -1,6 +1,6 @@
 {
   "title": "Rowsafe docs",
-  "description": "Backups, point-in-time recovery and restore drills for the databases you run on your own servers.",
+  "description": "Backups to your own bucket, restore to any second, a weekly restore test and monitoring for the databases you run on your own servers.",
   "pages": [
     "index",
     "quickstart",

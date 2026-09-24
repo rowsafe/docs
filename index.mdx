@@ -9,11 +9,22 @@ You keep your database where it is. You don't move it to a hosted service.
 
 ## What you get
 
-- **Continuous backups.** Every change is saved to your own storage bucket within minutes, on top of regular full backups.
-- **Point-in-time recovery.** Restore to any second in your recovery window, or to a named point you marked before a risky change.
-- **Weekly restore drills.** Rowsafe restores your latest backup on a scratch copy and checks it. You get proof, not hope.
-- **Monitoring and alerts.** Disk, connections, long transactions, failed backups and more, sent to email, Slack, Discord or a webhook.
-- **A safety net for AI agents.** Coding agents can check that a database is protected and create a restore point before a migration.
+<Cards>
+  <Card title="Rewind" href="/docs/guides/restore">
+    Every change saved. Restore to any second, or to a Mark you set before a risky change.
+  </Card>
+  <Card title="Proof" href="/docs/concepts/restore-drills">
+    Every week Rowsafe restores a copy of your database and checks it, so you know restores work before you need one.
+  </Card>
+  <Card title="Pulse" href="/docs/guides/monitoring">
+    A health score, alerts to email, Slack, Discord or a webhook, and a weekly email about each database.
+  </Card>
+  <Card title="Guard" href="/docs/guides/ai-agents">
+    A safety net for AI coding agents: they check that the database is safe and set a Mark before a migration.
+  </Card>
+</Cards>
+
+Backups go to **your own storage bucket**, encrypted on your server. Setup is one command on the server.
 
 ## How it works
 
@@ -42,7 +53,7 @@ Your S3-compatible bucket
 
 1. A small open-source **agent** runs next to your database. It only makes outbound HTTPS requests. Nothing on your server listens for Rowsafe.
 2. The agent encrypts backups **on your server** and sends them to **your own bucket**. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
-3. The hosted **Rowsafe service** schedules backups and drills, keeps the history, watches for problems and alerts you.
+3. The hosted **Rowsafe service** schedules backups and the weekly Proof, keeps the history, watches for problems and alerts you.
 
 Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
 
@@ -62,9 +73,9 @@ Planned engines are not available yet, and we don't give dates. The rest of thes
 
 Rowsafe works on production databases, so it is careful by design:
 
-- **It never restarts your database.** When a setting needs a restart, Rowsafe tells you, and you restart in your own maintenance window.
-- **Plan before apply.** Adopting a database first shows a read-only plan. Nothing changes until you apply it.
-- **Drills are isolated.** A drill restores into a scratch directory on a private socket, then deletes it. It can't touch production or its backups.
+- **It never restarts your database on its own.** When a setting needs a restart, Rowsafe asks first. Say no, and you restart when it suits you.
+- **Nothing changes until you say yes.** Rowsafe first shows, in plain words, what it will change.
+- **Proof is isolated.** The weekly restore test restores into a scratch directory on a private socket, then deletes it. It can't touch production or its backups.
 - **Your secrets stay on your server.** Backups are encrypted before they leave it.
 - **Signed releases.** The agent only installs and runs releases signed by Rowsafe, and rolls back a bad update by itself.
 
@@ -72,15 +83,15 @@ Rowsafe works on production databases, so it is careful by design:
 
 <Cards>
   <Card title="Quickstart" href="/docs/quickstart">
-    Protect your first database in about 10 minutes.
+    Protect your first database with one command, in about 10 minutes.
   </Card>
   <Card title="Adopt a production database" href="/docs/guides/adopt">
-    The careful, step-by-step version for a server that matters.
+    The careful, step-by-step version for a server that matters, and automation.
   </Card>
   <Card title="Restore a database" href="/docs/guides/restore">
-    Get your data back to a point in time or a named restore point.
+    Rewind: get your data back to a point in time or to a Mark.
   </Card>
   <Card title="Use Rowsafe with AI agents" href="/docs/guides/ai-agents">
-    Restore points before every migration an agent runs.
+    Guard: a Mark before every migration an agent runs.
   </Card>
 </Cards>

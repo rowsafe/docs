@@ -28,7 +28,7 @@ Adopting a database changes at most four settings, with `ALTER SYSTEM` (they are
 | `archive_timeout` | `300` (seconds) | if it is `0` or more than `300` | No |
 | `wal_level` | `replica` | only if it is `minimal` | Yes |
 
-Rowsafe then reloads the configuration. It never restarts PostgreSQL: you do that in your own maintenance window.
+Rowsafe then reloads the configuration. It never restarts PostgreSQL on its own: you restart it when it suits you, or say yes when the installer asks, or click **Restart** in the dashboard on a server where you allowed that. Rowsafe notices the restart by itself.
 
 `archive_timeout = 300` makes PostgreSQL switch to a new WAL segment at least every 5 minutes when there were changes, so a quiet database loses at most about 5 minutes.
 
@@ -62,7 +62,7 @@ Every object there is encrypted.
 |---|---|
 | `/etc/rowsafe/agent.env` | The agent's settings, including the bucket keys and the passphrase. Mode 0600, owned by `postgres`. |
 | `/etc/rowsafe/pgbackrest/<name>.conf` | The generated pgBackRest configuration. Mode 0600. Rewritten before every task, so local edits are lost. |
-| `/var/lib/rowsafe/` | The agent's identity and state, and restore drills while they run. |
+| `/var/lib/rowsafe/` | The agent's identity and state, and Proof's scratch copies while they run. |
 | `/var/log/rowsafe/` | pgBackRest logs, rotated daily. |
 | `/opt/rowsafe/` | The agent's binaries. |
 

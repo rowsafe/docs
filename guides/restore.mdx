@@ -1,9 +1,11 @@
 ---
 title: Restore a database
-description: Bring a PostgreSQL database back to its latest state, a point in time, or a named restore point, with pgBackRest.
+description: Rewind a PostgreSQL database to its latest state, to any second, or to a Mark you set earlier, with pgBackRest.
 ---
 
-Rowsafe's weekly drills prove that your backups restore. Bringing a production database back is still a **manual pgBackRest restore**, described here. Practise it once on a scratch server before you need it, and write down how long it took. `rowsafe drills app` shows how long recent drills took: that is your best estimate.
+**Rewind** saves every change your database makes, so you can restore to any second in your recovery window, or to a **Mark** you set before a risky change. **Proof**, the weekly restore test, shows that your backups restore.
+
+Bringing a production database back is still a **manual pgBackRest restore**, described here. Practise it once on a scratch server before you need it, and write down how long it took. `rowsafe proofs app` shows how long recent Proof runs took: that is your best estimate.
 
 The examples restore a database named `app` on PostgreSQL 18, on a fresh Debian or Ubuntu server.
 
@@ -13,7 +15,7 @@ The examples restore a database named `app` on PostgreSQL 18, on a fresh Debian 
 |---|---|---|
 | Server lost, disk destroyed | A new server, which becomes production | The latest state |
 | Bad migration, deleted rows | A new server or a scratch cluster; copy data back or switch over | A time just before the mistake |
-| A change made after `rowsafe mark` (by you, a migration or an AI agent) | A new server or a scratch cluster | That restore point |
+| A change made after a Mark (`rowsafe mark`, by you, a migration or an AI agent) | A new server or a scratch cluster | That Mark |
 | Investigation, reporting, testing | A scratch server | Any time in the window |
 
 <Callout type="warn" title="Two rules">
@@ -91,13 +93,13 @@ sudo -u postgres pgbackrest --stanza=app info
 
 This lists every backup, with start and stop times, and the WAL archive range. Any moment from the end of the oldest full backup to the end of the archive is reachable.
 
-For a restore point, look it up on your computer:
+For a Mark (a named restore point), look it up on your computer:
 
 ```sh
 rowsafe marks app
 ```
 
-Use points with the status `archived`. Note the **RESTORE FROM BACKUP** column: you need it below.
+Use Marks with the status `archived`. Note the **RESTORE FROM BACKUP** column: you need it below.
 
 </Step>
 <Step>
@@ -133,7 +135,7 @@ pgBackRest picks the newest backup that ends before the target. Pass `--set=<lab
 
 #### To a restore point
 
-Stops exactly at the point created with `rowsafe mark`, then promotes:
+Stops exactly at a Mark created with `rowsafe mark` (a PostgreSQL restore point), then promotes:
 
 ```sh
 sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
@@ -141,11 +143,11 @@ sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
   --type=name --target=before-migration-42 --target-action=promote restore
 ```
 
-<Callout type="warn" title="Always pass --set for a restore point">
-  With `--type=name`, pgBackRest can't tell which backup comes before the point, so it takes the newest one. If that backup finished after the point, recovery never reaches it and PostgreSQL refuses to start ("recovery ended before configured recovery target was reached"). Pass the **RESTORE FROM BACKUP** label from `rowsafe marks`, or any older backup.
+<Callout type="warn" title="Always pass --set for a Mark">
+  With `--type=name`, pgBackRest can't tell which backup comes before the Mark, so it takes the newest one. If that backup finished after the Mark, recovery never reaches it and PostgreSQL refuses to start ("recovery ended before configured recovery target was reached"). Pass the **RESTORE FROM BACKUP** label from `rowsafe marks`, or any older backup.
 </Callout>
 
-Recovery stops just after the restore point: everything committed before it is there, nothing after it.
+Recovery stops just after the Mark: everything committed before it is there, nothing after it.
 
 `--archive-mode=off` writes `archive_mode = 'off'` into the restored `postgresql.auto.conf`, so this cluster can't push WAL into the production repository. The file also carries production's other `ALTER SYSTEM` settings, including Rowsafe's `archive_command`, which does nothing while archiving is off.
 
@@ -173,7 +175,7 @@ Check the data around the target: the newest rows in a busy table, and whether t
 1. **Fence the old primary** so it can never come back and write: stop and disable its PostgreSQL, or shut the server down.
 2. Carry over what the restore doesn't include: `pg_hba.conf`, your files in `conf.d/`, TLS certificates and keys, and any systemd drop-ins. Restart PostgreSQL once they are in place.
 3. Point your application at the new server and redeploy it.
-4. **Protect it again**: install the agent on the new server and adopt it under a **new name**, for example `rowsafe adopt app-2 --host db-2`. The new name gives it a fresh path in the bucket. Leave the old `app` path alone until you no longer need its backups.
+4. **Protect it again**: run the install command on the new server, and when it asks for a name, give a **new one**, for example `app-2`. The new name gives it a fresh path in the bucket. Leave the old `app` path alone until you no longer need its backups.
 
 </Tab>
 <Tab value="It was a scratch restore">

@@ -39,7 +39,7 @@ It prints the **signing secret** (`whsec_...`) once. Store it where your receive
     "host": { "id": "host_9h8g7f6e5d4c3", "hostname": "db-1" },
     "summary": "app: only 4.2% disk space left on db-1 (1.9 GiB free)",
     "description": "When the data directory's filesystem fills up, PostgreSQL stops accepting writes and may shut down. ...",
-    "next_step": "On db-1: df -h and du -sh the data directory's pg_wal; rowsafe db protection app shows whether WAL archiving is failing",
+    "next_step": "On db-1: df -h and du -sh the data directory's pg_wal; rowsafe status app shows whether continuous backup is failing",
     "value": 4.2,
     "threshold": 5,
     "unit": "%",

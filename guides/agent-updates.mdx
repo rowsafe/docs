@@ -8,7 +8,7 @@ description: How the agent updates itself safely, how to control updates, upgrad
 On a server, the agent keeps itself up to date. Each step protects your database server:
 
 1. **Signed.** Rowsafe offers a release in the heartbeat response. The agent checks its Ed25519 signature against a key built into the agent, and refuses anything unsigned, or older than itself.
-2. **Between tasks only.** It never interrupts a backup, drill or restore point.
+2. **Between tasks only.** It never interrupts a backup, a Proof run or a Mark.
 3. **Checked.** It downloads the new binary and checks its size and SHA-256 against the signed manifest.
 4. **Self-tested.** The new version must load the configuration, find pgBackRest, reach Rowsafe and connect to every database, before the agent switches to it.
 5. **On probation.** The new version takes no tasks until it has run for a minute and reached Rowsafe. If it doesn't reach Rowsafe within 10 minutes, or fails to start 3 times in a row, the agent goes back to the previous version by itself.
@@ -31,7 +31,7 @@ A pin never downgrades an agent: the agent refuses older versions.
 
 ## Upgrade by hand
 
-Running the installer again is safe. It changes only what differs, keeps your configuration, and doesn't restart the agent while a backup or drill is running:
+Running the installer again is safe. It changes only what differs, keeps your configuration, and doesn't restart the agent while a backup or Proof is running:
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh
@@ -82,7 +82,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall --purge
 Finally, remove the server from Rowsafe:
 
 ```sh
-rowsafe db remove app --keep-archiving   # for each database on it
+rowsafe remove app --keep-archiving   # for each database on it
 rowsafe hosts remove db-1
 ```
 

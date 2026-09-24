@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: Every rowsafe command, its short form, flags, exit codes, environment variables and the .rowsafe.json project file.
+description: Every rowsafe command, its flags, exit codes, environment variables and the .rowsafe.json project file.
 ---
 
 The `rowsafe` CLI talks to the Rowsafe API. Install it and log in as in the [Quickstart](/docs/quickstart#install-the-cli-and-log-in).
@@ -42,15 +42,18 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 
 ## Databases
 
-| Command | Short for | What it does |
-|---|---|---|
-| `rowsafe ls` | `db list` | Your databases. |
-| `rowsafe show [NAME]` | `db show` | One database in detail. |
-| `rowsafe status [NAME]` | | With a name: is it [protected](/docs/concepts/protection-status)? Without: fleet health. `--json` for details. |
-| `rowsafe adopt NAME` | `db adopt` | Register an existing PostgreSQL and print a read-only plan. |
-| `rowsafe plan [NAME]` | `db plan` | Run the read-only plan again. |
-| `rowsafe apply [NAME]` | `db apply` | Apply the plan. Never restarts PostgreSQL. |
-| `rowsafe verify [NAME]` | `db verify` | Prove changes reach your bucket. Activates the schedules and queues the first full backup. |
+| Command | What it does |
+|---|---|
+| `rowsafe ls` | Your databases. |
+| `rowsafe show [NAME]` | One database in detail. |
+| `rowsafe status [NAME]` | With a name: is it [protected](/docs/concepts/protection-status)? Without: fleet health. `--json` for details. |
+| `rowsafe adopt NAME` | Register an existing PostgreSQL and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
+| `rowsafe plan [NAME]` | Run the read-only plan again. |
+| `rowsafe apply [NAME]` | Apply the plan. Never restarts PostgreSQL. |
+| `rowsafe verify [NAME]` | Check now that changes reach your bucket. Rowsafe also does this by itself once it notices the restart. Activates the schedules and queues the first full backup. |
+| `rowsafe restart NAME` | Restart PostgreSQL: a few seconds, open connections are dropped. Asks to confirm; `--yes` skips it. |
+
+**`restart`** only works on a server where restarts were allowed during install (`can_restart` is `true` in the database's JSON, and the host is online), and not in Docker. Only admins and owners can restart, never with a read-only API key, and at most once every 2 minutes. After a restart, a database that was `awaiting_restart` becomes `active` by itself.
 
 **`adopt` flags:**
 
@@ -66,53 +69,51 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 
 **`apply` flags:** `--yes` skips the confirmation. `--force` replaces an existing `archive_command` or `archive_library` set by another tool. Only use it if you know what that tool was doing.
 
-## Backups, drills and restore points
+## Backups, Proof and Marks
 
-| Command | Short for | What it does |
-|---|---|---|
-| `rowsafe backup [NAME]` | `backup run` | Take a backup now. `--type full` (default), `diff` or `incr`. |
-| `rowsafe backups [NAME]` | `backup list` | Backups, newest first. |
-| `rowsafe drill [NAME]` | `drill run` | Run a restore drill now. |
-| `rowsafe drills [NAME]` | `drill list` | Restore drills and their results. |
-| `rowsafe mark [NAME] [LABEL]` | | Create a [restore point](/docs/concepts/restore-points). `LABEL` defaults to `manual-<UTC time>`. |
-| `rowsafe marks [NAME]` | `restore-point list` | Restore points, with the backup to restore from. |
-| `rowsafe tasks [NAME]` | | Recent tasks, for one database or all. `--status S`, `--type T`, `--limit N` (default 30). |
-| `rowsafe task show ID` | | One task with its full log. |
+| Command | What it does |
+|---|---|
+| `rowsafe backup [NAME]` | Take a backup now. `--type full` (default), `diff` or `incr`. |
+| `rowsafe backups [NAME]` | Backups, newest first. |
+| `rowsafe proof [NAME]` | Run [Proof](/docs/concepts/restore-drills), the restore test, now. |
+| `rowsafe proofs [NAME]` | Proof history: every run and its result. |
+| `rowsafe mark [NAME] [LABEL]` | Set a [Mark](/docs/concepts/restore-points) (a named restore point). `LABEL` defaults to `manual-<UTC time>`. |
+| `rowsafe marks [NAME]` | Marks, with the backup to restore from. |
+| `rowsafe tasks [NAME]` | Recent tasks, for one database or all. `--status S`, `--type T`, `--limit N` (default 30). |
+| `rowsafe task ID` | One task with its full log. |
 
-Commands that run something wait for it to finish, and exit `1` if it fails. Pass `--no-wait` to `backup`, `drill` and `mark` to return at once.
+Commands that run something wait for it to finish, and exit `1` if it fails. Pass `--no-wait` to `backup`, `proof` and `mark` to return at once.
 
 With one argument, `rowsafe mark X` treats `X` as the database if it names one, and otherwise as the label for the inferred database. So in a project whose `.rowsafe.json` names `app`, `rowsafe mark before-drop` marks `app` as `before-drop`.
 
 ## Database settings
 
 ```sh
-rowsafe db set [NAME] [--retention-full N] [--full-schedule CRON] [--diff-schedule CRON] [--drill-schedule CRON]
+rowsafe set [NAME] [--retention-full N] [--full-schedule CRON] [--diff-schedule CRON] [--proof-schedule CRON]
 ```
 
-Schedules are 5-field cron expressions in UTC, at most once an hour. `--diff-schedule ""` turns differential backups off. Only the flags you pass change.
+Schedules are 5-field cron expressions in UTC, at most once an hour. `--proof-schedule` sets when Proof runs. `--diff-schedule ""` turns differential backups off. Only the flags you pass change.
 
 ```sh
-rowsafe db set app --retention-full 4 --drill-schedule "0 4 * * 3"
+rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 ```
 
 | Command | What it does |
 |---|---|
-| `rowsafe db remove NAME` | Stop managing a database. Never changes the server or the bucket. Once a plan was applied, it needs `--keep-archiving`, because the server keeps archiving. `--yes` skips the confirmation. |
-| `rowsafe db protection [NAME]` | Same as `rowsafe status NAME`. |
+| `rowsafe remove NAME` | Stop managing a database. Never changes the server or the bucket. Once a plan was applied, it needs `--keep-archiving`, because the server keeps archiving. `--yes` skips the confirmation. |
 
-## Monitoring and alerts
+## Pulse: monitoring and alerts
 
 | Command | What it does |
 |---|---|
 | `rowsafe alerts` | Firing alerts. `--all` adds resolved ones, `--resolved` shows only those. |
 | `rowsafe alerts ack ID` | Acknowledge a firing alert: no more reminders. |
 | `rowsafe alerts rules` | The built-in alert rules with your organization's settings. |
-| `rowsafe health [NAME]` | Health score (0-100) and findings with what to do. Without NAME, every database, worst first. Exit code 3 if one scores below 70. `--json`. |
+| `rowsafe pulse [NAME]` | [Pulse](/docs/guides/monitoring): health score (0-100) and findings with what to do. Without NAME, every database, worst first. Exit code 3 if one scores below 70. `--json`. |
 | `rowsafe insights [NAME]` | Largest tables and indexes, unused and duplicate indexes, estimated bloat, dead rows and vacuum, transaction ID age. `--limit N`, `--json`. |
 | `rowsafe top [NAME]` | Queries that took the most time in a range, and which got slower. `--since 24h` (e.g. `1h`, `168h`), `--sort total_time\|calls\|mean_time\|rows`, `--query ID` for one query over time, `--json`. Needs `pg_stat_statements`. |
-| `rowsafe report` | The weekly email: show settings, `--preview` (`--html`), `--on`/`--off`, `--to A,B`, `--send-test`. |
-| `rowsafe db top NAME` | Top statements by total time (needs `pg_stat_statements`). `--limit N`, at most 20. |
-| `rowsafe db activity NAME` | Queries running, or idle in a transaction, for over a minute. |
+| `rowsafe report` | The weekly email, "Your weekly Pulse": show settings, `--preview` (`--html`), `--on`/`--off`, `--to A,B`, `--send-test`. |
+| `rowsafe activity NAME` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe channels list` | Notification channels. |
 | `rowsafe channels add --type email --name NAME --address A [--address B]` | Email channel. |
 | `rowsafe channels add --type slack\|discord\|webhook --name NAME --url URL` | Slack, Discord or webhook channel. A webhook prints its signing secret once. |
@@ -141,12 +142,12 @@ rowsafe db set app --retention-full 4 --drill-schedule "0 4 * * 3"
 | `rowsafe api-keys revoke ID` | Revoke a key. |
 | `rowsafe audit` | Who changed what, newest first. `--limit N` (default 50). |
 
-## AI agents
+## Guard: AI agents
 
 | Command | What it does |
 |---|---|
-| `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds restore points; `--allow-writes` adds every write tool. |
-| `rowsafe guard` | The Claude Code `PreToolUse` hook: creates a restore point before a destructive database command. See [AI agents](/docs/guides/ai-agents#the-guard-hook). |
+| `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds Marks; `--allow-writes` adds every write tool. |
+| `rowsafe guard` | The Claude Code `PreToolUse` hook: sets a Mark before a destructive database command. See [Guard](/docs/guides/ai-agents#the-guard-hook). |
 | `rowsafe guard --check COMMAND` | Whether `COMMAND` looks destructive. |
 
 ## Exit codes
@@ -156,7 +157,7 @@ rowsafe db set app --retention-full 4 --drill-schedule "0 4 * * 3"
 | `0` | Success. For `status`: protected, or all healthy. For `guard --check`: destructive. |
 | `1` | An error, a task that failed, a cancelled confirmation. For `guard --check`: not destructive. |
 | `2` | `rowsafe` without arguments. For `guard`: the command was blocked because protection is required. |
-| `3` | For `status` and `db protection`: not protected, or the fleet has warnings or critical problems. |
+| `3` | For `status`: not protected, or the fleet has warnings or critical problems. For `pulse`: a database scores below 70. |
 
 ## Environment variables
 

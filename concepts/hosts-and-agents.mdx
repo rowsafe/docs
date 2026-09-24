@@ -25,14 +25,14 @@ rowsafe hosts enroll-token --ttl 24h  # 1 minute to 7 days
 
 The token works **once**. On its first start, the agent trades it for its own identity, saved in `/var/lib/rowsafe/agent.json`. After that you can delete the token from the agent's configuration.
 
-The dashboard does the same under **Hosts**, then **Add host**.
+The dashboard does the same under **Servers**, then **Add server**: it shows the install command with a fresh token.
 
 ## What the agent does
 
 - Runs as the `postgres` system user, never as root.
 - Connects to PostgreSQL over the local Unix socket only.
 - Makes only outbound HTTPS requests. Nothing listens for Rowsafe on your server.
-- Runs only a fixed set of tasks: inspect, adopt, check, backup, drill and restore point.
+- Runs only a fixed set of tasks: inspect, adopt, check, backup, drill (Proof), restore point (Mark), and restart, only on a server where you allowed it.
 - Uses at most half the default CPU and IO weight, and the kernel's out-of-memory killer picks it before PostgreSQL.
 
 See [Security](/docs/security#what-runs-on-your-server) for the full list.
@@ -44,7 +44,7 @@ The agent sends a heartbeat every 30 seconds. If Rowsafe hears nothing for **5 m
 While the agent is offline:
 
 - **PostgreSQL keeps archiving its changes** to your bucket. Point-in-time recovery keeps working.
-- Scheduled backups and drills don't run, and metrics stop.
+- Scheduled backups and Proof don't run, and metrics stop.
 - After 10 minutes, the database stops counting as [protected](/docs/concepts/protection-status), because its archiving status is unknown.
 
 See [Agent offline](/docs/troubleshooting#agent-offline) to find out why.
@@ -59,4 +59,4 @@ On servers, the agent **updates itself** with signed releases, tests the new ver
 rowsafe hosts remove db-1
 ```
 
-This revokes the agent's access. Remove the host's databases first (`rowsafe db remove`). It doesn't change anything on the server: [uninstall the agent](/docs/guides/agent-updates#uninstall) there.
+This revokes the agent's access. Remove the host's databases first (`rowsafe remove`). It doesn't change anything on the server: [uninstall the agent](/docs/guides/agent-updates#uninstall) there.

@@ -25,12 +25,14 @@ Adopting a database changes at most four settings, with `ALTER SYSTEM` (they are
 |---|---|---|---|
 | `archive_mode` | `on` | unless it is already `on` or `always` | Yes |
 | `archive_command` | the pgBackRest command above | always | No |
-| `archive_timeout` | `300` (seconds) | if it is `0` or more than `300` | No |
+| `archive_timeout` | `60` (seconds) | if it is `0` or more than `60` | No |
 | `wal_level` | `replica` | only if it is `minimal` | Yes |
 
 Rowsafe then reloads the configuration. It never restarts PostgreSQL on its own: you restart it when it suits you, or say yes when the installer asks, or click **Restart** in the dashboard on a server where you allowed that. Rowsafe notices the restart by itself.
 
-`archive_timeout = 300` makes PostgreSQL switch to a new WAL segment at least every 5 minutes when there were changes, so a quiet database loses at most about 5 minutes.
+`archive_timeout = 60` makes PostgreSQL switch to a new WAL segment at least every minute when there were changes, so a quiet database loses at most about a minute. The segments are compressed in your bucket, so a mostly empty one costs little.
+
+Databases set up when the default was `300` (5 minutes) keep it until you change it: **Health** shows "Backups can be up to 5 minutes behind", and **Apply fix** sets `60` with a reload, without a restart.
 
 If another tool already archives WAL (an `archive_command` or `archive_library` is set), the plan refuses to replace it unless you pass `--force`. See [Adopt an existing database](/docs/guides/adopt).
 

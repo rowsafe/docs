@@ -118,6 +118,74 @@ When archiving works again, the alert resolves by itself.
 
 A session idle in a transaction, a query blocking others, an inactive replication slot holding WAL, tables vacuum hasn't cleaned up, unused indexes: Rowsafe can fix these for you. Open the finding on the Health page (the alert links to it) and click **Apply fix**, or run `rowsafe fix app`. Ending a session or removing an index or a slot asks you to type the database name first, and removing an index saves a Mark first. See [Apply fix](/docs/guides/monitoring#apply-fix) for what each fix does.
 
+## Rewind
+
+Rewind checks everything before it changes anything, and says plainly why it can't go ahead. The common answers:
+
+### Not enough free disk for a copy
+
+```text
+not enough free disk for a copy: 8.1 GiB free in /var/lib/rowsafe/rewind, and a copy of 10.0 GiB needs about 14.0 GiB
+```
+
+A copy is a full restore of the database next to production, like Proof, so it needs about **1.3 × the database size + 1 GB** free. Free up disk on that filesystem, or delete an old copy. `ROWSAFE_REWIND_DIR` in `/etc/rowsafe/agent.env` points copies at a bigger filesystem (a short absolute path, owned by the `postgres` user; restart the agent afterwards).
+
+### Not enough free disk for a rewind
+
+Rewinding the whole database keeps the current data on the same disk, so you can undo it. It needs about **the database size + 10%** free next to the data directory. Free up disk there, or restore a copy and bring back rows instead, which doesn't touch the data directory. Data kept aside by an earlier rewind counts too: **Delete the old data now** frees it.
+
+### Rewind the whole database isn't available
+
+The button is disabled, and says why:
+
+| It says | What to do |
+|---|---|
+| Rowsafe isn't allowed to stop PostgreSQL on this server | Run the install command again on the server, and answer yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?". Or run it with `--allow-restart`: `curl -fsSL https://rowsafe.sh \| sudo sh -s -- --allow-restart` |
+| The helper that restarts PostgreSQL is from an older Rowsafe | The server was installed before Rewind could stop PostgreSQL. Run the install command again there: it keeps your earlier answer and updates the helper. |
+| PostgreSQL runs in Docker | Rowsafe never stops a PostgreSQL container. Restore a copy and bring back rows. |
+| This PostgreSQL is a read-only replica | Rewind the primary. |
+| This database uses tablespaces | Rowsafe can't rewind those in place yet. Restore a copy and bring back rows. |
+| The data directory is a symbolic link, or a mount point of its own | Rowsafe can't set it aside there yet. Restore a copy and bring back rows. |
+
+### A table was skipped
+
+- **No primary key**: without one, Rowsafe can't tell which rows are the same, so it can't compare the table or bring its rows back. Rewind the whole database, or read the copy yourself (see [Do it yourself](/docs/guides/restore#do-it-yourself)).
+- **Too big** (over 5 GB or 20 million rows): the same choices.
+- **Dropped since**: the table isn't in production any more. Rewind the whole database, or copy it out of the copy yourself.
+
+### Too many rows
+
+```text
+too many rows: that is 12.4 million rows, over the limit of 10 million at a time; nothing was changed
+```
+
+Nothing was changed. Bring back fewer tables in one run: each run can bring back [up to a number of rows](/docs/concepts/plans-and-limits#rewind-limits) that depends on your plan, and up to 50 tables.
+
+### Rows that point to another table
+
+```text
+120 of the rows for public.order_items point to rows of public.orders that aren't in production. Bring back public.orders too (in the same run); nothing was changed
+```
+
+The rows you chose need their parent rows, which were deleted too. Select both tables and run it again: Rowsafe brings the parents back first.
+
+### Conflicts
+
+The result says some rows "were left out because another row now has the same unique value". Those rows were deleted, and since then another row took one of their unique values, for example the same email address. Rowsafe leaves them out rather than overwrite the new row. Look at them in the copy and decide by hand.
+
+### Other Rewind messages
+
+| It says | What to do |
+|---|---|
+| another session held a lock on the table for more than 5s, so Rowsafe stopped; nothing was changed | A long transaction or a migration held the table. Try again in a moment. |
+| the column ... was added since and needs a value, which the copy doesn't have | Production has a new required column the old rows can't fill. Give it a default, or bring the rows back by hand. |
+| ... already has a copy ...; delete it first | Each database has one copy at a time. Delete it (or wait until it expires), then restore the new moment. |
+| the copy no longer exists (it expired or was deleted) | Restore a new one. |
+| the backup ... is no longer in the repository | Retention removed the backup that moment needs. Pick a later moment. |
+| if the time is after the last change that reached the backups, pick an earlier one | Pick a moment inside the recovery window. |
+| another rewind is running on this server | Wait until it has finished. |
+| only the latest rewind can be undone | The database was rewound again since. Undo the latest one first. |
+
 ## Other messages
 
 <Accordions>

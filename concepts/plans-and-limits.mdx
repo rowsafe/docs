@@ -9,11 +9,23 @@ description: Every plan has every feature. Plans only differ in how many servers
 | Pro | $39 per month | 5 | 25 |
 | Business | $149 per month | 25 | 200 |
 
-**No plan gates a feature.** Rewind (point-in-time recovery and Marks), Proof (weekly restore tests), Pulse (monitoring and alerts), Guard (the MCP server and the Claude Code hook) and the audit log are in every plan. See [pricing](/pricing).
+**No plan gates a feature.** Rewind (point-in-time recovery, one-click restores and Marks), Proof (weekly restore tests), Pulse (monitoring and alerts), Guard (the MCP server and the Claude Code hook) and the audit log are in every plan. See [pricing](/pricing).
 
 - A **database** is one PostgreSQL cluster (server instance), with all the databases inside it.
 - Prices are in USD per organization, billed monthly. Payments are handled by Polar, our merchant of record. Cancel any time.
 - **Storage** is billed by your bucket provider, not by Rowsafe.
+
+## Rewind limits
+
+Every plan can restore copies, compare them, bring back rows and rewind a whole database. One [bring back rows](/docs/guides/restore#bring-back-rows) run is limited:
+
+| Plan | Rows brought back in one run | Tables in one run |
+|---|---|---|
+| Free | up to 1 million | up to 50 |
+| Pro | up to 10 million | up to 50 |
+| Business | up to 50 million | up to 50 |
+
+Over the limit, nothing is changed. Bring back fewer tables at a time. Today the agent on your server also stops at 10 million rows in one run, whatever the plan.
 
 ## Usage
 

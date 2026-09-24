@@ -1,0 +1,353 @@
+---
+title: Save a Mark before every deploy
+description: Add one step to your deploy workflow and every migration gets a named restore point you can rewind to, with GitHub Actions, GitLab CI, Bitbucket or any CI.
+---
+
+Most bad days with a database start with a deploy: a migration drops the wrong column, a backfill rewrites a million rows, a `down` migration runs where an `up` should have. Saving a [Mark](/docs/concepts/restore-points) right before each deploy gives that moment a name, so you know exactly where to rewind to.
+
+This is part of **Guard**, the same safety net [AI agents](/docs/guides/ai-agents) use.
+
+## GitHub Actions
+
+<Steps>
+<Step>
+
+### Create an API key
+
+In the dashboard, open **Settings**, then **API keys**, and create a read-write key named after the workflow, such as `deploy-ci`. Or from a terminal:
+
+```sh
+rowsafe api-keys create deploy-ci
+```
+
+</Step>
+<Step>
+
+### Save it as a secret
+
+In your GitHub repository, open **Settings**, **Secrets and variables**, **Actions**, and add a secret named `ROWSAFE_API_KEY`. If your deploy job uses an [environment](https://docs.github.com/actions/deployment/targeting-different-environments), put it there.
+
+</Step>
+<Step>
+
+### Add the step before your migrations
+
+```yaml
+- name: Save a Mark before the migration
+  uses: rowsafe/action@v1
+  with:
+    api-key: ${{ secrets.ROWSAFE_API_KEY }}
+    database: app
+
+- run: npx prisma migrate deploy
+```
+
+`database` is the name in the dashboard. You can leave it out when your repository has a `.rowsafe.json` (written by `rowsafe init app`) or your organization has one database.
+
+</Step>
+</Steps>
+
+On the next deploy, the step:
+
+1. checks that `app` [can be restored right now](/docs/concepts/protection-status), and warns if not;
+2. saves the Mark `before-deploy-<commit>` and waits until it is confirmed in your bucket, usually a few seconds;
+3. adds a summary to the run with the Mark, the backup a rewind starts from, and a **Rewind to this Mark** link.
+
+If the Mark can't be confirmed, the step fails, so the migration doesn't run without one.
+
+### Complete workflows
+
+<Tabs items={["Prisma", "Rails", "Django", "Laravel", "Drizzle", "Flyway"]}>
+<Tab value="Prisma">
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # lets the preview find the migrations this push adds
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: rowsafe/action@v1
+        with:
+          api-key: ${{ secrets.ROWSAFE_API_KEY }}
+          database: app
+          preview-sql: prisma/migrations/*/migration.sql
+      - run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+```
+
+</Tab>
+<Tab value="Rails">
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+      - uses: rowsafe/action@v1
+        with:
+          api-key: ${{ secrets.ROWSAFE_API_KEY }}
+          database: app
+          require-protected: true # don't migrate a database that can't be restored
+      - run: bin/rails db:migrate
+        env:
+          RAILS_ENV: production
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
+```
+
+</Tab>
+<Tab value="Django">
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - id: rowsafe
+        uses: rowsafe/action@v1
+        with:
+          api-key: ${{ secrets.ROWSAFE_API_KEY }}
+          database: app
+      - run: python manage.py migrate --noinput
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      - name: If the migration failed
+        if: failure() && steps.rowsafe.outputs.mark != ''
+        env:
+          MARK: ${{ steps.rowsafe.outputs.mark }}
+          URL: ${{ steps.rowsafe.outputs.dashboard-url }}
+        run: echo "::error::The deploy failed after Mark $MARK. To go back, rewind to it in Rowsafe - $URL"
+```
+
+</Tab>
+<Tab value="Laravel">
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+      - run: composer install --no-dev --prefer-dist --no-interaction
+      - uses: rowsafe/action@v1
+        with:
+          api-key: ${{ secrets.ROWSAFE_API_KEY }}
+          database: app
+      - run: php artisan migrate --force
+        env:
+          DB_CONNECTION: pgsql
+          DB_URL: ${{ secrets.DB_URL }}
+```
+
+</Tab>
+<Tab value="Drizzle">
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: rowsafe/action@v1
+        with:
+          api-key: ${{ secrets.ROWSAFE_API_KEY }}
+          database: app
+          preview-sql: drizzle/*.sql # the "out" folder in drizzle.config.ts
+      - run: npx drizzle-kit migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+```
+
+</Tab>
+<Tab value="Flyway">
+
+```yaml
+name: deploy
+on:
+  push:
+    branches: [main]
+concurrency: deploy-production
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: rowsafe/action@v1
+        with:
+          api-key: ${{ secrets.ROWSAFE_API_KEY }}
+          database: app
+          preview-sql: sql/V*__*.sql
+          preview-fail-on: dangerous # stop before migrations that would lock big tables
+      - name: flyway migrate
+        run: >-
+          docker run --rm -v "$PWD/sql:/flyway/sql"
+          -e FLYWAY_URL -e FLYWAY_USER -e FLYWAY_PASSWORD
+          redgate/flyway:11 migrate
+        env:
+          FLYWAY_URL: ${{ secrets.FLYWAY_URL }}
+          FLYWAY_USER: ${{ secrets.FLYWAY_USER }}
+          FLYWAY_PASSWORD: ${{ secrets.FLYWAY_PASSWORD }}
+```
+
+</Tab>
+</Tabs>
+
+### Stop deploys when backups aren't working
+
+By default the action only warns when the database can't be restored right now (for example, changes stopped reaching your bucket, or no restore test has passed in 8 days). With `require-protected: true` it stops the job before the migration and lists the reasons:
+
+```yaml
+- uses: rowsafe/action@v1
+  with:
+    api-key: ${{ secrets.ROWSAFE_API_KEY }}
+    database: app
+    require-protected: true
+```
+
+### Preview the migration first
+
+With `preview-sql`, the action runs the migration files that this push adds on a copy of the database restored next to production, never on production itself, before it saves the Mark. The run summary shows the verdict (safe, careful or dangerous) and what it found, such as a table rewrite that would block writes. `preview-fail-on: dangerous` stops the job on a dangerous verdict.
+
+- `preview-sql` takes glob patterns: `prisma/migrations/*/migration.sql`, `drizzle/*.sql`, `db/migrate/**/*.sql`.
+- Only files added or changed since the previous push (or the pull request's base) are previewed, because migrations that already ran would fail on a copy of production. Check out with `fetch-depth: 0`; if the action can't tell which files are new, it skips the preview and says so.
+- The preview needs a rowsafe CLI with `rowsafe preview`. With an older one, the action skips the preview, says so, and still saves the Mark.
+
+### If the deploy goes wrong
+
+Stop deploying, then open **Rewind to this Mark** from the run summary: it goes to the database's Marks in the dashboard, where you rewind to it. [Restore a database](/docs/guides/restore#to-a-restore-point) explains the options. Nothing is restored automatically.
+
+From a terminal, the summary's **From the command line** section has the commands for this Mark: a copy of the database as it was at the Mark, next to production, and the rows that changed since.
+
+```sh
+rowsafe rewind copy app --mark before-deploy-3f2a1c9
+rowsafe rewind compare app
+```
+
+The step's outputs, for later steps: `mark`, `restore-from-backup`, `dashboard-url`, `database`, `protected` and `preview-verdict`. Every input and output is in the [GitHub Action reference](/docs/reference/github-action).
+
+## GitLab CI
+
+Store the key as a masked, protected CI/CD variable named `ROWSAFE_API_KEY` (**Settings**, **CI/CD**, **Variables**); the CLI reads it from the environment. Then, in the deploy job:
+
+```yaml
+deploy:
+  stage: deploy
+  environment: production
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    ROWSAFE_VERSION: "0.3.0" # https://github.com/rowsafe/rowsafe/releases
+  before_script:
+    - curl -fsSLO "https://github.com/rowsafe/rowsafe/releases/download/v$ROWSAFE_VERSION/rowsafe-linux-amd64"
+    - curl -fsSLO "https://github.com/rowsafe/rowsafe/releases/download/v$ROWSAFE_VERSION/SHA256SUMS"
+    - sha256sum --check --ignore-missing SHA256SUMS
+    - install -m 0755 rowsafe-linux-amd64 /usr/local/bin/rowsafe
+  script:
+    - rowsafe status app # fails the job (exit 3) when app can't be restored right now
+    - rowsafe mark app "before-deploy-$CI_COMMIT_SHORT_SHA"
+    - npx prisma migrate deploy
+```
+
+To only warn instead of failing, write `rowsafe status app || true`.
+
+## Bitbucket Pipelines
+
+Add `ROWSAFE_API_KEY` as a secured repository or deployment variable, then:
+
+```yaml
+pipelines:
+  branches:
+    main:
+      - step:
+          name: Deploy
+          deployment: production
+          script:
+            - export ROWSAFE_VERSION=0.3.0
+            - curl -fsSLO "https://github.com/rowsafe/rowsafe/releases/download/v$ROWSAFE_VERSION/rowsafe-linux-amd64"
+            - curl -fsSLO "https://github.com/rowsafe/rowsafe/releases/download/v$ROWSAFE_VERSION/SHA256SUMS"
+            - sha256sum --check --ignore-missing SHA256SUMS
+            - install -m 0755 rowsafe-linux-amd64 /usr/local/bin/rowsafe
+            - rowsafe status app
+            - rowsafe mark app "before-deploy-$(echo "$BITBUCKET_COMMIT" | cut -c1-7)"
+            - npx prisma migrate deploy
+```
+
+## Any other CI
+
+Install the CLI (checking it against the release's `SHA256SUMS`, or its [build provenance](https://github.com/rowsafe/rowsafe/blob/main/docs/verifying-releases.md)), set `ROWSAFE_API_KEY`, and run these two commands before the migration:
+
+```sh
+rowsafe status app                 # exit 0: can be restored; 3: can't, with the reasons
+rowsafe mark app before-deploy-42  # waits until the Mark is in your bucket; exit 1 if it isn't
+```
+
+For scripts, `rowsafe mark app before-deploy-42 --json` prints the Mark as JSON, including `status` and `restore_from_backup`.
+
+## Good to know
+
+- **A Mark is a moment, not an undo button.** Rewinding the whole database to it also removes what your application wrote after the deploy. Restoring a copy and bringing back only the rows you need avoids that.
+- **Re-runs get a new Mark.** Mark names are unique per database; re-running the workflow for the same commit saves `before-deploy-<commit>-2`, then `-3`. A `label` you set yourself must be new each time.
+- **Pull requests from forks don't get secrets**, so run the step on pushes to your deploy branch, not on `pull_request` from forks.
+- **A Rowsafe outage blocks the deploy** by default, because the step fails when it can't save the Mark. If you'd rather deploy without one, add `continue-on-error: true` to the step.
+- **Rowsafe never connects to your database from CI.** The Mark is written by the Rowsafe agent on your server; the workflow only needs the API key, and the preview runs on a copy on your server.

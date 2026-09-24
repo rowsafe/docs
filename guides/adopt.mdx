@@ -87,33 +87,21 @@ On the server, run the install command it printed:
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
 ```
 
-The installer verifies the agent's signature, installs pgBackRest if it is missing, and writes `/etc/rowsafe/agent.env`. It enables the service but doesn't start it yet, because the bucket settings are missing. Check its summary: the signature was verified, and pgBackRest is at least 2.55.0.
+The installer verifies the agent's signature, installs pgBackRest if it is missing, and writes `/etc/rowsafe/agent.env`. Check its summary: the signature was verified, and pgBackRest is at least 2.55.0.
 
 </Step>
 <Step>
 
 ### Configure the bucket and start the agent
 
-Add the bucket settings to `/etc/rowsafe/agent.env` (`sudoedit /etc/rowsafe/agent.env`):
+The installer then asks where to keep backups. Pick your provider and paste the bucket name and access key ([Set up backup storage](/docs/guides/storage) shows where to find them). For the passphrase, choose **Use my own passphrase** and paste the one from your secret manager. Input is hidden.
 
-```sh title="/etc/rowsafe/agent.env"
-ROWSAFE_REPO_S3_ENDPOINT='<account-id>.eu.r2.cloudflarestorage.com'
-ROWSAFE_REPO_S3_BUCKET='app-rowsafe'
-ROWSAFE_REPO_S3_KEY='<access key id>'
-ROWSAFE_REPO_S3_KEY_SECRET='<secret access key>'
-ROWSAFE_REPO_CIPHER_PASS='<passphrase>'
-```
-
-Then run the installer again. It self-tests the configuration (settings, pgBackRest, connection to Rowsafe) and starts the agent, which enrolls on its first start:
-
-```sh
-curl -fsSL https://rowsafe.sh | sudo sh
-```
+It writes, reads back and deletes a test file in the bucket, then starts the agent, which enrolls on its first start. If the test fails, it tells you why (wrong key, wrong region, missing delete access) and asks again.
 
 <Accordions>
-<Accordion title="Keep the secrets out of files you edit by hand">
+<Accordion title="Automate it: pass the secrets from your secret manager">
 
-The installer also reads the settings from its environment and writes them to `agent.env` itself, without printing them. You can send them from your secret manager through SSH's standard input, so they never appear in a shell history, a file you edit or a command line.
+When the settings are in the installer's environment, it doesn't ask anything: it writes them to `agent.env` itself, without printing them, and tests the bucket. You can send them from your secret manager through SSH's standard input, so they never appear in a shell history, a file you edit or a command line.
 
 For example, with `S3_KEY`, `S3_SECRET` and `CIPHER_PASS` set in your local shell by your secret manager (`printf` is a shell builtin, so the values don't show up in the process list):
 

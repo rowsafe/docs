@@ -1,4 +1,13 @@
 {
   "title": "Guides",
-  "pages": ["adopt", "restore", "docker", "ai-agents", "monitoring", "teams", "agent-updates"]
+  "pages": [
+    "storage",
+    "adopt",
+    "restore",
+    "docker",
+    "ai-agents",
+    "monitoring",
+    "teams",
+    "agent-updates"
+  ]
 }

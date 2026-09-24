@@ -26,7 +26,7 @@ No. Backups are encrypted on your server before they are uploaded to your bucket
 </Accordion>
 <Accordion title="Which storage can I use?">
 
-Any S3-compatible bucket you own. The docs use Cloudflare R2. Other S3-compatible stores, such as MinIO, work with the same settings plus `ROWSAFE_REPO_S3_PORT` or `ROWSAFE_REPO_S3_CA_FILE` if they need them. Storage is billed by your provider, not by Rowsafe.
+Any S3-compatible bucket you own: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, or self-hosted storage such as MinIO. The installer walks you through it; see [Set up backup storage](/docs/guides/storage). Storage is billed by your provider, not by Rowsafe. With Cloudflare R2, the first 10 GB are free.
 
 </Accordion>
 <Accordion title="How much data can I lose?">

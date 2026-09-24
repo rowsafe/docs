@@ -8,7 +8,7 @@ This guide protects one PostgreSQL server. You'll install a small agent on it, r
 **You need:**
 
 - A Linux server running PostgreSQL 13 to 18 on Debian 12/13 or Ubuntu 22.04/24.04, with `sudo`. (PostgreSQL in Docker? See [Run the agent in Docker](/docs/guides/docker).)
-- An S3-compatible storage bucket for the backups, for example Cloudflare R2.
+- A storage bucket for the backups: Cloudflare R2 (10 GB free), Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces or any S3-compatible storage.
 - A few seconds of downtime for one PostgreSQL restart, at a time you choose.
 
 <Callout title="Production database?">
@@ -75,21 +75,11 @@ Over SSH, or with `--no-browser`, open the printed link on any device.
 </Step>
 <Step>
 
-### Create a bucket and an encryption passphrase
+### Create a bucket
 
-Create a **private** bucket, for example `app-rowsafe` in Cloudflare R2, and an API token that can read and write **only that bucket**. Note the endpoint (for R2, `<account-id>.r2.cloudflarestorage.com`, or `<account-id>.eu.r2.cloudflarestorage.com` for an EU bucket), the access key ID and the secret.
+Create a **private**, empty bucket, for example `app-rowsafe`, and an access key that can read, write and delete **only in that bucket**. [Set up backup storage](/docs/guides/storage) has click-by-click steps for each provider.
 
-Then create the passphrase that encrypts every backup:
-
-```sh
-openssl rand -base64 48
-```
-
-<Callout type="warn" title="Store the passphrase first">
-  Save the passphrase in your password manager or secret manager **before** the first backup. Without it, no backup can ever be restored, and nobody can recover it, Rowsafe included.
-</Callout>
-
-Don't add a lifecycle rule that deletes objects from the bucket. Rowsafe expires old backups itself.
+Keep the page with the access key ID and secret open: you'll paste them into the installer in the next step.
 
 </Step>
 <Step>
@@ -108,25 +98,17 @@ It prints the install command with the token. Run it **on the database server**:
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
 ```
 
-The installer checks the agent's signature, installs it with the backup tool it needs, and lists the settings it still needs. Add your bucket and passphrase to the agent's configuration file:
+The installer checks the agent's signature and installs it with the backup tool it needs. Then it asks, in your terminal:
 
-```sh
-sudoedit /etc/rowsafe/agent.env
-```
+1. **Where to keep backups**: pick your provider, then paste the bucket name and access key.
+2. **It tests the bucket**: writes, reads back and deletes a small file. If something is wrong, it tells you what and lets you fix it.
+3. **The encryption passphrase**: it generates a strong one and shows it once. Then it starts the agent.
 
-```sh title="/etc/rowsafe/agent.env"
-ROWSAFE_REPO_S3_ENDPOINT='<account-id>.r2.cloudflarestorage.com'
-ROWSAFE_REPO_S3_BUCKET='app-rowsafe'
-ROWSAFE_REPO_S3_KEY='<access key id>'
-ROWSAFE_REPO_S3_KEY_SECRET='<secret access key>'
-ROWSAFE_REPO_CIPHER_PASS='<your passphrase>'
-```
+<Callout type="warn" title="Save the passphrase before you continue">
+  Put the passphrase in your password manager **before** the first backup. Without it, no backup can ever be restored, and nobody can recover it, Rowsafe included. The installer asks you to type its last 4 characters to confirm.
+</Callout>
 
-Run the installer again. It tests the configuration, then starts the agent:
-
-```sh
-curl -fsSL https://rowsafe.sh | sudo sh
-```
+Your keys and passphrase stay on the server, in `/etc/rowsafe/agent.env`. Rowsafe never sees them.
 
 Back on your computer, check that the server shows up:
 

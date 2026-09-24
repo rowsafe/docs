@@ -238,7 +238,7 @@ jobs:
           api-key: ${{ secrets.ROWSAFE_API_KEY }}
           database: app
           preview-sql: sql/V*__*.sql
-          preview-fail-on: dangerous # stop before migrations that would lock big tables
+          fail-on: dangerous # stop before migrations that would lock big tables
       - name: flyway migrate
         run: >-
           docker run --rm -v "$PWD/sql:/flyway/sql"
@@ -267,7 +267,13 @@ By default the action only warns when the database can't be restored right now (
 
 ### Preview the migration first
 
-With `preview-sql`, the action runs the migration files that this push adds on a copy of the database restored next to production, never on production itself, before it saves the Mark. The run summary shows the verdict (safe, careful or dangerous) and what it found, such as a table rewrite that would block writes. `preview-fail-on: dangerous` stops the job on a dangerous verdict.
+With `preview-sql`, the action runs the migration files that this push adds on a copy of the database restored next to production, never on production itself, before it saves the Mark. The run summary shows the preview's report: the verdict and what it found, such as a table rewrite that would block writes.
+
+| Verdict | What the action does |
+|---|---|
+| safe | Goes on. |
+| careful, dangerous | Warns and goes on. With `fail-on: dangerous` (or `careful`), stops the job before the Mark. |
+| failed | The migration fails on the copy, so it would fail on production too: the job stops before the Mark, with the SQL error in the summary. |
 
 - `preview-sql` takes glob patterns: `prisma/migrations/*/migration.sql`, `drizzle/*.sql`, `db/migrate/**/*.sql`.
 - Only files added or changed since the previous push (or the pull request's base) are previewed, because migrations that already ran would fail on a copy of production. Check out with `fetch-depth: 0`; if the action can't tell which files are new, it skips the preview and says so.

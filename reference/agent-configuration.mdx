@@ -27,6 +27,17 @@ The installer fills these in from the bucket URL and keys you paste. Set them yo
 
 Never change the passphrase, bucket or prefix of a repository that holds backups. See [Change the configuration](/docs/guides/agent-updates#change-the-configuration).
 
+## Second copy
+
+Optional: a second bucket that gets the backups and the change log too, set up with `--add-storage` (see [Keep a second copy of your backups](/docs/guides/second-copy)). Every setting of the bucket above exists with `ROWSAFE_REPO2_` instead of `ROWSAFE_REPO_`, with the same defaults: `ROWSAFE_REPO2_S3_ENDPOINT`, `_S3_BUCKET`, `_S3_KEY`, `_S3_KEY_SECRET` and `ROWSAFE_REPO2_CIPHER_PASS` are needed, `_S3_REGION`, `_S3_URI_STYLE`, `_PATH_PREFIX`, `_S3_PORT`, `_S3_CA_FILE` and `_S3_VERIFY_TLS` are optional.
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_REPO2_CIPHER_PASS` | | Its own passphrase, at least 20 characters. Not the first bucket's. |
+| `ROWSAFE_REPO2_QUEUE_DIR` | `/var/lib/rowsafe/copy2-queue` | Where change log files wait to be sent to the second bucket (at most 256 files per database). |
+
+If some are missing, the agent keeps working with the first bucket only and says what is missing in its log and on the Storage page. The agent writes the second copy's pgBackRest configuration to `/etc/rowsafe/pgbackrest/<name>.copy2.conf`.
+
 ## Connection to Rowsafe
 
 | Variable | Default | |
@@ -107,7 +118,9 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
-| `--check-storage` | Test the backup storage in `agent.env`. Change nothing. |
+| `--check-storage` | Test the backup storage in `agent.env` (and the second copy's, if there is one). Change nothing. |
+| `--add-storage` | Add a second copy in another bucket, with questions like the first storage, or move it to another bucket. Without a terminal, takes `ROWSAFE_REPO2_*` from the environment and tests it before saving. |
+| `--remove-second-copy` | Stop sending backups to the second copy. Its bucket is left as it is. |
 | `--download-only DIR` | Download and verify the agent into `DIR`; install nothing. Needs no root. |
 | `--uninstall` | Stop and remove the service and `/opt/rowsafe`. Keep the configuration, state and logs. |
 | `--uninstall --purge` | Also delete `/etc/rowsafe`, `/var/lib/rowsafe`, `/var/log/rowsafe` and the logrotate file. Refused while PostgreSQL still archives with Rowsafe's configuration. |
@@ -120,7 +133,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `ROWSAFE_ALLOW_DOWNGRADE=1` | Allow `ROWSAFE_VERSION` to be older than the installed version. |
 | `ROWSAFE_ALLOW_UNSUPPORTED_OS=1` | Try an OS other than Debian 12/13 or Ubuntu 22.04/24.04. |
 
-The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, every `ROWSAFE_REPO_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
+The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, every `ROWSAFE_REPO_*` and `ROWSAFE_REPO2_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
 
 What the installer does:
 

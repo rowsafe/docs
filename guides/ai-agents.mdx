@@ -7,7 +7,7 @@ Coding agents run migrations, backfills and ad-hoc SQL, often without a person w
 
 **Guard** gives you that moment. Before a risky change, the agent asks Rowsafe "is it safe?" (could this database be restored right now?) and sets a [Mark](/docs/concepts/restore-points), a named restore point. If something breaks, you know exactly where to rewind to.
 
-Guard is three things you can combine: the MCP tools, a Claude Code hook (`rowsafe guard`), and a snippet for your agent instructions.
+Guard is three things you can combine: the MCP tools, a Claude Code hook (`rowsafe guard`), and a snippet for your agent instructions. For migrations your CI runs, the [GitHub Action](/docs/guides/deploys) saves a Mark before every deploy.
 
 ## The workflow
 
@@ -16,7 +16,7 @@ Before any destructive or risky database operation:
 1. **Is it safe?** `safety_check` (or `rowsafe status app`) answers "could this database be restored right now?". If not, the agent tells you why and waits for your OK.
 2. **Set a Mark** with a descriptive name: `create_restore_point` (or `rowsafe mark app before-drop-orders`). It waits until the Mark is in your bucket, and tells you its name.
 3. **Proceed.**
-4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore#to-a-restore-point).
+4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore#to-a-restore-point). If it's not clear when the damage happened, `find_moment` finds it ([Find the moment](/docs/guides/find-the-moment)).
 
 Agents can't restore, and they can't restart PostgreSQL: no MCP tool does either.
 

@@ -107,7 +107,7 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
 | `preview_migration` | read | [Preview a migration](/docs/guides/preview-migrations): run its SQL on a fresh copy of the database (never production) and get a verdict with suggestions. |
 | `get_preview` | read | A preview's result, when it wasn't done within the wait. |
-| `create_safe_copy` | copies | Make a masked [safe copy](/docs/guides/safe-copies) and get its connection string (once). Always masked. |
+| `create_safe_copy` | copies | Make a masked [safe copy](/docs/guides/safe-copies). Always masked. Locally the password is made on your machine and returned once; on the remote endpoint the copy starts without a password and the tool returns a dashboard link where you set it. |
 | `list_safe_copies` | read | Safe copies, their status and where to connect. |
 | `delete_safe_copy` | copies | Delete a safe copy. |
 | `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |

@@ -63,7 +63,7 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MongoDB's port (`27017` by default). |
 | `--engine ENGINE` | `postgresql` | `mongodb` for MongoDB ([Protect MongoDB](/docs/guides/mongodb)). |
 | `--socket-dir DIR` | `/var/run/postgresql` | PostgreSQL's Unix socket directory. |
-| `--retention-full N` | `2` | Full backups to keep, 1 to 52. |
+| `--retention-full N` | `2` | Full backups to keep, 1 to 52 (MongoDB: `7`, one a day). |
 | `--no-wait` | | Return without waiting for the plan. |
 
 `NAME` is 2 to 40 characters: lowercase letters, digits and dashes, starting with a letter.

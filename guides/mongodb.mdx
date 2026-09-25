@@ -1,0 +1,111 @@
+---
+title: Protect MongoDB
+description: Backups to your own bucket, restore to any second, weekly Proof, Rewind copies and Pulse for MongoDB 6.0, 7.0 and 8.0 on your own server or in Docker.
+---
+
+Rowsafe protects MongoDB Community 6.0, 7.0 and 8.0 the same way it protects PostgreSQL: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; every change is copied about once a minute, so you can go back to any second; a weekly **Proof** restores a copy and checks it; **Rewind** restores a copy next to production and brings deleted documents back; **Pulse** watches the server.
+
+## Before you start
+
+- MongoDB runs on Debian 12/13 or Ubuntu 22.04/24.04 (from MongoDB's packages), or in the official `mongo` Docker image.
+- It is a **replica set**. One member is enough. Restoring to any second needs MongoDB's change log (the oplog), which a standalone server doesn't keep. The installer turns a standalone server into a replica set of one for you, if you say yes (see below).
+- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt) for the one-command install.
+
+## Turn on backups
+
+Run the install command on the server, as for PostgreSQL:
+
+```bash
+curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
+```
+
+The installer finds MongoDB next to (or instead of) PostgreSQL and asks before changing anything:
+
+<Steps>
+<Step>
+**Tools.** If `mongodump` and `mongorestore` are missing, it installs the MongoDB Database Tools from MongoDB's own apt repository. It checks MongoDB's signing key against a fingerprint built into the installer before adding the repository.
+</Step>
+<Step>
+**Replica set.** If MongoDB runs standalone, it explains why a replica set is needed and asks *Turn on the replica set and restart MongoDB now?* (default no). On yes it adds `replication.replSetName: rs0` to MongoDB's config file (keeping a copy of the old one), adds a `keyFile` when access control is on, restarts MongoDB once (a few seconds) and starts the replica set. If MongoDB doesn't start, it puts the old config back. Your apps keep connecting as before.
+</Step>
+<Step>
+**Rowsafe's own MongoDB user.** It creates the user `rowsafe` with a random password that is saved for the agent only (`/var/lib/rowsafe/engines/mongodb/logins`, readable by the agent alone). With access control on, an administrator signs in once for this; that password is used once and never saved.
+</Step>
+<Step>
+**The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in MongoDB's settings changes: the agent starts copying the oplog to your bucket, checks that a fresh change arrives and opens with your key, and takes the first full backup.
+</Step>
+</Steps>
+
+On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`.
+
+Without a terminal, `--protect NAME` works for MongoDB too. It never restarts MongoDB unless you also pass `--mongodb-replica-set`, and it takes an administrator from `ROWSAFE_MONGODB_ADMIN_USER` and `ROWSAFE_MONGODB_ADMIN_PASSWORD` when one is needed (used once, never saved).
+
+## What Rowsafe does
+
+| | How |
+|---|---|
+| Full backup | `mongodump --oplog --archive --gzip`, encrypted on your server and streamed to your bucket. Every day at 01:00 UTC by default. MongoDB has no differential backups. |
+| Every change | The agent reads new oplog entries about once a minute and uploads them as an encrypted chunk. |
+| Restore to any second | The newest backup before that moment, then the oplog chunks up to it (`mongorestore --oplogReplay`). |
+| Marks | A note written into the oplog (`appendOplogNote`); the Mark is confirmed once the chunk holding it is in your bucket. Restoring to a Mark stops exactly there. |
+| Proof | Weekly: restore the newest backup and every change since into a scratch `mongod` that listens on a private Unix socket only (no network), check every database and collection, the indexes, document counts, and run `validate` on a few collections. Then delete it. |
+| Rewind | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back. Changed ones only when you ask. A collection dropped since is created again, with its indexes. |
+| Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
+
+Everything in your bucket is encrypted before it leaves the server: backups, oplog chunks and Marks. Object names only say *when* (timestamps), never *what*. Rowsafe's servers never see your data or your passphrase.
+
+## Docker
+
+Use the MongoDB agent image next to the official `mongo` image. It is built on the same `mongo` image, so `mongodump`, `mongorestore` and `mongod` are MongoDB's own, of your version:
+
+```yaml
+services:
+  mongo:
+    image: mongo:8.0
+    hostname: mongo                 # the replica set records its member as mongo:27017
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    volumes:
+      - mongodata:/data/db
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:<version>-mongo8
+    hostname: db-1
+    environment:
+      ROWSAFE_MONGODB_HOST: mongo
+    env_file: rowsafe-agent.env
+    volumes:
+      - rowsafe-state:/var/lib/rowsafe
+```
+
+Then, once:
+
+```bash
+docker compose exec rowsafe-agent rowsafe-agent mongodb initiate --port 27017
+docker compose exec rowsafe-agent rowsafe-agent mongodb login --port 27017
+rowsafe adopt shop --host db-1 --engine mongodb --port 27017
+rowsafe apply shop
+```
+
+With `MONGO_INITDB_ROOT_USERNAME` set (access control on), MongoDB also needs a `keyFile` for a replica set, and `mongodb login` needs `--admin-user` (it asks for the password).
+
+## Restore without Rowsafe
+
+The agent is open source, and your backups are plain MongoDB formats once decrypted. With the passphrase:
+
+```bash
+export ROWSAFE_REPO_CIPHER_PASS='...'
+rowsafe-agent unseal < archive.gz > dump.archive.gz
+mongorestore --archive=dump.archive.gz --gzip --oplogReplay
+```
+
+Oplog chunks (`oplog/*.bson.gz`) decrypt the same way into gzipped BSON oplog entries, for `mongorestore --oplogReplay --oplogFile`.
+
+## Limits
+
+- **Sharded clusters** (`mongos`) aren't supported yet. Replica sets and single servers made into a replica set of one are.
+- Backups run on the **primary** of the replica set, on the server where the agent runs. A secondary is skipped with a note.
+- Backups are **logical** (`mongodump`). A large database takes longer to back up and restore than a file-level copy would. Proof tells you how long a restore really takes.
+- If the agent or the bucket is down for longer than MongoDB's oplog reaches back (Pulse shows the **oplog window**), changes from that gap can't be restored. Rowsafe reports the gap and carries on; the next full backup starts a new unbroken chain. A bigger oplog (`replSetResizeOplog`) widens the window.
+- Bringing documents back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
+- Compare skips views and time series collections, and collections over 10 million documents.
+- Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling and updates are PostgreSQL-only for now.

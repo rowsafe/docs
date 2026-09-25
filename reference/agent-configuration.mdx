@@ -51,6 +51,17 @@ Never change the passphrase, bucket or prefix of a repository that holds backups
 | `ROWSAFE_MONITORING` | `true` | `false` turns metrics off. |
 | `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |
 
+### MongoDB
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_MONGODB_URI` | | A whole connection string (`mongodb://user:password@host:port/?authSource=admin`) instead of the login the installer saves. For a single server; Docker sidecars usually use `ROWSAFE_MONGODB_HOST` and `rowsafe-agent mongodb login` instead. |
+| `ROWSAFE_MONGODB_HOST` | `127.0.0.1` | Where MongoDB listens (the `mongo` service's name in Docker). |
+| `ROWSAFE_MONGODB_ARCHIVE_INTERVAL` | `1m` | How often new oplog entries are copied to your bucket (1s to 10m). |
+| `ROWSAFE_MONGODB_BIN_DIR` | `PATH`, then `/usr/bin` | Where `mongodump`, `mongorestore` and `mongod` are. |
+
+See [Protect MongoDB](/docs/guides/mongodb).
+
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 
 ## Docker
@@ -87,6 +98,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
 | `--no-allow-restart` | Don't allow it, without asking. |
+| `--mongodb-replica-set` | MongoDB: turn a standalone server into a replica set of one without asking (one MongoDB restart). Restoring to any second needs it. |
+| `--no-mongodb-replica-set` | MongoDB: never do that. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
@@ -159,6 +172,10 @@ rowsafe-agent inspect     print what the agent sees in PostgreSQL (read-only)
                           [--port 5432] [--socket-dir /var/run/postgresql] [--user postgres]
 rowsafe-agent selftest    check the configuration, pgBackRest, Rowsafe and every database
 rowsafe-agent health      container health check (Docker)
+rowsafe-agent mongodb status|login|initiate|save-uri --port 27017 [--admin-user NAME]
+                          MongoDB: what the installer needs to know; create Rowsafe's
+                          MongoDB user; start a replica set of one; save a login you made
+rowsafe-agent unseal      decrypt a file Rowsafe wrote to your bucket (stdin to stdout)
 rowsafe-agent version
 ```
 

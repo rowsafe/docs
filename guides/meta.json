@@ -5,6 +5,7 @@
     "adopt",
     "restore",
     "docker",
+    "mongodb",
     "ai-agents",
     "monitoring",
     "teams",

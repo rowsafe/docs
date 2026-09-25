@@ -101,6 +101,9 @@ What Rowsafe can fix:
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
 | The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
+| PostgreSQL uses default memory settings on a bigger server | **Tune for this server** | Applies the recommended settings, after saving a Mark. See [Tuning](/docs/guides/tuning). |
+| Query statistics are off (`pg_stat_statements` isn't loaded) | **Turn on query statistics** | Adds it to `shared_preload_libraries`; it starts after the next restart. |
+| Changed settings wait for a restart | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts during install. |
 
 Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 

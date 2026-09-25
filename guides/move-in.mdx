@@ -1,0 +1,181 @@
+---
+title: Move in from a managed database
+description: Move a PostgreSQL database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
+---
+
+Leave your managed database, keep the safety net. **Move in** copies a PostgreSQL database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
+
+Everything runs on your server. Its Rowsafe agent connects to the old database with the credentials you give it; the data goes straight from the old database to your server, never through Rowsafe.
+
+## Before you start
+
+- **A server with Rowsafe and PostgreSQL**, the same major version as the old database or newer (you can upgrade on the way: 16 to 18 works). [Add it](/docs/quickstart) first; it shows up under **Databases**.
+- **Room on its disk** for the database, plus a fifth. The one-time copy needs about twice that, for its dump files.
+- **The same extensions**. The check lists any the old database uses that your server lacks, so you can install their packages (`postgresql-18-postgis-3`, `postgresql-18-pgvector`...) before moving.
+- **Network**: your server must reach the old database. Most providers only accept connections from addresses you allow; see [your provider](#provider-by-provider) below.
+- **The connection string** of the old database, with its admin user (the one your provider gave you).
+
+## Move it
+
+<Steps>
+<Step>
+
+### Pick the server
+
+In the dashboard, open **Move in** and click **Move a database in**. Pick the Rowsafe database (the PostgreSQL server) to move into.
+
+</Step>
+<Step>
+
+### Paste the connection string
+
+Paste it and click **Check the database**. The dashboard shows what it points to (provider, host, database, user) and warns about common mistakes, such as a pooler address where a direct connection is needed.
+
+Your browser encrypts the connection string to a key that only the agent on your server holds, before it leaves the page. Rowsafe relays it without being able to read it. The agent keeps it on the server, readable only by itself and PostgreSQL, until you finish. See [how secrets move](#how-your-password-is-handled).
+
+</Step>
+<Step>
+
+### Read the check
+
+The agent checks both sides without changing either: versions, logical replication, the user's rights, free replication slots, tables without a primary key, extensions, large objects, free space. Each item that needs attention says what to do, with your provider's own steps.
+
+**Tables without a primary key.** Live sync needs a way to find each row again to copy its updates and deletes; without one, PostgreSQL would refuse updates and deletes on those tables at the source as soon as they are published. Add a primary key, or click **Fix it for me**: Rowsafe sets `REPLICA IDENTITY FULL` on those tables at the source. Your data doesn't change; updates to those tables write a little more to the source's log. Rowsafe checks again by itself.
+
+</Step>
+<Step>
+
+### Choose how to move
+
+- **Live sync** (recommended): Rowsafe copies the schema, then uses PostgreSQL's logical replication: a publication on the old database, a subscription on your server. It copies every table while your apps keep writing, then follows each change until you switch over. The only downtime is the switchover itself: seconds.
+- **One-time copy**: when logical replication isn't possible (Heroku, Render without it turned on, a user that can't replicate). Writes to the old database stop, Rowsafe copies it with `pg_dump` and `pg_restore`, then switches. The check estimates how long; that is your downtime.
+
+</Step>
+<Step>
+
+### Follow the copy
+
+The page shows the tables copied, the size so far, and, once every table is copied, how far your server is behind the old database. "Nothing" behind means it is ready to switch over.
+
+</Step>
+<Step>
+
+### Switch over
+
+Pick a quiet moment and click **Switch over**. Choose how writes stop:
+
+- **Make the old database read-only for me**: Rowsafe runs `ALTER DATABASE ... SET default_transaction_read_only = on` on it and disconnects its sessions, so your apps reconnect read-only. If some sessions can't be disconnected (another admin's or a superuser's), Rowsafe doesn't switch over, makes the old database writable again, and asks you to stop the writes yourself.
+- **I stopped my apps' writes myself**: maintenance mode, or scaled to zero. Rowsafe doesn't touch the old database's settings.
+
+Rowsafe then waits until your server has the very last change, sets every sequence (auto-increment ids) to the old database's value, ends the sync (removing its publication and replication slot from the old database), refreshes materialized views, and compares row counts table by table. It creates a login for your apps that owns the new database and everything in it, and shows its connection string **once**, in your browser.
+
+</Step>
+<Step>
+
+### Point your apps at the new database
+
+Put the new connection string in your apps (for example `DATABASE_URL`) and restart them. Lost it? **Get a new password** makes a new one; the old one stops working.
+
+The old database stays as it is, for rollback. If something is wrong, click **Make it writable again** and point your apps back at it. When you're sure, click **I'm done with it**: Rowsafe forgets its connection string. Then delete it at your provider.
+
+</Step>
+</Steps>
+
+From the command line, the same steps are `rowsafe migrate start`, `rowsafe migrate switch` and `rowsafe migrate finish`: see the [CLI reference](/docs/reference/cli#move-in).
+
+```sh
+export OLD_DB='postgres://doadmin:...@db-postgresql-fra1-123.b.db.ondigitalocean.com:25060/shop?sslmode=require'
+rowsafe migrate start app --source-env OLD_DB   # check, start, wait until caught up
+rowsafe migrate switch mig_5k2m9x7q4t1v         # prints the new connection string once
+```
+
+## Let your apps connect
+
+Apps on the same server connect as they are. Apps on other servers need PostgreSQL to listen on the network and to let them in. The check warns when it only listens on the server itself. On Debian and Ubuntu, in `/etc/postgresql/18/main/postgresql.conf`:
+
+```ini
+listen_addresses = '*'
+```
+
+and in `pg_hba.conf`, one line per app server (or private network), then restart PostgreSQL:
+
+```ini
+hostssl  shop  app  10.0.0.0/24  scram-sha-256
+```
+
+Keep your firewall closed to everyone else.
+
+## Provider by provider
+
+What each provider needs so your server can pull the data with logical replication, from their own documentation. Rowsafe's check tells you which of these applies to your database.
+
+### DigitalOcean
+
+- DigitalOcean's own guide to moving to a self-managed server uses logical replication with the `doadmin` user ([migrate to self-managed](https://docs.digitalocean.com/products/databases/postgresql/how-to/migrate-to-self-managed/)). It also warns that managed PostgreSQL doesn't give full superuser access, so some role operations may need attention.
+- Add your server's IP under the cluster's **Network Access > Trusted sources** (IPv4 only) ([secure a cluster](https://docs.digitalocean.com/products/databases/postgresql/how-to/secure/)).
+- Use `sslmode=require` in the connection string.
+
+### Amazon RDS for PostgreSQL
+
+- Set the static parameter `rds.logical_replication` to `1` in a **custom** DB parameter group and **reboot** the instance. Use a user with `rds_superuser` (the master user), or grant `rds_replication` ([logical replication on RDS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/PostgreSQL.Concepts.General.FeatureSupport.LogicalReplication.html)).
+- Allow your server's IP on port 5432 in the instance's security group.
+
+### Amazon Aurora PostgreSQL
+
+- Set `rds.logical_replication` to `1` in a **custom DB cluster parameter group**, then reboot the writer instance. Setting it up needs `rds_superuser` ([Aurora logical replication](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/AuroraPostgreSQL.Replication.Logical.Configure.html)).
+- Use the writer (cluster) endpoint.
+
+### Supabase
+
+- Replicating to an external Postgres needs a **direct connection, not a connection pooler**. The direct connection (`db.<project>.supabase.co`) is IPv6 unless you turn on Supabase's IPv4 add-on ([replicate to external Postgres](https://supabase.com/docs/guides/database/postgres/setup-replication-external), [connecting](https://supabase.com/docs/guides/database/connecting-to-postgres)). Use the `postgres` user.
+- Supabase's own schemas and roles (auth, storage, `anon`, `authenticated`) exist only there: statements that need them are skipped and listed after the copy. Move the tables your app owns; Supabase's services (Auth, Storage) don't move with the database.
+
+### Neon
+
+- In the Neon Console, **Settings > Logical replication > Enable**. This restarts your computes and can't be turned off ([logical replication to Postgres](https://neon.com/docs/guides/logical-replication-postgres)).
+- Use the connection string **without** `-pooler`: logical replication isn't compatible with connection poolers. Roles created in the Console, CLI or API can replicate (through `neon_superuser`); roles created with SQL can't. With IP Allow on, add your server's IP. Neon removes inactive replication slots after about 40 hours ([logical replication in Neon](https://neon.com/docs/guides/logical-replication-neon)).
+
+### Heroku Postgres
+
+- Heroku's documentation offers `pg_dump` and PG Backups for moving data out, and doesn't describe logical replication to other servers ([import and export](https://devcenter.heroku.com/articles/heroku-postgres-import-export)). Rowsafe uses the **one-time copy**.
+
+### Render
+
+- Render turns logical replication on through a support request, for Pro workspaces and up; subscribers outside Render are supported. Publishing all tables needs a superuser, which only Render's support team has ([logical replication with Render](https://render.com/docs/postgresql-logical-replication)). Rowsafe publishes the tables one by one (the user must own them); otherwise use the one-time copy.
+
+### Railway
+
+- Run `ALTER SYSTEM SET wal_level = 'logical';` and restart the service from its menu ([minimal-downtime migration](https://docs.railway.com/guides/migrate-database-minimal-downtime)). Use the public connection string (`DATABASE_PUBLIC_URL`).
+
+### Crunchy Bridge
+
+- `wal_level = logical` is the default, with 10 replication slots; the superuser can set up publications ([logical replication](https://docs.crunchybridge.com/how-to/logical-replication)). Allow your server's IP in the cluster's firewall rules.
+
+### Google Cloud SQL
+
+- Set the flag `cloudsql.logical_decoding` to `on` (this restarts the instance). The user needs `cloudsqlsuperuser` and the `REPLICATION` attribute: `ALTER USER your_user WITH REPLICATION;`. Add your server's IP to the instance's authorized networks ([configure logical replication](https://docs.cloud.google.com/sql/docs/postgres/replication/configure-logical-replication)).
+
+### Azure Database for PostgreSQL
+
+- Set the server parameter `wal_level` to `logical`, save, and restart the server; Azure suggests `max_worker_processes` of at least 16. Give the admin user replication: `ALTER ROLE your_admin WITH REPLICATION;`. Allow your server in the server's networking settings ([logical replication](https://learn.microsoft.com/en-us/azure/postgresql/flexible-server/concepts-logical)).
+
+### Any other PostgreSQL
+
+- `wal_level = logical` and a restart; a superuser, or a user with `REPLICATION` that owns the tables; your server's IP allowed in `pg_hba.conf` and the firewall ([PostgreSQL: configuration](https://www.postgresql.org/docs/current/logical-replication-config.html)).
+
+## How your password is handled
+
+- Your browser (or the CLI) seals the connection string to a key the agent on your server made for this move: ECDH P-256, HKDF-SHA256 and AES-256-GCM, bound to the move. Rowsafe relays the ciphertext and deletes it from the task once the agent has it.
+- On your server, the password lives in a file only the agent and PostgreSQL can read (`/var/lib/rowsafe/migrate/<id>/`, mode 0600). `pg_dump` and the subscription read it from there: it never appears on a command line, in the task log, or in PostgreSQL's catalog (so not in your backups either). **I'm done with it** and **Cancel** delete it.
+- The new login's password is made on your server; PostgreSQL only receives its SCRAM verifier. Its connection string is sealed to a key your browser (or the CLI) holds in memory, kept by Rowsafe until you see it (at most 30 minutes), and shown once.
+
+## What doesn't move, and other limits
+
+- **Roles and privileges**: the schema is copied without owners and grants; one new login owns everything. Recreate other users on the server if you need them.
+- **Schema changes during live sync** are not copied (logical replication doesn't carry them). Don't change your tables' structure until you switch over.
+- **Large objects** (`lo`) and **unlogged tables** aren't carried by live sync; the check warns, and the one-time copy includes them.
+- **Tables the user doesn't own** can't be published for live sync; connect as their owner, or use the one-time copy.
+- **Extensions only your provider has** (for example `aws_s3`, `pgsodium`, `neon`) are left out, and what depends on them is listed after the copy.
+- **Replication slots cost the old database disk** while the sync runs: if your server stops following for long, WAL piles up at the source. Cancelling removes the slot. Some providers drop inactive slots on their own (Neon after about 40 hours).
+- **Docker sidecar agents** need `pg_dump` and `pg_restore` of the server's PostgreSQL version next to the agent; the check says when they're missing.
+- AI assistants on [MCP](/docs/reference/mcp) can't start or change a move.

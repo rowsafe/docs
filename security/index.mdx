@@ -23,6 +23,8 @@ Proof, the weekly restore test, restores your data onto the same server, into a 
 
 **Restarts are opt-in.** Rowsafe never restarts PostgreSQL on its own. It restarts only when someone clicks **Restart** in the dashboard (or runs `rowsafe restart`) and confirms, and only on servers where you allowed it during install. The installer asks; `--no-allow-restart` answers no. The installer itself can also restart PostgreSQL during setup, when you answer yes on the server. Only admins and owners can restart, never with a read-only API key or through MCP, and at most once every 2 minutes. In Docker, Rowsafe can restart PostgreSQL only if you add the optional container control service, which alone holds the Docker socket and acts on that one container; see its [threat model](/docs/guides/docker#threat-model).
 
+**Moving a database in needs a person and your password, which Rowsafe never sees.** [Move in](/docs/guides/move-in) starts only when an owner or admin pastes a connection string; the browser (or the CLI) encrypts it to a key the agent on your server made for that move, and Rowsafe relays only ciphertext. The password stays on your server in a 0600 file until you finish. The new login's connection string is encrypted on your server to a key your browser holds and shown once. AI agents on MCP can't start or change a move.
+
 ## What Rowsafe can and can't do
 
 Someone who controlled the Rowsafe service, or held one of your API keys, **could**:
@@ -30,6 +32,7 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 - queue the fixed tasks for your databases: plans, backups, checks, Proof runs and Marks, and apply an adoption plan (which sets `archive_mode`, `archive_command`, `archive_timeout` and, if it is `minimal`, `wal_level`);
 - restart PostgreSQL, a few seconds of downtime, but only on a server where you allowed restarts during install;
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
+- during a move you started, switch it over (the old database goes read-only until you make it writable again) or cancel it (deleting the partial copy on your server);
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
 - withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back.
 

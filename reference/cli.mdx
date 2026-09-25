@@ -102,6 +102,19 @@ A [standby](/docs/guides/standby) is a second server that stays in sync, is read
 
 On the server, `sudo -u postgres rowsafe-agent key` prints the agent's key fingerprint, to compare with the one Rowsafe shows before pairing.
 
+### Move to a new server
+
+[Moving a database](/docs/guides/move) is a standby on the new server, then a planned switchover.
+
+| Command | What it does |
+|---|---|
+| `rowsafe move [NAME] --to SERVER` | Set the new server up and keep it in sync. `--at TIME` switches over by itself then; without it, it waits for `rowsafe move switch`. `--keep-days N` keeps the old server (stopped) as a way back, 1 to 30, default 7. `--port N`, `--fingerprint F` and `--no-wait` as for `standby add`. Without `--to`: the move in progress. |
+| `rowsafe move switch [NAME]` | Switch over now. Asks you to type the name unless `--yes`. |
+| `rowsafe move schedule [NAME] --at TIME` | Change when it switches over; `--clear` waits for `rowsafe move switch`. |
+| `rowsafe move cancel [NAME]` | Cancel before the switchover: the database stays where it is. |
+| `rowsafe move back [NAME]` | Move it back to the old server (its data is reused). |
+| `rowsafe move finish [NAME]` | Remove the old server: Rowsafe stops keeping it stopped. |
+
 ## Database settings
 
 ```sh

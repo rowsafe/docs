@@ -5,6 +5,7 @@
     "adopt",
     "restore",
     "standby",
+    "move",
     "docker",
     "ai-agents",
     "monitoring",

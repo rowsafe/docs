@@ -87,6 +87,8 @@ Long queries on a standby can be cancelled when replay needs a row they read, or
 
 When the standby fell behind or broke, the finding has a **Rebuild the standby** fix: Rowsafe restores the latest backup there again.
 
+To move a database to another server for good, with a set time and a way back, see [Move a database to a new server](/docs/guides/move).
+
 ## Promote the standby
 
 **Standby**, **Promote**, then type the database's name. From a terminal: `rowsafe standby promote app`.

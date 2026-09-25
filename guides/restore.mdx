@@ -18,6 +18,8 @@ The examples restore a database named `app` on PostgreSQL 18, on a fresh Debian 
 | A change made after a Mark (`rowsafe mark`, by you, a migration or an AI agent) | A new server or a scratch cluster | That Mark |
 | Investigation, reporting, testing | A scratch server | Any time in the window |
 
+Need the old state as a separate database, without restoring by hand? [Fork it](/docs/guides/fork): Rowsafe restores any second or Mark into a new database on one of your servers, with its own backups.
+
 <Callout type="warn" title="Two rules">
   **Never restore over the only copy.** Restore to a new server, or at least a new data directory. The old cluster, even a damaged one, is evidence and a fallback.
 

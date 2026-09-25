@@ -80,7 +80,7 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 - **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
 - **No restarts.** No tool restarts PostgreSQL, even on a server where restarts from the dashboard are allowed. Only a person can, in the dashboard or with `rowsafe restart`.
 - **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only. `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
-- **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, and agent update settings.
+- **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, forks, plan changes, and agent update settings.
 - **`apply_adoption` needs your approval.** It refuses unless `confirm` is the database's exact name and a read-only plan succeeded. Its description tells the model to show you the plan and ask first, and never to pass `force` unless you asked.
 - **Annotations.** Read tools are marked read-only. `apply_adoption` and `update_schedule` (lowering retention deletes old backups) are marked destructive, so clients that confirm destructive calls will ask you.
 - **No secrets in output.** Bucket keys and the passphrase never leave your server. Outputs are capped in size.

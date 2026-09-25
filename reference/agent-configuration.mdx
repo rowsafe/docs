@@ -52,6 +52,8 @@ Never change the passphrase, bucket or prefix of a repository that holds backups
 | `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |
 | `ROWSAFE_STANDBY` | `on` | [Standby servers](/docs/guides/standby). `on`: this server pairs with the servers a person confirms in the dashboard. `pinned`: only with the key fingerprints in `ROWSAFE_STANDBY_PEERS`, so even a compromised Rowsafe can't pair a server of its own. `off`: it takes no part in standbys at all. |
 | `ROWSAFE_STANDBY_PEERS` | | With `ROWSAFE_STANDBY=pinned`: comma-separated key fingerprints (`sudo -u postgres rowsafe-agent key` on each server) this server may send its bucket settings to or receive them from. |
+| `ROWSAFE_CREATE_CLUSTER_ALLOW_FILE` | `/etc/rowsafe/create-cluster-allowed` | [Forks](/docs/guides/fork): the ports (`ports 5440-5499`) on which root allowed Rowsafe to create new PostgreSQL clusters. The installer writes it (`--allow-create-cluster`). |
+| `ROWSAFE_CREATED_CLUSTERS_FILE` | `/etc/rowsafe/created-clusters` | The clusters created for forks (`PORT UNIT` per line), which Rowsafe may stop and start like those allowed with `--allow-restart`. Written by root. |
 
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 
@@ -68,6 +70,7 @@ The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set thes
 | `ROWSAFE_CONFIG_DIR` | `/var/lib/rowsafe/pgbackrest` | Generated pgBackRest configuration, in the state volume. |
 | `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Proof's scratch space: about 1.3 × the database size + 1 GiB free. |
 | `ROWSAFE_AUTO_UPDATE` | `false` | Always off in Docker. |
+| `ROWSAFE_FORK_TARGET_DIR` | | Makes this sidecar a [fork target](/docs/guides/fork): the absolute path of the empty data directory (the `postgres` container's `PGDATA`) that a fork is restored into. |
 
 See [Run the agent in Docker](/docs/guides/docker).
 
@@ -89,6 +92,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
 | `--no-allow-restart` | Don't allow it, without asking. |
+| `--allow-create-cluster` | Allow Rowsafe to create a new PostgreSQL cluster (on a free port in 5440-5499) when someone [forks a database](/docs/guides/fork) to this server and confirms, without asking. Debian and Ubuntu (`pg_createcluster`). |
+| `--no-allow-create-cluster` | Don't allow it, without asking. Clusters created earlier stay. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
@@ -129,6 +134,7 @@ On a terminal, a first install asks:
 | `Name it in Rowsafe [app]:` | After `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`. Enter accepts the suggestion. |
 | `Turn on backups for app now? [Y/n]` | After the plan, in plain words. Nothing changes until you say yes. |
 | `Allow restarting PostgreSQL from the Rowsafe dashboard? [Y/n]` | Only when someone clicks **Restart** and confirms. |
+| `Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? [Y/n]` | For [forks](/docs/guides/fork): only when someone confirms a fork, on ports 5440-5499. Asked once, on Debian and Ubuntu. |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.

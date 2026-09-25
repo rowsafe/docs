@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "storage",
+    "second-copy",
     "adopt",
     "restore",
     "docker",

@@ -142,7 +142,7 @@ The button is disabled, and says why:
 |---|---|
 | Rowsafe isn't allowed to stop PostgreSQL on this server | Run the install command again on the server, and answer yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?". Or run it with `--allow-restart`: `curl -fsSL https://rowsafe.sh \| sudo sh -s -- --allow-restart` |
 | The helper that restarts PostgreSQL is from an older Rowsafe | The server was installed before Rewind could stop PostgreSQL. Run the install command again there: it keeps your earlier answer and updates the helper. |
-| PostgreSQL runs in Docker | Rowsafe never stops a PostgreSQL container. Restore a copy and bring back rows. |
+| PostgreSQL runs in Docker | Rowsafe stops the container only through the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), with the data volume writable for the agent. Add it, or restore a copy and bring back rows. |
 | This PostgreSQL is a read-only replica | Rewind the primary. |
 | This database uses tablespaces | Rowsafe can't rewind those in place yet. Restore a copy and bring back rows. |
 | The data directory is a symbolic link, or a mount point of its own | Rowsafe can't set it aside there yet. Restore a copy and bring back rows. |

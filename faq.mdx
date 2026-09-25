@@ -60,7 +60,7 @@ Yes, in one click, on the database's own server. On the **Rewind** tab, pick a s
 - **restore a copy** next to production, compare it with production, and **bring back** the rows you lost. Production keeps running;
 - or **rewind the whole database** to that moment, for the worst case. You can undo it for 7 days.
 
-See [Restore a database](/docs/guides/restore). Rewinding the whole database isn't available in Docker, and tables need a primary key to bring rows back. When the server itself is lost, you restore by hand onto a new one with pgBackRest, as the same guide describes. Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
+See [Restore a database](/docs/guides/restore). Rewinding the whole database in Docker needs the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), and tables need a primary key to bring rows back. When the server itself is lost, you restore by hand onto a new one with pgBackRest, as the same guide describes. Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
 
 </Accordion>
 <Accordion title="What if I lose the encryption passphrase?">

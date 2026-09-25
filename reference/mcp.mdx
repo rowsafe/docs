@@ -103,6 +103,7 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
+| `find_moment` | read | [Find the moment](/docs/guides/find-the-moment): when rows were deleted or changed, or a table emptied or dropped, with the exact time and the point just before it. |
 | `list_databases_on_server` | read | The databases, users and extensions inside one server, as last read. Creating or removing them is for people. |
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
 | `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |
@@ -127,6 +128,7 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 | `list_drills` | `database` (required), `limit` (1 to 50, default 10) |
 | `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`), `limit` (1 to 100, default 20) |
 | `get_task` | `task_id` (required), `log_tail_bytes` (0 to 16000, default 4000) |
+| `find_moment` | `database` (required), `tables`, `db`, `since_hours` (up to 168, default 24) or `from`/`to`, `kinds` (`delete`, `update`, `truncate`, `drop`), `min_rows`, `wait_seconds` (default 55), `task_id` (the result of a search still running) |
 | `create_restore_point` | `database` (required), `name` (default `agent-<UTC time>`), `wait_seconds` (0 to 120, default 90; at most 45 on the remote endpoint) |
 | `plan_adoption` | `database` (required), `host`, `port`, `socket_dir`, `retention_full`, `wait_seconds` |
 | `apply_adoption` | `database` and `confirm` (required, the database's name), `force`, `wait_seconds` |

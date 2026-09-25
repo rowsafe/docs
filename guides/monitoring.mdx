@@ -101,6 +101,13 @@ What Rowsafe can fix:
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
 | The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
+| A newer PostgreSQL minor release is available | **Update to 16.10** | Saves a Mark, installs the release and restarts PostgreSQL, on servers where you allowed updates. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
+| A newer release is installed but not running yet | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts. |
+| Security updates are waiting | **Install security updates** | Saves a Mark, installs the server's security updates (not PostgreSQL's own packages), on servers where you allowed them. |
+| The server needs a reboot | **Reboot the server** | Saves a Mark and reboots the server (you type the name), on servers where you allowed reboots. |
+| An upgrade keeps the old PostgreSQL version | **Remove PostgreSQL 16** | Deletes the version kept for undo, and frees its disk. |
+
+Pulse also tells you when your PostgreSQL major version no longer gets security fixes (or will within six months). Upgrading is not a one-click fix: it starts with a check and a rehearsal, on the database's **Updates** tab ([how](/docs/guides/updates#major-upgrades)).
 
 Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 

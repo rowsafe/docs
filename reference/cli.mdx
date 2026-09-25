@@ -119,6 +119,19 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 |---|---|
 | `rowsafe remove NAME` | Stop managing a database. Never changes the server or the bucket. Once a plan was applied, it needs `--keep-archiving`, because the server keeps archiving. `--yes` skips the confirmation. |
 
+## Updates and upgrades
+
+| Command | What it does |
+|---|---|
+| `rowsafe update [NAME]` | Show the versions, then install PostgreSQL's newest minor release (e.g. 16.9 to 16.10) and restart it, after a Mark. Asks you to type the database name; `--yes` skips it, `--no-wait` returns once it is queued. |
+| `rowsafe update [NAME] --auto on\|off` | Install minor releases by itself on Sundays at 03:00 in `--timezone ZONE` (an IANA name such as `Europe/Berlin`; default: your computer's). |
+| `rowsafe upgrade [NAME]` | Versions, newer majors, the latest rehearsal and an upgrade that can be undone. `--json`. |
+| `rowsafe upgrade [NAME] --to 18` | Check, rehearse on a restored copy (unless a rehearsal to 18 passed in the last 14 days), then upgrade. `--mode safe` (default) or `fast`, `--rehearse-only` to stop after the rehearsal, `--yes` to skip typing the name. |
+| `rowsafe upgrade undo [NAME]` | Go back to the version the upgrade kept (for 7 days). |
+| `rowsafe upgrade cleanup [NAME]` | Remove the kept version and free its disk; the upgrade can't be undone afterwards. |
+
+They work only on servers where the installer allowed updates, and never through MCP. Security updates and reboots are fixes: `rowsafe fix NAME`. See [Update and upgrade PostgreSQL](/docs/guides/updates).
+
 ## Pulse: monitoring and alerts
 
 | Command | What it does |

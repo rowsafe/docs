@@ -103,7 +103,7 @@ rowsafe files undo app
 The agent restores into a private staging folder first, then puts the files in place:
 
 - **Itself**, when its user may write into the folder.
-- **As the folder's owner**, through Rowsafe's root helper, on servers where root allowed it at install (`--allow-files`, or yes at the question). The helper reads the staged files as the agent's user and writes them as the folder's owner, never as root. It refuses system and database folders, folders owned by root, and paths that go through a symbolic link.
+- **As the folder's owner**, through Rowsafe's root helper, on servers where root allowed it at install (`--allow-files`, or yes at the question). The helper doesn't trust what the agent staged: it takes its own copy and puts back only plain files and folders (no links, devices or FIFOs, no set-user-ID or set-group-ID bits), writes them as the folder's owner (never as root), never writes or deletes through a symbolic link in the folder, and refuses system and database folders, folders owned by root, and paths that go through a symbolic link.
 - **Otherwise the files wait next to it**, in `/var/lib/rowsafe/files-restored/<id>` (in Docker, the agent's state volume), and Rowsafe says so. Nothing in the folder changes.
 
 ## Browse a snapshot
@@ -117,7 +117,7 @@ Only names, sizes and times reach Rowsafe, never file contents. To keep file nam
 | | How it is allowed |
 |---|---|
 | Read a folder you protect | `--files PATH` (or yes at the installer's question): root gives the agent's user read-only access to that folder with an ACL. |
-| Read folders you add later in the dashboard | `--allow-files`: the root helper may do the same for folders under the roots in `/etc/rowsafe/files-allowed` (by default `/srv`, `/var/www`, `/opt`, `/home`, `/data`, `/app` and Docker's volumes, plus the folders you protected). |
+| Read folders you add later in the dashboard | `--allow-files`: the root helper may do the same for folders under the roots in `/etc/rowsafe/files-allowed` (by default `/srv`, `/var/www`, `/opt`, `/data`, `/app` and Docker's volumes, plus the folders you protected; home folders only if you protect one with `--files` or add `/home` to the file). |
 | Put restored files back | `--allow-files`: as the folder's owner, only when someone asks and confirms. |
 
 Turn it off with `--no-allow-files`. The dashboard shows what is allowed on each server under **On db-1**.
@@ -127,6 +127,7 @@ Turn it off with `--no-allow-files`. The dashboard shows what is allowed on each
 - Files come back **as they were at a snapshot**, not at any second: at most one interval (15 minutes by default) before the moment you pick, or exactly at a Mark.
 - A snapshot is **not atomic** across a folder: a file written while it runs may be in its old or new version.
 - **Files Rowsafe can't read are left out** of the snapshot, and the folder shows it.
+- **Symbolic links aren't put back** through the root helper, and set-user-ID and set-group-ID bits are dropped: only plain files and folders come back that way.
 - **One filesystem per folder**: mounts inside the folder are not followed. Protect them as folders of their own.
 - **The column restore** matches paths by their end; with two files of the same name under different folders, both come back if missing.
 - In Docker, restored files **wait in the agent's state volume** unless the volume is mounted read-write and the agent's user may write there.

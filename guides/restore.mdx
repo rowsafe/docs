@@ -187,4 +187,6 @@ Copy out what you need, for example `pg_dump --table=...` of the affected tables
 
 ## Restoring from Docker
 
+In the dashboard, restoring a copy and bringing back rows work in Docker as on a server. Rewinding the whole database needs the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container).
+
 The backups of a database that runs in Docker are ordinary pgBackRest backups. Restore them the same way, on a Linux server with the same PostgreSQL major version, using the bucket settings from your `rowsafe-agent.env`.

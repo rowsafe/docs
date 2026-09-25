@@ -15,11 +15,13 @@ The agent:
 
 - connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
 - makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket. Nothing listens on your server;
-- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), and maintenance, a short list of fixes described below. It never runs commands or SQL sent over the network.
+- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, and Databases & users (create or remove databases, users and extensions, when a person asks). It never runs commands or SQL sent over the network.
 
 Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards.
 
 **Fixes run only when a person asks.** Rowsafe can run a fixed set of maintenance actions: `VACUUM` and `ANALYZE` tables, `REINDEX INDEX CONCURRENTLY`, `DROP INDEX CONCURRENTLY`, cancel a query (`pg_cancel_backend`), end a session (`pg_terminate_backend`) and drop an inactive replication slot. It never runs them on its own: only when an owner or admin clicks **Apply fix** in the dashboard (or runs `rowsafe fix`) and confirms. The service proposes each fix from a health finding and the client can only pick one by its ID, never send SQL or object names. The agent checks again right before it runs: the object still exists, the session is still the same one and isn't a Rowsafe, replication or autovacuum session, the slot is still inactive, and an index that backs a constraint is never dropped. Before dropping an index, Rowsafe saves a Mark so you can restore to just before it. Read-only API keys and the MCP server (AI agents) can't apply fixes. See [Apply fix](/docs/guides/monitoring#apply-fix).
+
+**Databases and users change only when a person asks.** Rowsafe can create and remove databases, users and extensions inside your PostgreSQL server, and set new passwords, only when an owner or admin clicks and confirms in the dashboard (removing a database asks for its name, and saves a Mark first) or uses the CLI with a read-write API key. The agent checks every name against the catalogs and builds the statements itself; it never removes PostgreSQL's own databases, superusers, its own user or Rowsafe's. New passwords are **end-to-end encrypted to your browser**: it makes a one-time key pair whose private key never leaves its memory, the agent encrypts the password to it (ECDH P-256, HKDF-SHA256, AES-256-GCM), and Rowsafe only relays the ciphertext once, then deletes it. PostgreSQL stores only a SCRAM verifier, so the password isn't in any statement or log. AI agents (MCP) can only read the list. See [Create databases and users](/docs/guides/databases-and-users).
 
 **Restarts are opt-in.** Rowsafe never restarts PostgreSQL on its own. It restarts only when someone clicks **Restart** in the dashboard (or runs `rowsafe restart`) and confirms, and only on servers where you allowed it during install. The installer asks; `--no-allow-restart` answers no. The installer itself can also restart PostgreSQL during setup, when you answer yes on the server. Only admins and owners can restart, never with a read-only API key or through MCP, and at most once every 2 minutes. In Docker, Rowsafe can't restart PostgreSQL at all.
 
@@ -29,6 +31,7 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 
 - queue the fixed tasks for your databases: plans, backups, checks, Proof runs and Marks, and apply an adoption plan (which sets `archive_mode`, `archive_command`, `archive_timeout` and, if it is `minimal`, `wal_level`);
 - restart PostgreSQL, a few seconds of downtime, but only on a server where you allowed restarts during install;
+- create databases, users and extensions, give a user access to databases, remove a user (handing what it owns to another user) or a database (after a Mark), or set a new password on an existing user, which locks out apps using the old one until they get the new one. They could not read a password Rowsafe made: it is encrypted to the browser or CLI that asked;
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
 - withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back.
@@ -39,7 +42,7 @@ They **could not**:
 - read or write your backups, or reach your bucket at all: the keys and the passphrase never leave your server;
 - make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
 - restart PostgreSQL on a server where you didn't allow it, or stop it;
-- read, change or delete your rows, or drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped;
+- read, change or delete your rows, or drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped (removing a whole database is the exception above, always after a Mark);
 - change settings other than the archiving settings above.
 
 ## Encryption

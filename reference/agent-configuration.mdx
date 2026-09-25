@@ -50,6 +50,7 @@ Never change the passphrase, bucket or prefix of a repository that holds backups
 | `ROWSAFE_RESTORE_POINT_TIMEOUT` | `90s` | How long to wait for a Mark (restore point) to be archived, up to `4m`. |
 | `ROWSAFE_MONITORING` | `true` | `false` turns metrics off. |
 | `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |
+| `ROWSAFE_LOGS` | `true` | `false`: the agent never reads PostgreSQL's log ([Logs](/docs/guides/logs)). |
 
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 

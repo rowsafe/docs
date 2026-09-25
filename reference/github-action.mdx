@@ -1,0 +1,87 @@
+---
+title: GitHub Action
+description: Every input and output of rowsafe/action, what it checks, what it writes to the run, and how it verifies the CLI it runs.
+---
+
+`rowsafe/action` saves a [Mark](/docs/concepts/restore-points) before a deploy. The task-oriented guide is [Save a Mark before every deploy](/docs/guides/deploys).
+
+```yaml
+- uses: rowsafe/action@v1
+  with:
+    api-key: ${{ secrets.ROWSAFE_API_KEY }}
+    database: app
+```
+
+## What it does, in order
+
+1. **Installs the rowsafe CLI** from the [GitHub release](https://github.com/rowsafe/rowsafe/releases), checks it against the release's `SHA256SUMS`, verifies its SLSA build provenance, and caches it (see [Verification](#verification)).
+2. **Finds the database**: the `database` input, else `ROWSAFE_DATABASE`, else `"database"` in the nearest `.rowsafe.json`, else the organization's only database.
+3. **Checks protection** (`rowsafe status`): whether the database [can be restored right now](/docs/concepts/protection-status). If not, a warning, or with `require-protected: true` the step fails before anything else happens.
+4. **Previews migrations** when `preview-sql` is set and the CLI has `rowsafe preview`: the new files run, in order, on a copy of the database on your server, and the preview's report goes into the job summary. If the migration fails on the copy (verdict `failed`), the step fails before the Mark: it would fail on production too. A `careful` or `dangerous` verdict is a warning, or fails the step with `fail-on`.
+5. **Saves the Mark** (`rowsafe mark`) and, with `wait: true`, waits until it is confirmed in your bucket. If it isn't confirmed within `wait-timeout-minutes`, the step fails.
+6. **Writes the outputs and the job summary.**
+
+## Inputs
+
+| Input | Default | Description |
+|---|---|---|
+| `api-key` | (required) | A read-write API key (`rsk_...`). Pass it from a secret. A read-only key can check protection but not save the Mark. |
+| `database` | see step 2 | The Rowsafe database name. |
+| `label` | `before-deploy-<sha>` | The Mark's name; `<sha>` is the commit's first 7 characters. It is lowercased and every run of characters other than letters, digits, `-` and `_` becomes `-`, cut to 63 characters. When the default name is taken (a re-run), `-2`, `-3`, ... up to `-20` is added. A `label` you set that is taken fails the step. |
+| `wait` | `true` | Wait until the Mark is confirmed in your bucket. `false` returns once it is requested. |
+| `require-protected` | `false` | Fail when the database isn't protected, instead of warning. |
+| `preview-sql` | | Glob patterns, separated by spaces or new lines, relative to `working-directory`. `**` matches across directories. When the preview can't run (for example, no backup yet), the step warns and goes on. |
+| `preview-changed-only` | `true` | Preview only the files added or changed since `github.event.before` (push) or the pull request's base. When that can't be worked out (another event, or the base commit can't be fetched), the preview is skipped with a warning. |
+| `fail-on` | `never` | `dangerous` also fails the step on a dangerous preview verdict, `careful` on careful or dangerous. With `never`, they are warnings. A migration that fails on the copy fails the step whatever this says. |
+| `wait-timeout-minutes` | `10` | How long to wait for the Mark, and for the preview. |
+| `working-directory` | `.` | Where `.rowsafe.json` and `preview-sql` are looked up. |
+| `version` | `latest` | The CLI version (`0.4.0` or `v0.4.0`), or `latest`: the newest release on GitHub. |
+| `verify-provenance` | `auto` | `auto` verifies the CLI's provenance when the GitHub CLI (2.49 or later) and a token are available, and warns otherwise. `true` requires it. `false` skips it (the checksum is still checked). |
+| `api-url` | `https://api.rowsafe.sh` | The Rowsafe API. |
+| `cli-path` | | A `rowsafe` binary to use instead of downloading one. It isn't verified by the action. |
+| `github-token` | `github.token` | Used only by `gh attestation verify` to read the CLI's attestations. |
+
+## Outputs
+
+| Output | Description |
+|---|---|
+| `mark` | The Mark's name. |
+| `restore-from-backup` | The backup a rewind to this Mark starts from. Empty with `wait: false`. |
+| `dashboard-url` | The database's Marks in the dashboard, where you rewind to one. |
+| `database` | The database that was marked. |
+| `protected` | `true` or `false`: whether the database could be restored when the step ran. |
+| `preview-verdict` | `safe`, `careful`, `dangerous` or `failed` (the migration fails on the copy), when a preview ran. Empty when it couldn't run. |
+
+## The job summary
+
+A successful run adds a summary to the workflow run with the Mark and when it was confirmed, the database and whether it was protected, the backup a rewind starts from, the commit, the preview's report when one ran (the same report the CLI writes for a pull request comment), a **Rewind to this Mark** link and, collapsed, the CLI commands for this Mark. A failed run's summary says what stopped the deploy and what to do next: the reasons a database isn't protected, why a Mark wasn't confirmed, or which input is wrong.
+
+Messages also appear as annotations on the run: a notice with the Mark, warnings (not protected, preview skipped), and errors.
+
+## Verification
+
+The action runs the CLI only after two checks, on every run, including when the CLI comes from the cache:
+
+1. **Checksum**: the binary's SHA-256 must match the release's `SHA256SUMS`, downloaded fresh from the same release. A cached copy that doesn't match is downloaded again.
+2. **Build provenance**: `gh attestation verify` checks the [SLSA provenance](https://github.com/rowsafe/rowsafe/blob/main/docs/verifying-releases.md) recorded when the release was built: signed by the `release.yml` workflow of `rowsafe/rowsafe`, at that version's tag, in the public Sigstore transparency log. On GitHub-hosted runners the GitHub CLI is installed, so this always runs.
+
+The CLI is cached with `actions/cache`, keyed by version and platform, and in the runner's tool cache on self-hosted runners.
+
+## Runners
+
+Linux and macOS, x64 and ARM64, GitHub-hosted or self-hosted. Windows runners aren't supported: use `runs-on: ubuntu-latest` for the deploy job. The action needs `bash`, `curl` and `git` (for `preview-changed-only`).
+
+## Errors
+
+| Summary | What happened |
+|---|---|
+| no API key | `api-key` is empty. On `pull_request` from a fork, secrets aren't available. |
+| API key rejected | The key is wrong or was revoked. |
+| database not found | No database with that name in the API key's organization. |
+| can't reach Rowsafe | The API didn't answer. |
+| which database? | No `database` input, no `.rowsafe.json`, and the organization has several databases. |
+| *database* is not protected | With `require-protected: true`. The summary lists the reasons and links to the database. |
+| the migration fails | The migration failed on the copy, with the SQL error and its line in the report. No Mark was saved and production wasn't touched. |
+| migration looks careful / dangerous | With `fail-on`. No Mark was saved and production wasn't touched. |
+| Mark not confirmed | The Mark was written but your bucket didn't confirm it in time (usually archiving is failing), or the agent didn't pick it up within `wait-timeout-minutes`. |
+| Mark not saved | Anything else: a `label` that is taken, a read-only key. |

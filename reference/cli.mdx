@@ -77,7 +77,7 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | `rowsafe backups [NAME]` | Backups, newest first. |
 | `rowsafe proof [NAME]` | Run [Proof](/docs/concepts/restore-drills), the restore test, now. |
 | `rowsafe proofs [NAME]` | Proof history: every run and its result. |
-| `rowsafe mark [NAME] [LABEL]` | Set a [Mark](/docs/concepts/restore-points) (a named restore point). `LABEL` defaults to `manual-<UTC time>`. |
+| `rowsafe mark [NAME] [LABEL]` | Set a [Mark](/docs/concepts/restore-points) (a named restore point). `LABEL` defaults to `manual-<UTC time>`. `--json` prints the Mark (`status`, `restore_from_backup`, ...) for scripts and CI. |
 | `rowsafe marks [NAME]` | Marks, with the backup to restore from. |
 | `rowsafe tasks [NAME]` | Recent tasks, for one database or all. `--status S`, `--type T`, `--limit N` (default 30). |
 | `rowsafe task ID` | One task with its full log. |

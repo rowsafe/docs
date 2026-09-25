@@ -21,7 +21,7 @@ The CLI, scripts, CI and AI agents use **API keys** (`rsk_...`).
 
 On your own machine you don't need to create one: `rowsafe login` opens the dashboard, you approve it, and a key is created for you. Only admins and owners can approve a CLI login.
 
-For CI and headless machines, create a key and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key`:
+For CI and headless machines, create a key and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key` (to save a Mark before each deploy, see [Save a Mark before every deploy](/docs/guides/deploys)):
 
 ```sh
 rowsafe api-keys create deploy-ci

@@ -1,0 +1,79 @@
+---
+title: "Index recommendations"
+description: Rowsafe finds the indexes your slowest queries are missing, tests each one on a copy of your database, and creates the ones you pick without blocking your app. How it works, what it costs, and its limits.
+---
+
+Part of **Pulse**. Every night Rowsafe looks at the queries that take your database the most time, works out which indexes could make them faster, and **tests each idea on a copy of your database** restored next to production from your backups. You only see the indexes PostgreSQL actually used on the copy, with how much faster each query got there, what the index costs in disk, and what it does to writes. Click **Create index** and Rowsafe builds it without blocking your app.
+
+Your production database is only read (its catalogs and statistics). The copy lives on your server and is deleted when the check ends. Rowsafe never sees your rows: only query shapes, index names, sizes and timings reach it.
+
+## Find recommendations
+
+1. Open the database, then **Pulse** → **Recommendations**.
+2. The first time, click **Find recommendations now**. After that it runs **every night at your database's quietest hour** (the hour with the least query time over the last week; 03:00 UTC until there is a day of statistics).
+3. The page shows the check as it runs: waiting for the agent, finding ideas and testing them on a copy, then the recommendations. A large database takes about as long as a [Proof run](/docs/guides/restore): the copy is a restore.
+
+Each recommendation shows:
+
+- **How much faster**, time-weighted over the queries it helps ("about 38× faster"), and each query **before and after** on the copy. Plain SELECTs are timed for real on the copy with values taken from PostgreSQL's own statistics; statements that change data (UPDATE, DELETE) are compared by PostgreSQL's cost estimate, because Rowsafe doesn't run them.
+- **Disk** it takes and **build time**, estimated from the build on the copy.
+- **What it costs writes**: one more index to keep up to date on every insert and update of that table, in plain words from the table's write rate.
+- **The index** itself, folded away: its name (`rs_<table>_<columns>_idx`) and definition.
+
+You need `pg_stat_statements` for this, like for [slow queries](/docs/guides/monitoring#slow-queries), and backups turned on: the copy is restored from them.
+
+## Create an index
+
+Click **Create index** on a recommendation, or apply the same fix from **Pulse** → **Health**, where open recommendations appear as a finding. Rowsafe:
+
+1. checks again on your server that the table and columns still exist, and that no index doing the same job appeared since (then there is nothing to do);
+2. refuses on a read-only replica, and when the disk has less free space than about twice the index;
+3. builds it with `CREATE INDEX CONCURRENTLY`: reads and writes carry on; it waits at most 5 seconds for a lock and tries again later rather than queue behind your traffic;
+4. if the build fails, removes the half-built (invalid) index, so nothing is left behind.
+
+Owners and admins can create indexes; members see the button disabled. API keys need write access. Every change is in the audit log. From a terminal:
+
+```sh
+rowsafe recommendations app            # what Rowsafe recommends, tested on a copy
+rowsafe fix app                        # the same "Create index" fixes, with every other fix
+rowsafe recommendations find app       # check now (runs every night by itself)
+```
+
+A week after Rowsafe creates an index, the page reports what it did in practice: how many times it was used, and how much faster the queries it was made for got, from your query statistics ("used 1.2 million times in its first week, and the queries it was made for got about 31× faster"). If it isn't used, Pulse doesn't call it unused for two weeks; after that, the usual unused-index finding offers to remove it.
+
+## Not now
+
+**Not now** hides a recommendation, with an optional reason your teammates see ("only the monthly export runs this"). Hidden ones are listed under **Hidden**, with **Show again**. **Tested but not recommended** lists the ideas the last check tried and why they didn't make the cut.
+
+## When checks run
+
+Under **More options**: every night at the quietest hour (the default), your own schedule (a 5-field cron expression in UTC), or off (only when you click **Check now**). Ideas tested in the last 7 days aren't tested again: most nights no copy is needed, and the check takes seconds.
+
+## How it works
+
+<Accordions>
+<Accordion title="From queries to index ideas">
+
+The agent reads the text of your busiest statements from `pg_stat_statements` on your server and parses it with PostgreSQL's own parser (libpg_query, built into the agent). For each table it notes the columns compared with `=` or `IN`, ranges (`<`, `>`, `BETWEEN`), join columns, `ORDER BY` with `LIMIT`, and `IS NULL` conditions. It turns them into ideas: the most selective equality columns first, then a range or sort column; a partial index (`WHERE processed_at IS NULL`) when that condition leaves out most of the table; an index that also stores the few columns a query reads (`INCLUDE`), when that is clearly better. It skips small tables, columns with only a few values, queries that read most of the table anyway, and anything an existing index already covers (same leading columns, operator class and collation, a matching partial condition, or a unique index on some of the columns). At most 3 ideas per table and 12 per database are tested.
+
+</Accordion>
+<Accordion title="Testing on the copy">
+
+Rowsafe restores the latest backup plus the archived changes into a scratch copy next to production, exactly like a [Proof run](/docs/guides/restore): its own directory, a private socket and no network port, no WAL archiving, no background workers, low CPU and IO priority. It needs about 1.3 times the database size plus 1 GB of free disk; without it, the check is skipped with a plain reason. On the copy, for each idea: `EXPLAIN` every query on that table (a generic plan, with `EXPLAIN (GENERIC_PLAN)` on PostgreSQL 16 and later), `CREATE INDEX`, `EXPLAIN` again, time the plain SELECTs with `EXPLAIN ANALYZE` in a read-only transaction (10 seconds at most each), then `DROP INDEX`. An index is recommended only if PostgreSQL used it and it made at least one query at least twice as fast; among ideas that speed up the same queries, the one that saves the most time per megabyte wins.
+
+</Accordion>
+<Accordion title="What reaches Rowsafe">
+
+Query IDs, the index definition (table and column names), plan costs, timings and sizes. The values used to time queries on the copy come from PostgreSQL's statistics on your server and stay there. Query texts are the normalized ones Pulse already shows (values replaced by `$1`, `$2`).
+
+</Accordion>
+</Accordions>
+
+## Limits
+
+- PostgreSQL 12 and later, with `pg_stat_statements` and backups on. Other engines aren't supported yet.
+- B-tree indexes on plain columns only: no expression indexes (`lower(email)`), GIN or GiST, and no indexes on partitioned tables (`CREATE INDEX CONCURRENTLY` can't build one on all partitions at once).
+- Only statements in `pg_stat_statements` count, and only the busiest 40 of the last week. Queries run through functions or stored procedures are seen as the function call.
+- Timings come from the copy, which has the same data but not your production load or cache; the week-after report tells you what happened in practice.
+- The create fix runs for at most 2 hours; an index estimated to take longer is shown with its definition under **Do it yourself**, to create at a quiet time.
+- AI agents can read recommendations (the MCP tool `index_recommendations`) but can't create indexes.

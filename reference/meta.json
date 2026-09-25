@@ -1,4 +1,4 @@
 {
   "title": "Reference",
-  "pages": ["cli", "agent-configuration", "mcp", "webhooks"]
+  "pages": ["cli", "agent-configuration", "mcp", "ask", "webhooks"]
 }

@@ -6,6 +6,8 @@
     "restore",
     "docker",
     "ai-agents",
+    "preview-migrations",
+    "safe-copies",
     "monitoring",
     "teams",
     "agent-updates"

@@ -6,6 +6,7 @@
     "restore",
     "docker",
     "ai-agents",
+    "connect-ai-apps",
     "monitoring",
     "teams",
     "agent-updates"

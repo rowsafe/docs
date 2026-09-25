@@ -8,9 +8,9 @@ Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI
 | | Transport | Credentials | Write tools |
 |---|---|---|---|
 | `rowsafe mcp` | stdio, on your machine | The CLI's login, or `ROWSAFE_API_KEY` | Off by default. `--allow-restore-points` or `--allow-writes`. |
-| `https://api.rowsafe.sh/mcp` | Streamable HTTP | `Authorization: Bearer rsk_...` | Always listed. A read-only key can't use them. |
+| `https://api.rowsafe.sh/mcp` | Streamable HTTP | **Sign in with Rowsafe** (OAuth), or `Authorization: Bearer rsk_...` | Signed-in apps: `create_restore_point` only, if you allowed Marks. API keys: always listed; a read-only key can't use them. |
 
-For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents).
+For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents). To add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf without an API key, see [Connect AI apps](/docs/guides/connect-ai-apps).
 
 ## Set up
 
@@ -56,23 +56,46 @@ Claude Desktop runs local servers from its config file: `~/Library/Application S
 
 Use the absolute path of `rowsafe` (`which rowsafe`): Desktop doesn't use your shell's `PATH`. Add `"--allow-restore-points"` or `"--allow-writes"` to `args` for write tools. Restart Claude Desktop afterwards.
 
-Desktop's remote connectors can't send an API-key header, so use this local setup there.
+Or use a remote connector instead (**Settings**, **Connectors**, **Add custom connector**, `https://api.rowsafe.sh/mcp`): you sign in with Rowsafe, no key or local binary needed. See [Connect AI apps](/docs/guides/connect-ai-apps).
 
 </Tab>
 <Tab value="Remote endpoint">
 
-No local binary needed:
+No local binary needed. Sign in with Rowsafe (run `/mcp` in Claude Code, then **Authenticate**):
+
+```sh
+claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp
+```
+
+Or with an API key, for CI and clients without OAuth:
 
 ```sh
 claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Authorization: Bearer rsk_..."
 ```
 
-- Every request needs an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
+- Every request needs an OAuth access token or an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
 - The endpoint is stateless and answers with plain JSON.
 - Tool calls wait at most 45 seconds.
 
 </Tab>
 </Tabs>
+
+## Sign in with Rowsafe (OAuth)
+
+The remote endpoint is an OAuth 2.1 protected resource, following the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (2026-07-28). MCP clients discover everything from the first `401`; you only give them the URL. See [Connect AI apps](/docs/guides/connect-ai-apps) for each client.
+
+| | |
+|---|---|
+| Protected resource metadata ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)) | `https://api.rowsafe.sh/.well-known/oauth-protected-resource/mcp`, named in `WWW-Authenticate` on every `401` |
+| Authorization server metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)) | `https://api.rowsafe.sh/.well-known/oauth-authorization-server` (issuer `https://api.rowsafe.sh`) |
+| Client registration | Client ID metadata documents (an HTTPS `client_id`), or dynamic registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591)) at `/oauth/register`. Clients are public: no client secret. |
+| Grant | Authorization code with PKCE, `S256` only. The response carries `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)). |
+| Redirect URIs | Exact match. Accepted: ChatGPT's, Claude's, VS Code's and Cursor's published callbacks, and loopback (`http://127.0.0.1`, `http://[::1]`, `http://localhost`, any port). |
+| Resource ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)) | `https://api.rowsafe.sh/mcp`. Tokens work on `/mcp` only. |
+| Scopes | `rowsafe:read` (always), `rowsafe:marks` (optional: adds `create_restore_point`). `offline_access` is accepted; other scopes are ignored. |
+| Tokens | Access tokens: 1 hour. Refresh tokens: 30 days, single use, rotated on every refresh; using one twice disconnects the app. Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)) at `/oauth/revoke`. |
+
+A person approves each app in the dashboard, for one organization. Owners and admins only. Apps are listed, and can be disconnected, in **Settings**, **Connected apps**.
 
 ## Safety model
 

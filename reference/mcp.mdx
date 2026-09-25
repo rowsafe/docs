@@ -102,6 +102,7 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `database_insights` | read | Largest tables, unused and duplicate indexes, estimated bloat, dead rows, tables that may need an index. |
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
+| `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
 | `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |
@@ -118,7 +119,7 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 
 | Tool | Parameters |
 |---|---|
-| `get_database`, `safety_check`, `list_restore_points` | `database` (required) |
+| `get_database`, `safety_check`, `list_restore_points`, `backup_storage` | `database` (required) |
 | `database_health` | `database` (optional) |
 | `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
 | `query_trends` | `database` (required), `since_hours` (1 to 336, default 24), `sort` (`total_time`, `calls`, `mean_time`, `rows`), `limit` (1 to 50, default 10), `query_id` |

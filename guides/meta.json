@@ -4,9 +4,11 @@
     "storage",
     "adopt",
     "restore",
+    "find-the-moment",
     "docker",
     "mongodb",
     "ai-agents",
+    "deploys",
     "monitoring",
     "teams",
     "agent-updates"

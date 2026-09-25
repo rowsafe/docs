@@ -7,7 +7,7 @@ Coding agents run migrations, backfills and ad-hoc SQL, often without a person w
 
 **Guard** gives you that moment. Before a risky change, the agent asks Rowsafe "is it safe?" (could this database be restored right now?) and sets a [Mark](/docs/concepts/restore-points), a named restore point. If something breaks, you know exactly where to rewind to.
 
-Guard is three things you can combine: the MCP tools, a Claude Code hook (`rowsafe guard`), and a snippet for your agent instructions.
+Guard is three things you can combine: the MCP tools, a Claude Code hook (`rowsafe guard`), and a snippet for your agent instructions. For migrations your CI runs, the [GitHub Action](/docs/guides/deploys) saves a Mark before every deploy.
 
 ## The workflow
 

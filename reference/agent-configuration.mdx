@@ -68,6 +68,17 @@ The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set thes
 | `ROWSAFE_CONFIG_DIR` | `/var/lib/rowsafe/pgbackrest` | Generated pgBackRest configuration, in the state volume. |
 | `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Proof's scratch space: about 1.3 × the database size + 1 GiB free. |
 | `ROWSAFE_AUTO_UPDATE` | `false` | Always off in Docker. |
+| `ROWSAFE_DOCKER_CONTROL_SOCKET` | `/run/rowsafe-control/control.sock` | Where the optional container control service listens (the `rowsafe-control` volume). |
+
+The container control service (`ghcr.io/rowsafe/docker-control:<version>`) reads:
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_CONTROL_SERVICE` | `postgres` | The compose service it may stop, start and restart, in its own compose project. |
+| `ROWSAFE_CONTROL_CONTAINER` | | Instead: one container name (without compose). |
+| `ROWSAFE_CONTROL_ALLOW_UIDS` | `999,70` | Users allowed to connect: the agent's. |
+| `ROWSAFE_CONTROL_STOP_TIMEOUT` | `2m` | How long PostgreSQL may take to shut down before Docker kills it (at most `10m`). |
+| `ROWSAFE_CONTROL_SOCKET` | `/run/rowsafe-control/control.sock` | Where it listens. |
 
 See [Run the agent in Docker](/docs/guides/docker).
 

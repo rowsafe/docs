@@ -1,0 +1,63 @@
+---
+title: Find the moment
+description: Find out exactly when rows were deleted or changed, or a table was emptied or dropped, so you can rewind to just before it instead of guessing.
+---
+
+Something went missing: customers are gone, orders all say "closed", a table is empty. Before you can [rewind](/docs/guides/restore), you need the moment it happened. **Find the moment** tells you: it lists each big delete, update, `TRUNCATE` and `DROP`, with the exact second it happened, the table, how many rows, and its transaction ID.
+
+It only reads. Nothing in the database changes, and your data never leaves your server: the Rowsafe agent reads the database's change log (the WAL in your storage) on your server, and only names, times and counts reach Rowsafe.
+
+## In the dashboard
+
+1. Open the database, then **Rewind** → **Find the moment**.
+2. Pick the tables (or leave **All tables**), how far back to look (the last hour up to 7 days, or your own range), and what happened: deleted rows, changed rows, emptied tables, dropped tables.
+3. Click **Find the moment**. The agent picks up the search within seconds. A day of changes usually takes under a minute.
+
+You get the totals, a timeline (click a bar to list only what happened then) and the changes, newest first. Each transaction is one row, even when it touched several tables. A table changed the same way over and over (an hourly cleanup job, say) is folded into one row so the unusual change stands out.
+
+**Rewind to just before this** takes you to Rewind with that point filled in: just before the transaction committed, so everything before it is kept and the change itself is left out. From there, restore a copy next to production, compare, and bring the rows back.
+
+Any member of the organization can search. Rewinding needs the admin or owner role.
+
+## From a terminal
+
+```sh
+rowsafe rewind find app --table customers --since 6h
+```
+
+```
+Searched 2026-09-24 08:00:00 CEST (06:00:00 UTC) to 2026-09-24 14:00:00 CEST (12:00:00 UTC).
+
+WHEN (YOUR TIME ZONE)     WHAT                               TRANSACTION
+2026-09-24 11:47:03 CEST  1,204 rows deleted from customers  8841207
+
+Found 1 transaction with matching changes between 06:00 and 12:00 UTC on Sep 24. The biggest: 1,204 rows deleted from customers at 09:47:03 UTC.
+
+Rewind to just before the biggest one (a copy next to production; it never touches it):
+  rowsafe rewind copy app --at 2026-09-24T09:47:03.521880Z
+```
+
+| Option | What it does |
+|---|---|
+| `--table T` | Only this table: `schema.table` or `table`. Repeat or comma-separate for several. |
+| `--since 24h` | How far back: `30m`, `6h`, `2d`, `1w` (default 24 hours, at most 7 days). |
+| `--from TIME`, `--to TIME` | An exact range instead, in your time zone (`"2026-09-24 14:00"`, `"14:00"`, `"2h ago"`) or RFC 3339. |
+| `--kind K` | `delete`, `update`, `truncate`, `drop` (comma-separated). |
+| `--db DB` | Only this PostgreSQL database, when the server has several. |
+| `--min-rows N` | Leave out transactions that changed fewer rows. |
+| `--json` | The full result as JSON. |
+
+## For AI agents
+
+The MCP tool `find_moment` does the same search, and it is read-only, so it is available to every key, including read-only ones. An assistant can answer "when were rows deleted from applications?" and give you the exact point, but it never rewinds anything itself: that stays with you. See [Guard](/docs/guides/ai-agents).
+
+## What it shows, and what it can't
+
+- **Times are commit times.** A change becomes visible when its transaction commits, so that is the moment shown, with microseconds. Rewinding to one microsecond before it, or to just before its transaction ID, leaves it out and keeps everything before.
+- **Rows are counted exactly** for deletes and updates. For an emptied or dropped table, the count is PostgreSQL's last estimate of the table's size, marked "about".
+- **Rolled-back transactions don't count.** Only committed changes are listed; changes in a savepoint are counted with their transaction. Prepared (two-phase) transactions aren't listed.
+- **Not who did it.** PostgreSQL's change log doesn't record the user or the application, so neither does Rowsafe. Your application logs or `log_statement` can tell you who.
+- **Names of tables that are gone.** The agent notes table names every 15 minutes and keeps them for 8 days, so a table dropped or emptied later is still named. A table created and dropped within a few minutes may show as "a table Rowsafe couldn't name".
+- **The newest minute.** When your range ends now, the agent first sends the latest changes to your storage and waits up to a minute for them.
+- **Limits.** One search covers at most 7 days, lists the 100 biggest transactions, and reads at most about 8 GB of stored change log; over that, it searches the most recent part and says so. It can only look back as far as your oldest kept backup. `VACUUM FULL`, `CLUSTER` and table rewrites are not reported: they don't lose rows.
+- **Cost on the server.** The search runs at low CPU and IO priority, downloads the change log for the range from your storage a few pieces at a time (16 MB each, deleted as soon as they are read), and needs about 1 GB of free disk under `/var/lib/rowsafe`.

@@ -5,6 +5,7 @@
     "adopt",
     "restore",
     "docker",
+    "mysql",
     "ai-agents",
     "monitoring",
     "teams",

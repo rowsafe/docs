@@ -1,0 +1,142 @@
+---
+title: Protect MySQL or MariaDB
+description: Backups to your own bucket, restore to any second, a weekly restore test and monitoring for MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4, on a server or in Docker.
+---
+
+Rowsafe protects MySQL and MariaDB the way it protects PostgreSQL: physical backups encrypted on your server and stored in your own bucket, every change copied there continuously so you can restore **any second**, a weekly **Proof** that the backups really restore, **Rewind** copies to bring deleted rows back, **Marks**, and **Pulse** monitoring with fixes. How it works under the hood: [How MySQL and MariaDB backups work](/docs/concepts/mysql).
+
+## Supported versions
+
+| Server | Versions | Backup tool | Where |
+|---|---|---|---|
+| MySQL | 8.0, 8.4 LTS | Percona XtraBackup 8.0 / 8.4 | Debian 12/13, Ubuntu 22.04/24.04; Docker (`mysql:8.0`, `mysql:8.4`) |
+| MariaDB | 10.6, 10.11, 11.4 LTS | mariadb-backup (MariaDB's own) | Debian 12/13, Ubuntu 22.04/24.04; Docker (`mariadb:10.6`, `mariadb:10.11`, `mariadb:11.4`) |
+
+Other MySQL versions (5.7, 9.x innovation releases), Percona Server and Galera clusters aren't supported yet.
+
+## On a server: one command
+
+Run the install command from the dashboard (**Servers → Add a server**) on the database server, as root. On a server with MySQL or MariaDB (and no PostgreSQL), the installer:
+
+<Steps>
+<Step>
+
+**Installs the backup tool.** For MySQL, Percona XtraBackup 8.0 or 8.4 (matching your server) from Percona's repository; the installer checks Percona's signing key against its known fingerprint first. For MariaDB, `mariadb-backup` from the same place as your server.
+
+</Step>
+<Step>
+
+**Runs the agent as the `mysql` user**, which can read the data files (backups) and start private copies of the server (restore tests, Rewind).
+
+</Step>
+<Step>
+
+**Finds your server** and asks you to name it in Rowsafe.
+
+</Step>
+<Step>
+
+**Creates Rowsafe's own account** `rowsafe@localhost`, logging in as root through the local socket (Debian and Ubuntu let root in without a password there). If your root account has a password, the installer asks for it once and doesn't keep it. The account's random password stays on your server.
+
+</Step>
+<Step>
+
+**Shows the plan** and changes nothing until you say yes. On MySQL 8 there is usually nothing to change. MariaDB keeps no binary log by default: the plan turns it on, which takes one restart (a few seconds), at a time you choose.
+
+</Step>
+</Steps>
+
+Once the settings are in effect, Rowsafe checks that changes reach your bucket, takes the first full backup and schedules the rest. After a restart you do yourself, Rowsafe notices and finishes by itself.
+
+<Callout title="A server with both PostgreSQL and MySQL">
+  On a server that also runs PostgreSQL, the agent runs as `postgres` and can't read MySQL's data files, so the installer only protects PostgreSQL there for now.
+</Callout>
+
+## In Docker
+
+The agent runs as a sidecar container, built from the same official image as your server (so restore tests run the very same version), with the backup tools added. You add a socket volume to your database service and one service:
+
+<Tabs items={["MySQL", "MariaDB"]}>
+<Tab value="MySQL">
+
+```yaml
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+    secrets: [mysql_root_password]
+    volumes:
+      - mysqldata:/var/lib/mysql
+      - mysqlsocket:/var/run/mysqld          # Rowsafe
+
+  rowsafe-agent:                             # Rowsafe
+    image: ghcr.io/rowsafe/agent:<version>-mysql8.4
+    hostname: db-1
+    user: "999:999"
+    env_file: rowsafe-agent.env
+    environment:
+      ROWSAFE_MYSQL_ADMIN_PASSWORD_FILE: /run/secrets/mysql_root_password
+    secrets: [mysql_root_password]
+    volumes:
+      - mysqldata:/var/lib/mysql:ro          # same volume, same path, read-only
+      - mysqlsocket:/var/run/mysqld
+      - rowsafe-state:/var/lib/rowsafe
+```
+
+Then: `rowsafe adopt shop --host db-1 --engine mysql`, and approve the plan in the dashboard.
+
+</Tab>
+<Tab value="MariaDB">
+
+```yaml
+services:
+  mariadb:
+    image: mariadb:11.4
+    command: --log-bin=mysql-bin --binlog-format=ROW --server-id=1   # Rowsafe
+    environment:
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/mariadb_root_password
+    secrets: [mariadb_root_password]
+    volumes:
+      - mariadbdata:/var/lib/mysql
+      - mariadbsocket:/run/mysqld            # Rowsafe
+
+  rowsafe-agent:                             # Rowsafe
+    image: ghcr.io/rowsafe/agent:<version>-mariadb11.4
+    hostname: db-1
+    user: "999:999"
+    env_file: rowsafe-agent.env
+    environment:
+      ROWSAFE_MYSQL_ADMIN_PASSWORD_FILE: /run/secrets/mariadb_root_password
+    secrets: [mariadb_root_password]
+    volumes:
+      - mariadbdata:/var/lib/mysql:ro
+      - mariadbsocket:/run/mysqld
+      - rowsafe-state:/var/lib/rowsafe
+```
+
+Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
+
+</Tab>
+</Tabs>
+
+`rowsafe-agent.env` holds the same settings as for PostgreSQL (the enrollment token and your bucket); see [Run the agent in Docker](/docs/guides/docker). The agent uses the root password once, to create its own account, and keeps that account in its state volume. Complete files: `deploy/docker/compose.mysql.yml` and `compose.mariadb.yml` in the [agent's repository](https://github.com/rowsafe/rowsafe).
+
+## What you get
+
+- **Backups**: a full backup every week and a differential every day (changes since the full), streamed from the running server without stopping it, compressed and encrypted on your server.
+- **Restore to any second**: the binary log (MySQL's record of every change) is copied to your bucket continuously, at most about a minute behind.
+- **Proof**: every week Rowsafe restores the latest backup and every change since into a private copy on your server, checks every database and the largest tables (`CHECK TABLE`, row counts), then deletes it.
+- **Rewind**: restore a copy as it was at any second (or a Mark), compare it with production table by table, and bring deleted or changed rows back with one click.
+- **Marks**: named points (`rowsafe mark`, AI agents through MCP) you can restore to exactly.
+- **Pulse**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, and rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`).
+
+## Honest limits
+
+- **No restart or rewind in place yet.** Rowsafe tells you when MySQL/MariaDB needs a restart but doesn't restart it for you, and Rewind brings rows back from a copy rather than rewinding the whole server.
+- **Triggers run** when rows are brought back: MySQL can't turn them off for one session. The result says which tables have triggers.
+- **Tables without a primary key** can be restored with the database but not compared or brought back row by row.
+- **Non-InnoDB tables** (MyISAM, Aria) are locked briefly during backups and can't be restored to an exact second.
+- **Encrypted binary logs** (`binlog_encryption`, `encrypt_binlog`) aren't supported yet.
+- **Replicas**: set up backups on the primary; a replica is skipped.
+- Rowsafe only needs the binary log positions, not GTIDs; if GTIDs are on, Marks record them too.

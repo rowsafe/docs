@@ -3,7 +3,11 @@ title: Set up backup storage
 description: Create a storage bucket and an access key for your backups, and find the bucket URL the installer asks for. Step by step for Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces and other S3-compatible storage.
 ---
 
-Rowsafe keeps your backups in a storage bucket **that you own**. Rowsafe never stores your data itself, and it never sees the keys to your bucket: they stay on your database server.
+<Callout title="Don't want to set up a bucket?">
+  Use [Rowsafe Storage](/docs/guides/rowsafe-storage): nothing to set up, encrypted on your server so we can't read it, 10 GB on the Free plan. This page is for keeping backups in a bucket of your own.
+</Callout>
+
+With your own bucket, Rowsafe keeps your backups in a storage bucket **that you own**. Rowsafe never stores your data itself, and it never sees the keys to your bucket: they stay on your database server.
 
 You need three things:
 

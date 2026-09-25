@@ -7,9 +7,15 @@ The agent reads its configuration from environment variables. On a server, syste
 
 In `agent.env`, values are single-quoted and must not contain single quotes or newlines. After a change, run the installer again (it self-tests first) or `sudo systemctl restart rowsafe-agent`.
 
+## Where backups go
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_STORAGE` | `own` | `rowsafe` for [Rowsafe Storage](/docs/guides/rowsafe-storage): the location and short-lived credentials come from Rowsafe, and the `ROWSAFE_REPO_S3_*` settings below are not used (`ROWSAFE_REPO_CIPHER_PASS` still is). `own` for your bucket. |
+
 ## Bucket (repository)
 
-The installer fills these in from the bucket URL and keys you paste. Set them yourself for installs without questions.
+For your own bucket. The installer fills these in from the bucket URL and keys you paste. Set them yourself for installs without questions.
 
 | Variable | Default | |
 |---|---|---|
@@ -88,9 +94,9 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
 | `--no-allow-restart` | Don't allow it, without asking. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
-| `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
+| `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage); works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
-| `--check-storage` | Test the backup storage in `agent.env`. Change nothing. |
+| `--check-storage` | Test the backup storage in `agent.env` (your bucket, or Rowsafe Storage through the agent). Change nothing. |
 | `--download-only DIR` | Download and verify the agent into `DIR`; install nothing. Needs no root. |
 | `--uninstall` | Stop and remove the service and `/opt/rowsafe`. Keep the configuration, state and logs. |
 | `--uninstall --purge` | Also delete `/etc/rowsafe`, `/var/lib/rowsafe`, `/var/log/rowsafe` and the logrotate file. Refused while PostgreSQL still archives with Rowsafe's configuration. |
@@ -103,7 +109,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `ROWSAFE_ALLOW_DOWNGRADE=1` | Allow `ROWSAFE_VERSION` to be older than the installed version. |
 | `ROWSAFE_ALLOW_UNSUPPORTED_OS=1` | Try an OS other than Debian 12/13 or Ubuntu 22.04/24.04. |
 
-The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, every `ROWSAFE_REPO_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
+The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, `ROWSAFE_STORAGE`, every `ROWSAFE_REPO_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
 
 What the installer does:
 
@@ -121,6 +127,7 @@ On a terminal, a first install asks:
 
 | Question | |
 |---|---|
+| Where should backups go? | Only when Rowsafe offers [Rowsafe Storage](/docs/guides/rowsafe-storage). 1 (the default): Rowsafe Storage, and the bucket questions below are skipped. 2: your own bucket. |
 | Paste your bucket URL | For example Cloudflare R2's "S3 API" URL, `https://<account-id>.r2.cloudflarestorage.com/<bucket>`. The provider, endpoint, region and bucket are detected from it. See [Set up backup storage](/docs/guides/storage). |
 | Access key ID, secret | Typed hidden. Then it tests the bucket: it writes, reads back and deletes a small file. |
 | Encryption passphrase | It generates one and shows it once (or takes your own). You type its last 4 characters to confirm you saved it. |
@@ -142,6 +149,7 @@ Secrets are never printed, and nothing is saved until you have answered the stor
   agent.env                            postgres 0600; settings and secrets
   pgbackrest/<name>.conf               postgres 0600; generated, local edits are overwritten
 /var/lib/rowsafe/                      postgres 0700; identity, state, running Proof copies
+  storage-credentials.json             postgres 0600; Rowsafe Storage only: the current short-lived credentials
 /var/log/rowsafe/                      postgres 0700; pgBackRest logs, rotated daily, 14 kept
 /etc/systemd/system/rowsafe-agent.service
 /etc/logrotate.d/rowsafe
@@ -158,6 +166,8 @@ rowsafe-agent run         enroll if needed, then run tasks (what systemd runs)
 rowsafe-agent inspect     print what the agent sees in PostgreSQL (read-only)
                           [--port 5432] [--socket-dir /var/run/postgresql] [--user postgres]
 rowsafe-agent selftest    check the configuration, pgBackRest, Rowsafe and every database
+rowsafe-agent storage test [--wait 60s]
+                          write, read back and delete a test file in the backup storage
 rowsafe-agent health      container health check (Docker)
 rowsafe-agent version
 ```

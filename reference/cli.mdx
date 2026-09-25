@@ -86,6 +86,22 @@ Commands that run something wait for it to finish, and exit `1` if it fails. Pas
 
 With one argument, `rowsafe mark X` treats `X` as the database if it names one, and otherwise as the label for the inferred database. So in a project whose `.rowsafe.json` names `app`, `rowsafe mark before-drop` marks `app` as `before-drop`.
 
+## Move in
+
+Move a database in from a managed provider onto a server Rowsafe protects: see [Move in](/docs/guides/move-in). The connection string is typed without being shown, piped on stdin, or read from an environment variable, and encrypted on your machine to the server's key: Rowsafe never sees it.
+
+| Command | What it does |
+|---|---|
+| `rowsafe migrate [NAME]` | Moves, into `NAME` or all, with their progress. `--json` for JSON. |
+| `rowsafe migrate start [NAME]` | Check the source and start copying into the server of `NAME`, then wait until caught up. `--into DB` names the new database (default: the source's). `--method live` or `dump` (default: what the check recommends). `--source-env VAR` reads the connection string from `$VAR`. `--id ID` checks an existing move again. With `dump`: `--host ADDR` and `--user NAME` for the new connection string. `--yes` starts without asking. Exits `1` when the check found something to fix. |
+| `rowsafe migrate status ID` | Progress, the check's findings, the result. |
+| `rowsafe migrate fix ID` | Mark source tables without a primary key `REPLICA IDENTITY FULL`, then check again. |
+| `rowsafe migrate switch ID` | Switch over: the old database goes read-only (unless `--writes-stopped`), the last changes arrive, sequences are set, row counts compared, and the new connection string is printed once. `--user NAME`, `--host ADDR`. |
+| `rowsafe migrate password ID` | A new password for the apps' login, printed once. |
+| `rowsafe migrate writable ID` | Make the old database writable again (rollback). |
+| `rowsafe migrate cancel ID` | Stop, and remove Rowsafe's publication and replication slot from the old database. `--drop-copy` also deletes the partial copy. |
+| `rowsafe migrate finish ID` | Forget the old database's connection string. |
+
 ## Database settings
 
 ```sh

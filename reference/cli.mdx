@@ -180,6 +180,10 @@ They work only on servers where the installer allowed updates, and never through
 | `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds Marks; `--allow-writes` adds every write tool. |
 | `rowsafe guard` | The Claude Code `PreToolUse` hook: sets a Mark before a destructive database command. See [Guard](/docs/guides/ai-agents#the-guard-hook). |
 | `rowsafe guard --check COMMAND` | Whether `COMMAND` looks destructive. |
+| `rowsafe preview [NAME] FILE` | [Preview a migration](/docs/guides/preview-migrations) on a fresh copy: `--db DB`, `--json` or `--format markdown`, `--fail-on careful\|dangerous`, `--no-wait`. `FILE` may be `-` (stdin). |
+| `rowsafe previews [NAME] [ID]` | Recent previews, or one in full. |
+| `rowsafe copies [NAME]` | [Safe copies](/docs/guides/safe-copies). `copies create` (`--allow IP`, `--listen`, `--hours`, `--db`, `--json`), `copies extend ID`, `copies delete ID`, `copies password ID` (a new password, made on your machine). |
+| `rowsafe masking [NAME]` | Which columns safe copies mask. `masking set [DB:]TABLE.COLUMN STRATEGY`, `masking refresh`. |
 
 ## Exit codes
 
@@ -187,8 +191,8 @@ They work only on servers where the installer allowed updates, and never through
 |---|---|
 | `0` | Success. For `status`: protected, or all healthy. For `guard --check`: destructive. |
 | `1` | An error, a task that failed, a cancelled confirmation. For `guard --check`: not destructive. |
-| `2` | `rowsafe` without arguments. For `guard`: the command was blocked because protection is required. |
-| `3` | For `status`: not protected, or the fleet has warnings or critical problems. For `pulse`: a database scores below 70. |
+| `2` | `rowsafe` without arguments. For `guard`: the command was blocked because protection is required. For `preview --fail-on`: the migration fails on the copy. |
+| `3` | For `status`: not protected, or the fleet has warnings or critical problems. For `pulse`: a database scores below 70. For `preview --fail-on`: the verdict is at or above it. |
 
 ## Environment variables
 

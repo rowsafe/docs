@@ -11,6 +11,8 @@
     "ai-agents",
     "connect-ai-apps",
     "deploys",
+    "preview-migrations",
+    "safe-copies",
     "monitoring",
     "updates",
     "teams",

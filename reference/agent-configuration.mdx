@@ -58,6 +58,10 @@ If some are missing, the agent keeps working with the first bucket only and says
 | `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Scratch space for Proof, the weekly restore test (internally a drill). |
 | `ROWSAFE_DRILL_PORT` | `55432` | Names the Unix socket of Proof's scratch cluster. It never listens on TCP. |
 | `ROWSAFE_DRILL_PRELOAD` | `auto` | `auto`: start Proof's scratch cluster without production's `shared_preload_libraries`, and retry with them if needed. `production`: always load them. |
+| `ROWSAFE_COPIES_DIR` | `/var/lib/rowsafe/copies` | Where [migration previews](/docs/guides/preview-migrations) and [safe copies](/docs/guides/safe-copies) are restored, one directory each. |
+| `ROWSAFE_COPY_PORTS` | `55440-55539` | The TCP ports safe copies listen on. Allow them in your firewall for the addresses that connect. |
+| `ROWSAFE_COPY_TLS_CERT`, `ROWSAFE_COPY_TLS_KEY` | | A certificate and key for safe copies, readable by the agent's user. Without them each copy makes its own self-signed certificate. |
+| `ROWSAFE_PREVIEW_KEEP` | `1h` | How long a preview copy is kept so the next preview starts fast (`0` deletes it right away, at most `24h`). |
 | `ROWSAFE_RESTORE_POINT_TIMEOUT` | `90s` | How long to wait for a Mark (restore point) to be archived, up to `4m`. |
 | `ROWSAFE_MONITORING` | `true` | `false` turns metrics off. |
 | `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |

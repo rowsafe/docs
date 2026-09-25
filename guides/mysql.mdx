@@ -131,6 +131,17 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 - **Marks**: named points (`rowsafe mark`, AI agents through MCP) you can restore to exactly.
 - **Pulse**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, and rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`).
 
+## If the server is lost
+
+Your backups and binary logs are in your bucket, encrypted with your passphrase. On a new server with the same MySQL or MariaDB version, install the Rowsafe agent with the same bucket settings and passphrase, then restore into an empty folder (as the `mysql` user, with the agent's settings):
+
+```sh
+sudo -u mysql sh -c 'set -a; . /etc/rowsafe/agent.env; set +a; exec /opt/rowsafe/rowsafe-agent restore-mysql \
+  --engine mysql --database shop --dir /var/lib/mysql-restored --at 2026-09-25T14:04:00Z'
+```
+
+Leave out `--at` for the latest change in the bucket, or use `--mark NAME`. It downloads the newest backup before that point, prepares it and replays the binary log up to the second; `/var/lib/mysql-restored/data` is then a data directory to start the server on. Nothing else on the server changes.
+
 ## Honest limits
 
 - **No restart or rewind in place yet.** Rowsafe tells you when MySQL/MariaDB needs a restart but doesn't restart it for you, and Rewind brings rows back from a copy rather than rewinding the whole server.

@@ -6,6 +6,7 @@
     "restore",
     "standby",
     "move",
+    "find-the-moment",
     "docker",
     "ai-agents",
     "deploys",

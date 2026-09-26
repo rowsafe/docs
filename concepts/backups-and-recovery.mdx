@@ -26,7 +26,7 @@ Backups are compressed, then **encrypted on your server** before they are upload
 
 You can restore to any moment from the **start of your oldest kept full backup** up to the **last archived change**.
 
-- **Retention** is a count of full backups. The default is 2, which with weekly fulls keeps about two weeks. Change it with `rowsafe set app --retention-full 4` (1 to 52).
+- **Retention** is a count of full backups. The default is 2, which with weekly fulls keeps about two weeks. Change it (1 to 52) in the database's settings in the dashboard, or with `rowsafe set app --retention-full 4`.
 - Old backups, and the change log they need, are removed automatically after each backup. Don't add a lifecycle rule to the bucket that deletes objects: it would break restores.
 - `rowsafe status app` and the dashboard show the start of your current recovery window.
 

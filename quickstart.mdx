@@ -3,7 +3,7 @@ title: Quickstart
 description: Protect your first PostgreSQL database in about 10 minutes. Create a storage bucket, run one command on your server, and answer its questions.
 ---
 
-This guide protects one PostgreSQL server. You create a storage bucket, run one command on the server, and answer a few questions. Nothing changes until you say yes.
+This guide protects one PostgreSQL server. You create a storage bucket, run one command on the server, and answer a few questions. Nothing changes until you say yes. You don't need to be a database expert: new words are in the [Glossary](/docs/glossary).
 
 **You need:**
 
@@ -40,7 +40,7 @@ Create a **private**, empty bucket, for example `app-rowsafe`, and an access key
 
 ### Copy the install command
 
-In the dashboard, open **Servers**, then **Add server**. It shows the install command with a one-time enrollment token (`rse_...`), valid for one hour.
+In the dashboard, open **Servers**, then **Add a server**. It shows the install command with a one-time enrollment token (`rse_...`), valid for one hour.
 
 </Step>
 <Step>
@@ -195,6 +195,12 @@ rowsafe pulse app       # health score and findings
 `rowsafe hosts enroll-token` also prints the install command, if you prefer the terminal to the dashboard.
 
 <Cards>
+  <Card title="What Rowsafe does for you" href="/docs/what-rowsafe-does">
+    What now runs by itself, and what you do when something goes wrong.
+  </Card>
+  <Card title="Your first restore" href="/docs/first-restore">
+    Practise now: delete rows from a practice table on purpose, then bring them back.
+  </Card>
   <Card title="Restore a database" href="/docs/guides/restore">
     Rewind to any second. Read it now, before you need it.
   </Card>

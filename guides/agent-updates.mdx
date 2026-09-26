@@ -53,7 +53,7 @@ Edit `/etc/rowsafe/agent.env` (`sudoedit /etc/rowsafe/agent.env`), then either r
 sudo systemctl restart rowsafe-agent
 ```
 
-**After rotating bucket keys,** restart the agent, then run `rowsafe verify app` for each database on the server. This rewrites the pgBackRest configuration that PostgreSQL's `archive_command` uses, and proves the new keys work.
+**After rotating bucket keys,** restart the agent, then click **Check again** on each database's Health page (or run `rowsafe verify app` for each database on the server). This rewrites the pgBackRest configuration that PostgreSQL's `archive_command` uses, and proves the new keys work.
 
 <Callout type="error" title="Never change the passphrase, bucket or path of a repository with backups">
   pgBackRest can't re-encrypt an existing repository. Old backups would become unreadable, or new WAL would go somewhere else. To move to a new bucket, adopt the database afresh, and keep the old bucket settings and passphrase in your secret manager until its old backups have expired.

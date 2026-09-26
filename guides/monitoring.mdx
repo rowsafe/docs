@@ -39,7 +39,7 @@ CPU use and count, load averages, memory and swap, and disk use of the filesyste
 - **Activity:** sessions running one query, or idle in a transaction, for more than 60 seconds (up to 50), with the query text (first 500 characters). See it with `rowsafe activity app`.
 - **Top statements** (every 5 minutes): the 20 statements with the highest total execution time, from `pg_stat_statements`. See them with `rowsafe top app`.
 
-To turn on `pg_stat_statements`, add it to `shared_preload_libraries` (a restart, which you do), then run `CREATE EXTENSION pg_stat_statements;` in any database.
+When `pg_stat_statements` is installed but not loaded, Pulse shows **Turn on query statistics**. Click it: Rowsafe adds it to `shared_preload_libraries` and creates the extension, and it starts after the next restart (see [Tuning](/docs/guides/tuning#pulse)). To do it yourself instead, add it to `shared_preload_libraries`, restart PostgreSQL, then run `CREATE EXTENSION pg_stat_statements;` in any database.
 
 </Accordion>
 </Accordions>
@@ -183,6 +183,8 @@ Every Monday morning, "Your weekly Pulse" arrives by email: each database's heal
 
 It's on for new organizations. It goes to the addresses you choose, or else to your email alert channels. Every email has a one-click unsubscribe link.
 
+Change who gets it, or turn it off, in the dashboard under **Settings**, then **Weekly Pulse email**. From a terminal:
+
 ```sh
 rowsafe report                    # settings
 rowsafe report --preview          # this week's report, as text
@@ -190,8 +192,6 @@ rowsafe report --to you@example.com,team@example.com
 rowsafe report --send-test        # send it now
 rowsafe report --off
 ```
-
-You can change the same settings in the dashboard under **Settings**, then **Weekly Pulse email**.
 
 ## Alert rules
 
@@ -243,7 +243,9 @@ rowsafe alerts ack alr_...    # acknowledge: no more reminders
 
 ## Notification channels
 
-Each channel has a **minimum severity** (default `warning`): it receives alerts of that severity and above. Every message says what is wrong, where, since when, the value and threshold, and links to the problem in the dashboard, where **Fix it** applies the fix when Rowsafe has one.
+In the dashboard, open **Settings**, then **Alerts and notifications**, to add, test and remove channels. Each channel has a **minimum severity** (default `warning`): it receives alerts of that severity and above. Every message says what is wrong, where, since when, the value and threshold, and links to the problem in the dashboard, where **Fix it** applies the fix when Rowsafe has one.
+
+From a terminal:
 
 ```sh
 rowsafe channels add --type email --name oncall --address oncall@example.com --min-severity critical
@@ -264,4 +266,4 @@ rowsafe channels remove chn_...
 
 - `channels test` sends a test notification right away, whatever the minimum severity.
 - URLs are secrets: Rowsafe never shows them again in full.
-- An organization can have up to 20 channels. You can also manage them in the dashboard under **Settings**, then **Notifications**.
+- An organization can have up to 20 channels.

@@ -1,11 +1,17 @@
 ---
 title: Rowsafe Storage
-description: Keep your backups in Rowsafe Storage instead of a bucket of your own. Nothing to set up, encrypted on your server so Rowsafe can't read them, 10 GB on the Free plan. Quotas, how access works, moving to your own bucket, and what happens to backups you no longer use.
+description: Coming soon, not available yet. How Rowsafe Storage will keep your backups without a bucket of your own, encrypted on your server so Rowsafe can't read them. Quotas, how access works, moving to your own bucket, and what happens to backups you no longer use.
 ---
 
-Setting up a bucket and an access key is the hardest part of getting started. With **Rowsafe Storage** you skip it: Rowsafe runs the bucket, and each organization gets its own private space in it.
+<Callout type="warn" title="Coming soon: not available yet">
 
-**Your backups stay private.** They are encrypted on your server before they leave it, with a passphrase that is created on your server and that Rowsafe never has. We store your backups, but we can't read them, and neither can anyone who gets hold of the bucket.
+Rowsafe Storage isn't available yet. Until it is, keep your backups in a bucket of your own: [Set up backup storage](/docs/guides/storage) shows how, step by step, and Cloudflare R2's first 10 GB are free. This page describes how Rowsafe Storage will work, so you know what to expect.
+
+</Callout>
+
+Setting up a bucket and an access key is the hardest part of getting started. With **Rowsafe Storage** you will skip it: Rowsafe runs the bucket, and each organization gets its own private space in it.
+
+**Your backups stay private.** They are encrypted on your server before they leave it, with a passphrase that is created on your server and that Rowsafe never has. We will store your backups, but we can't read them, and neither can anyone who gets hold of the bucket.
 
 ## Use Rowsafe Storage
 
@@ -14,7 +20,7 @@ Setting up a bucket and an access key is the hardest part of getting started. Wi
 
 ### Choose it in the installer
 
-Run the install command from the dashboard. The first question is where backups go:
+Once Rowsafe Storage is available, the install command from the dashboard asks first where backups go:
 
 ```text
 Where should backups go?
@@ -45,6 +51,8 @@ The installer tests the storage (it writes, reads back and deletes a small file)
 Without a terminal (cloud-init, configuration management), pass `--storage rowsafe`. The passphrase then comes from `ROWSAFE_REPO_CIPHER_PASS` in the environment; without it, the installer generates one and keeps it in `/etc/rowsafe/agent.env`. Copy it into your secret manager right away: `sudo grep CIPHER_PASS /etc/rowsafe/agent.env`.
 
 ## How much is included
+
+What each plan will include:
 
 | Plan | Rowsafe Storage |
 |---|---|

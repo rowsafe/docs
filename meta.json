@@ -3,7 +3,11 @@
   "description": "Backups to your own bucket, restore to any second, a weekly restore test and monitoring for the databases you run on your own servers.",
   "pages": [
     "index",
+    "---Start here---",
     "quickstart",
+    "what-rowsafe-does",
+    "first-restore",
+    "glossary",
     "---Concepts---",
     "...concepts",
     "---Guides---",

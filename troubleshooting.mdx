@@ -93,6 +93,83 @@ sudo journalctl -u rowsafe-agent -n 50
 
 In Docker: `docker compose ps` and `docker compose logs rowsafe-agent`.
 
+## When a backup step fails
+
+When turning on backups, a storage test, a backup or a Proof fails, the task says why in plain words, and when Rowsafe can fix it there is a button right under it. Open **Activity** (or the database's setup page) and expand the failed task. **Details** shows what pgBackRest printed, with keys and passphrases removed. From a terminal, `rowsafe task ID` shows the same.
+
+The sections below cover the common ones.
+
+### Storage didn't accept the key
+
+The storage says the access key or its secret is wrong, has expired, or was deleted (pgBackRest: `HTTP request failed with 403`, `InvalidAccessKeyId` or `SignatureDoesNotMatch`). Nothing was changed.
+
+Your keys stay on your server and Rowsafe never sees them, so this one is fixed there. Run the storage setup again; it tests the keys before saving them:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --setup-storage
+```
+
+Then click **Try again** (or **Test storage again**) on the failed task.
+
+### Storage refused access
+
+The key is valid, but it isn't allowed to use the bucket (`HTTP request failed with 403 (Forbidden)` and `AccessDenied`). In your storage provider's console, give the key read, write, list and delete access to the bucket (see [Storage](/docs/guides/storage) for each provider), then click **Try again**. If you made a new key instead, enter it with the storage setup above first.
+
+### Bucket not found or wrong region
+
+`NoSuchBucket` (404) means there's no bucket with the name set on your server: create it, or fix the name with the storage setup above. `PermanentRedirect` or `AuthorizationHeaderMalformed` means the bucket is in another region than the one set: fix the region the same way. Then click **Try again**.
+
+### Server can't reach the storage
+
+The server couldn't connect to the storage: the name didn't resolve, the connection was refused, or the storage's certificate isn't trusted (self-hosted storage such as MinIO). Check that the server can make outgoing HTTPS connections to the storage endpoint, then click **Try again**. For a certificate, give the server the certificate authority with the storage setup above.
+
+### The backup folder already has files
+
+```text
+backup directory and/or archive directory not empty
+```
+
+The folder Rowsafe uses for this database in your storage already has backup files, but not the index pgBackRest needs to use them, often left over from an earlier setup. Rowsafe stops rather than mix them with new backups, and changes nothing.
+
+Click **Start fresh in a new folder**. Rowsafe turns on backups in a new, empty folder next to the old one, named after the database and the date (for example `/rowsafe/app-20260926-044600`). **The old files stay where they are: Rowsafe never deletes them.** Delete them in your storage when you no longer need them.
+
+### Backups from another database or key
+
+```text
+backup and archive info files exist but do not match the database
+```
+
+The folder has backups of a different database (another server, or this one before it was re-created), or backups encrypted with another passphrase (`is or was the repo encrypted?`). Rowsafe never mixes two databases' backups and changes nothing.
+
+- **Start fresh in a new folder** turns on backups next to the old folder, as above. The old backups stay where they are.
+- If they are this same database's backups from an older PostgreSQL version, Rowsafe also offers **Use the backups already there**: it keeps them and moves the folder on to the running version.
+- Still have the old passphrase and want to keep using those backups? Enter it with the storage setup above, then click **Try again**.
+
+### PostgreSQL isn't handing over changes
+
+```text
+WAL segment ... was not archived before the 120000ms timeout
+archive_mode must be enabled
+```
+
+PostgreSQL didn't copy its change log to your storage in time. Usually PostgreSQL still needs the restart that turns copying on (see [Restart pending](#restart-pending)), or the storage can't be reached or refuses the key (see [WAL archiving failing](#wal-archiving-failing)). Once that's sorted, click **Test storage again**.
+
+### Another backup job was running
+
+```text
+unable to acquire lock on file ...
+```
+
+Another pgBackRest job for this database was still running. Click **Try again** once it has finished.
+
+### Disk full
+
+A disk on the server ran out of space (`No space left on device`). Free up space (the database's **Pulse** tab shows what uses it), then click **Try again**.
+
+### Other pgBackRest errors
+
+The failed task names pgBackRest's own message; **Details** has the rest. pgBackRest's exit code is its error code: 39 is a failed request to the storage, 40 a folder that isn't empty, 50 a lock, 82 a timeout. If pgBackRest can't be run or is too old for your PostgreSQL, run the Rowsafe installer again on the server; it installs and checks it.
+
 ## WAL archiving failing
 
 You got `wal_archiving_failing`, or the status says `WAL archiving failed at ...`. **Point-in-time recovery stops at the last archived segment, and `pg_wal` grows until the disk fills.** Fix it soon.

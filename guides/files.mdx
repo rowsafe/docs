@@ -33,7 +33,7 @@ The agent runs as its own user. If that user can't read the folder, the installe
 
 Open the database, then **Rewind**, then **Files**. Click **Add a folder** and type its full path on the server, or pick one Rowsafe found (**Find upload folders on the server**).
 
-If Rowsafe can't read the folder, the folder shows **Can't read it all** with a **Give Rowsafe read access** button. The button only works on servers where root allowed it at install (`--allow-files`); otherwise it shows the install command that does it.
+If Rowsafe can't read the folder, the folder shows **Can't read it all**. Root allows folders one by one, so a folder added in the dashboard needs the install command once more, with `--files` and that folder: the dashboard shows it under **Do it yourself**. The **Give Rowsafe read access** button appears only for a folder root already allowed that way (for example after its owner changed the permissions).
 
 </Tab>
 <Tab value="CLI">
@@ -103,7 +103,7 @@ rowsafe files undo app
 The agent restores into a private staging folder first, then puts the files in place:
 
 - **Itself**, when its user may write into the folder.
-- **As the folder's owner**, through Rowsafe's root helper, on servers where root allowed it at install (`--allow-files`, or yes at the question). The helper doesn't trust what the agent staged: it takes its own copy and puts back only plain files and folders (no links, devices or FIFOs, no set-user-ID or set-group-ID bits), writes them as the folder's owner (never as root), never writes or deletes through a symbolic link in the folder, and refuses system and database folders, folders owned by root, and paths that go through a symbolic link.
+- **As the folder's owner**, through Rowsafe's files helper (`rowsafe-files-helper.service`), into the folders root allowed at install (`--files PATH --allow-files`, or yes at the question, which names them). The helper doesn't trust what the agent staged: it takes its own copy (20 GB at most at once) and puts back only plain files and folders (no links, devices or FIFOs, no set-user-ID or set-group-ID bits, nothing into `.ssh`, `.gnupg` or `.config/systemd`), writes them as the folder's owner with that user's own group (never as root), and never writes or deletes through a symbolic link in the folder. It refuses a folder that isn't exactly one root allowed, that another user owns now than when root allowed it, that is or holds a home folder, that the agent's user owns or can write (or any folder on the way or inside), system and database folders, and folders owned by root. At most one put-back every 2 minutes.
 - **Otherwise the files wait next to it**, in `/var/lib/rowsafe/files-restored/<id>` (in Docker, the agent's state volume), and Rowsafe says so. Nothing in the folder changes.
 
 ## Browse a snapshot
@@ -116,18 +116,21 @@ Only names, sizes and times reach Rowsafe, never file contents. To keep file nam
 
 | | How it is allowed |
 |---|---|
-| Read a folder you protect | `--files PATH` (or yes at the installer's question): root gives the agent's user read-only access to that folder with an ACL. |
-| Read folders you add later in the dashboard | `--allow-files`: the root helper may do the same for folders under the roots in `/etc/rowsafe/files-allowed` (by default `/srv`, `/var/www`, `/opt`, `/data`, `/app` and Docker's volumes, plus the folders you protected; home folders only if you protect one with `--files` or add `/home` to the file). |
-| Put restored files back | `--allow-files`: as the folder's owner, only when someone asks and confirms. |
+| Read a folder you protect | `--files PATH` (or yes at the installer's question): root gives the agent's user read-only access to that folder with an ACL. Existing ACL masks stay as they are. |
+| Put restored files back | `--allow-files` with `--files PATH` (or yes at the question, which lists the folders): as the folder's owner, only when someone asks and confirms. |
+| A folder added later in the dashboard | Run the install command again with `--files` and that folder. Nothing else is allowed in advance. |
 
-Turn it off with `--no-allow-files`. The dashboard shows what is allowed on each server under **On db-1**.
+Root's list is `/etc/rowsafe/files-allowed`: one line per folder, `PATH UID`, the folder and the uid that owned it when root allowed it. Only those exact folders (and the files inside them) count, only while that uid owns them. There are no default folders. If a folder's owner changes, run the install command again with `--files` and that folder. Turn it all off with `--no-allow-files`. The dashboard shows what is allowed on each server under **On db-1**.
+
+The files helper runs in its own systemd unit, `rowsafe-files-helper.service` (started by `rowsafe-files-helper.path`), sandboxed so it may write only into the folders in that list; the restart helper doesn't get its rights. To put back more than 20 GB at once, root can raise the limit with a drop-in: `Environment=ROWSAFE_FILES_MAX_BYTES=...`.
 
 ## Limits
 
 - Files come back **as they were at a snapshot**, not at any second: at most one interval (15 minutes by default) before the moment you pick, or exactly at a Mark.
 - A snapshot is **not atomic** across a folder: a file written while it runs may be in its old or new version.
 - **Files Rowsafe can't read are left out** of the snapshot, and the folder shows it.
-- **Symbolic links aren't put back** through the root helper, and set-user-ID and set-group-ID bits are dropped: only plain files and folders come back that way.
+- **Symbolic links aren't put back** through the files helper, and set-user-ID and set-group-ID bits are dropped: only plain files and folders come back that way.
+- **Home folders are never written to** through the files helper (a folder that is, holds or sits inside a user's home), except the home of a service account without a login shell. Protect a folder elsewhere, or let the files wait next to it.
 - **One filesystem per folder**: mounts inside the folder are not followed. Protect them as folders of their own.
 - **The column restore** matches paths by their end; with two files of the same name under different folders, both come back if missing.
 - In Docker, restored files **wait in the agent's state volume** unless the volume is mounted read-write and the agent's user may write there.

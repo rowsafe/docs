@@ -1,0 +1,116 @@
+---
+title: "Tuning: PostgreSQL settings"
+description: See the PostgreSQL settings that matter explained in plain words, let Rowsafe tune them for your server's memory, CPUs and disk, change one setting safely, and undo a change in one click.
+---
+
+A fresh PostgreSQL uses settings meant for a tiny machine: 128 MB of memory for caching data, whatever your server has. **Tuning** shows the settings that matter for each database, what each one does, and what suits your server, and changes them for you when you click.
+
+Open a database and pick the **Tuning** tab, or use `rowsafe settings` and `rowsafe tune` in a terminal.
+
+## What you see
+
+- **Your server:** its memory, CPUs and disk type (SSD or spinning disk), as the agent reads them.
+- **The settings that matter**, by group (memory, connections, change log and checkpoints, automatic cleanup, disk and query planning, parallel queries, timeouts, logging, query statistics): what each one does, its value, PostgreSQL's default, where it is set (`postgresql.conf`, changed through Rowsafe or `ALTER SYSTEM`, or the default), and whether a change needs a restart.
+- **Other settings** set in a configuration file.
+- **Changes made through Rowsafe**, with **Undo**.
+
+The agent reads the settings every 5 minutes, together with [Pulse](/docs/guides/monitoring). It reads `pg_settings` and `pg_file_settings`, the server's memory and CPU count, and whether the data directory's disk rotates (`/sys/block/*/queue/rotational`).
+
+## Tune for this server
+
+**Tune for this server** lists what Rowsafe recommends, each change with the current value, the new one and why. Everything but the optional changes is selected; click **Apply**, check the list, and confirm.
+
+<Steps>
+<Step>
+
+Rowsafe saves a [Mark](/docs/concepts/restore-points) first (on a database that is backed up).
+
+</Step>
+<Step>
+
+The agent checks every value again against the live server, sets them with `ALTER SYSTEM`, and reloads PostgreSQL. Your apps keep working.
+
+</Step>
+<Step>
+
+Settings PostgreSQL reads only when it starts (such as `shared_buffers`) wait for a restart. **Nothing restarts now.** Restart when it suits you with **Restart PostgreSQL now** (where the installer [allowed restarts](/docs/guides/adopt)), `rowsafe restart`, or on the server; or leave it, and they take effect the next time PostgreSQL restarts.
+
+</Step>
+</Steps>
+
+Under **More options**, say what the database serves (**Web app**, **Analytics** or **Mixed**, the default) and correct the disk type: cloud virtual disks often report "spinning" even on SSDs.
+
+<Accordions>
+<Accordion title="How the recommendations are computed">
+
+The formulas follow [PGTune](https://pgtune.leopard.in.ua), the usual starting point for a server that runs mostly PostgreSQL:
+
+| Setting | Recommendation |
+|---|---|
+| `shared_buffers` | 25% of memory (at least 128 MB) |
+| `effective_cache_size` | 75% of memory |
+| `maintenance_work_mem` | memory / 16 (analytics: / 8), between 64 MB and 2 GB |
+| `work_mem` | (memory − `shared_buffers`) / ((`max_connections` + `max_worker_processes`) × 3) / parallel workers per query, halved for mixed and analytics; never below 4 MB |
+| `max_wal_size`, `min_wal_size` | 4 GB and 1 GB (analytics: 16 GB and 4 GB), at most a tenth of the data disk; only ever raised |
+| `checkpoint_completion_target` | 0.9 |
+| `random_page_cost`, `effective_io_concurrency` | 1.1 and 200 on an SSD |
+| `default_statistics_target` | 500 for analytics |
+| Parallel workers (4 or more CPUs) | one worker per CPU; per query half the CPUs (at most 4 for web and mixed); only where still at PostgreSQL's default |
+| Automatic cleanup | scale factors 0.05 (vacuum) and 0.02 (analyze) once the databases pass 10 GB |
+| `idle_in_transaction_session_timeout` | 10 minutes for web and mixed. Optional: it ends sessions an app forgot, and the app gets an error |
+| `shared_preload_libraries` | adds `pg_stat_statements` when it is installed, so [Top queries](/docs/guides/monitoring) works |
+
+A value already close to its recommendation is left alone: within 5% at PostgreSQL's default, and between 75% and 175% of it when someone set it on purpose (up to 400% for `work_mem`). Without the server's memory there are no memory recommendations, and without an SSD no disk ones.
+
+</Accordion>
+</Accordions>
+
+## Change one setting
+
+Open a group, click the pencil next to a setting, type the new value (with a unit, such as `512MB` or `30s`) or pick one, and click **Change it**. **Reset to default** removes Rowsafe's value. The same safety applies: a Mark first, the checks below, and undo.
+
+## Undo
+
+Every change made through Rowsafe keeps the values from before it. **Undo** (in the change's success message, or in **Changes made through Rowsafe**) puts them back; settings that need a restart go back at the next restart. You can undo the latest change of a setting, once.
+
+## What Rowsafe refuses
+
+Rowsafe refuses a change, and changes nothing, when:
+
+- it touches the settings Rowsafe uses for backups (`archive_mode`, `archive_command`, `archive_timeout`, `archive_library`), for restores and standbys (`restore_command`, `recovery_target*`, `primary_conninfo`, `primary_slot_name`), or that its agent connects through (`port`, `unix_socket_directories`);
+- PostgreSQL might not start with it: `shared_buffers` above 60% of memory, a library in `shared_preload_libraries` that isn't installed, `huge_pages = on` where it isn't on already, `max_connections` not above the connections kept for administrators, `wal_level = minimal`;
+- it would let a few queries take the server's memory: `work_mem` above a quarter of memory, `maintenance_work_mem` above half;
+- it is a restart-only setting Rowsafe doesn't know how to check (such as `listen_addresses`);
+- the setting is given on PostgreSQL's command line (for example `-c` in Docker), which would override it;
+- PostgreSQL's configuration files already have an error that would stop it at its next restart, or the server is a standby.
+
+PostgreSQL checks every value itself. If it refuses one, or reports an error in its configuration after the reload, the agent puts the previous values back.
+
+## Pulse
+
+[Pulse](/docs/guides/monitoring) points out three things about settings, each with a fix:
+
+| Finding | Fix |
+|---|---|
+| PostgreSQL is using default memory settings on a server with 4 GB or more | **Tune for this server** |
+| Query statistics are off: `pg_stat_statements` is installed but not loaded | **Turn on query statistics** (takes effect after a restart; Rowsafe also creates the extension) |
+| Changed settings are waiting for a restart | **Restart PostgreSQL** |
+
+## From a terminal
+
+```sh
+rowsafe settings app                      # the settings that matter, by group
+rowsafe settings app shared_buffers       # one setting, explained
+rowsafe tune app --workload web           # the recommendations; asks before applying
+rowsafe settings set app work_mem=64MB    # change one (VALUE "default" resets it)
+rowsafe settings undo app                 # undo the latest change
+```
+
+See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI assistants can read the settings and recommendations (`database_settings` on the [MCP server](/docs/reference/mcp)) but never change them.
+
+## Limits
+
+- Settings are changed for the whole server (`ALTER SYSTEM`, in `postgresql.auto.conf`). Settings made with `ALTER DATABASE` or `ALTER ROLE` override them for that database or role, and Rowsafe doesn't show those.
+- For PostgreSQL in Docker (the agent as a sidecar), the memory and CPUs are the Docker host's, and the disk type is unknown: pick it under **More options**. Rowsafe can't restart the container.
+- Recommendations assume PostgreSQL is the main thing on the server. On a server shared with your app, keep memory settings lower.
+- A standby follows its primary: change settings there.

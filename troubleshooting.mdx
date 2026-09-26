@@ -93,6 +93,83 @@ sudo journalctl -u rowsafe-agent -n 50
 
 In Docker: `docker compose ps` and `docker compose logs rowsafe-agent`.
 
+## When a backup step fails
+
+When turning on backups, a storage test, a backup or a Proof fails, the task says why in plain words, and when Rowsafe can fix it there is a button right under it. Open **Activity** (or the database's setup page) and expand the failed task. **Details** shows what pgBackRest printed, with keys and passphrases removed. From a terminal, `rowsafe task ID` shows the same.
+
+The sections below cover the common ones.
+
+### Storage didn't accept the key
+
+The storage says the access key or its secret is wrong, has expired, or was deleted (pgBackRest: `HTTP request failed with 403`, `InvalidAccessKeyId` or `SignatureDoesNotMatch`). Nothing was changed.
+
+Your keys stay on your server and Rowsafe never sees them, so this one is fixed there. Run the storage setup again; it tests the keys before saving them:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --setup-storage
+```
+
+Then click **Try again** (or **Test storage again**) on the failed task.
+
+### Storage refused access
+
+The key is valid, but it isn't allowed to use the bucket (`HTTP request failed with 403 (Forbidden)` and `AccessDenied`). In your storage provider's console, give the key read, write, list and delete access to the bucket (see [Storage](/docs/guides/storage) for each provider), then click **Try again**. If you made a new key instead, enter it with the storage setup above first.
+
+### Bucket not found or wrong region
+
+`NoSuchBucket` (404) means there's no bucket with the name set on your server: create it, or fix the name with the storage setup above. `PermanentRedirect` or `AuthorizationHeaderMalformed` means the bucket is in another region than the one set: fix the region the same way. Then click **Try again**.
+
+### Server can't reach the storage
+
+The server couldn't connect to the storage: the name didn't resolve, the connection was refused, or the storage's certificate isn't trusted (self-hosted storage such as MinIO). Check that the server can make outgoing HTTPS connections to the storage endpoint, then click **Try again**. For a certificate, give the server the certificate authority with the storage setup above.
+
+### The backup folder already has files
+
+```text
+backup directory and/or archive directory not empty
+```
+
+The folder Rowsafe uses for this database in your storage already has backup files, but not the index pgBackRest needs to use them, often left over from an earlier setup. Rowsafe stops rather than mix them with new backups, and changes nothing.
+
+Click **Start fresh in a new folder**. Rowsafe turns on backups in a new, empty folder next to the old one, named after the database and the date (for example `/rowsafe/app-20260926-044600`). **The old files stay where they are: Rowsafe never deletes them.** Delete them in your storage when you no longer need them.
+
+### Backups from another database or key
+
+```text
+backup and archive info files exist but do not match the database
+```
+
+The folder has backups of a different database (another server, or this one before it was re-created), or backups encrypted with another passphrase (`is or was the repo encrypted?`). Rowsafe never mixes two databases' backups and changes nothing.
+
+- **Start fresh in a new folder** turns on backups next to the old folder, as above. The old backups stay where they are.
+- If they are this same database's backups from an older PostgreSQL version, Rowsafe also offers **Use the backups already there**: it keeps them and moves the folder on to the running version.
+- Still have the old passphrase and want to keep using those backups? Enter it with the storage setup above, then click **Try again**.
+
+### PostgreSQL isn't handing over changes
+
+```text
+WAL segment ... was not archived before the 120000ms timeout
+archive_mode must be enabled
+```
+
+PostgreSQL didn't copy its change log to your storage in time. Usually PostgreSQL still needs the restart that turns copying on (see [Restart pending](#restart-pending)), or the storage can't be reached or refuses the key (see [WAL archiving failing](#wal-archiving-failing)). Once that's sorted, click **Test storage again**.
+
+### Another backup job was running
+
+```text
+unable to acquire lock on file ...
+```
+
+Another pgBackRest job for this database was still running. Click **Try again** once it has finished.
+
+### Disk full
+
+A disk on the server ran out of space (`No space left on device`). Free up space (the database's **Pulse** tab shows what uses it), then click **Try again**.
+
+### Other pgBackRest errors
+
+The failed task names pgBackRest's own message; **Details** has the rest. pgBackRest's exit code is its error code: 39 is a failed request to the storage, 40 a folder that isn't empty, 50 a lock, 82 a timeout. If pgBackRest can't be run or is too old for your PostgreSQL, run the Rowsafe installer again on the server; it installs and checks it.
+
 ## WAL archiving failing
 
 You got `wal_archiving_failing`, or the status says `WAL archiving failed at ...`. **Point-in-time recovery stops at the last archived segment, and `pg_wal` grows until the disk fills.** Fix it soon.
@@ -107,7 +184,7 @@ sudo tail -50 /var/log/rowsafe/app-archive-push.log
 
 Common causes:
 
-- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env` and restart the agent (the keys never leave your server, so this part is yours). Then click **Test again** on the Health page (or run `rowsafe verify app`): it rewrites the configuration `archive_command` uses and proves it works.
+- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env` and restart the agent (the keys never leave your server, so this part is yours). Then click **Check again** on the Health page (or run `rowsafe verify app`): it rewrites the configuration `archive_command` uses and proves it works.
 - **The bucket is unreachable** from the server: firewall, DNS or a provider outage. Archiving catches up by itself once it's reachable again.
 - **A full disk** on the server.
 - In **Docker**, the agent container is stopped, or can't reach the bucket: WAL waits in the spool. `docker compose logs rowsafe-agent` shows the pgBackRest error. Don't delete spooled files.
@@ -117,6 +194,74 @@ When archiving works again, the alert resolves by itself.
 ## Stuck sessions, slots and cleanup
 
 A session idle in a transaction, a query blocking others, an inactive replication slot holding WAL, tables vacuum hasn't cleaned up, unused indexes: Rowsafe can fix these for you. Open the finding on the Health page (the alert links to it) and click **Apply fix**, or run `rowsafe fix app`. Ending a session or removing an index or a slot asks you to type the database name first, and removing an index saves a Mark first. See [Apply fix](/docs/guides/monitoring#apply-fix) for what each fix does.
+
+## Rewind
+
+Rewind checks everything before it changes anything, and says plainly why it can't go ahead. The common answers:
+
+### Not enough free disk for a copy
+
+```text
+not enough free disk for a copy: 8.1 GiB free in /var/lib/rowsafe/rewind, and a copy of 10.0 GiB needs about 14.0 GiB
+```
+
+A copy is a full restore of the database next to production, like Proof, so it needs about **1.3 × the database size + 1 GB** free. Free up disk on that filesystem, or delete an old copy. `ROWSAFE_REWIND_DIR` in `/etc/rowsafe/agent.env` points copies at a bigger filesystem (a short absolute path, owned by the `postgres` user; restart the agent afterwards).
+
+### Not enough free disk for a rewind
+
+Rewinding the whole database keeps the current data on the same disk, so you can undo it. It needs about **the database size + 10%** free next to the data directory. Free up disk there, or restore a copy and bring back rows instead, which doesn't touch the data directory. Data kept aside by an earlier rewind counts too: **Delete the old data now** frees it.
+
+### Rewind the whole database isn't available
+
+The button is disabled, and says why:
+
+| It says | What to do |
+|---|---|
+| Rowsafe isn't allowed to stop PostgreSQL on this server | Run the install command again on the server, and answer yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?". Or run it with `--allow-restart`: `curl -fsSL https://rowsafe.sh \| sudo sh -s -- --allow-restart` |
+| The helper that restarts PostgreSQL is from an older Rowsafe | The server was installed before Rewind could stop PostgreSQL. Run the install command again there: it keeps your earlier answer and updates the helper. |
+| PostgreSQL runs in Docker | Rowsafe stops the container only through the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), with the data volume writable for the agent. Add it, or restore a copy and bring back rows. |
+| This PostgreSQL is a read-only replica | Rewind the primary. |
+| This database uses tablespaces | Rowsafe can't rewind those in place yet. Restore a copy and bring back rows. |
+| The data directory is a symbolic link, or a mount point of its own | Rowsafe can't set it aside there yet. Restore a copy and bring back rows. |
+
+### A table was skipped
+
+- **No primary key**: without one, Rowsafe can't tell which rows are the same, so it can't compare the table or bring its rows back. Rewind the whole database, or read the copy yourself (see [Do it yourself](/docs/guides/restore#do-it-yourself)).
+- **Too big** (over 5 GB or 20 million rows): the same choices.
+- **Dropped since**: the table isn't in production any more. Rewind the whole database, or copy it out of the copy yourself.
+
+### Too many rows
+
+```text
+too many rows: that is 12.4 million rows, over the limit of 10 million at a time; nothing was changed
+```
+
+Nothing was changed. Bring back fewer tables in one run: each run can bring back [up to a number of rows](/docs/concepts/plans-and-limits#rewind-limits) that depends on your plan, and up to 50 tables.
+
+### Rows that point to another table
+
+```text
+120 of the rows for public.order_items point to rows of public.orders that aren't in production. Bring back public.orders too (in the same run); nothing was changed
+```
+
+The rows you chose need their parent rows, which were deleted too. Select both tables and run it again: Rowsafe brings the parents back first.
+
+### Conflicts
+
+The result says some rows "were left out because another row now has the same unique value". Those rows were deleted, and since then another row took one of their unique values, for example the same email address. Rowsafe leaves them out rather than overwrite the new row. Look at them in the copy and decide by hand.
+
+### Other Rewind messages
+
+| It says | What to do |
+|---|---|
+| another session held a lock on the table for more than 5s, so Rowsafe stopped; nothing was changed | A long transaction or a migration held the table. Try again in a moment. |
+| the column ... was added since and needs a value, which the copy doesn't have | Production has a new required column the old rows can't fill. Give it a default, or bring the rows back by hand. |
+| ... already has a copy ...; delete it first | Each database has one copy at a time. Delete it (or wait until it expires), then restore the new moment. |
+| the copy no longer exists (it expired or was deleted) | Restore a new one. |
+| the backup ... is no longer in the repository | Retention removed the backup that moment needs. Pick a later moment. |
+| if the time is after the last change that reached the backups, pick an earlier one | Pick a moment inside the recovery window. |
+| another rewind is running on this server | Wait until it has finished. |
+| only the latest rewind can be undone | The database was rewound again since. Undo the latest one first. |
 
 ## Other messages
 

@@ -16,7 +16,7 @@ db-1  host_9h8g7f6e5d4c3  0.4.2  linux/amd64  stable   -    confirmed    12s ago
 
 ## Enrollment
 
-A new host joins your organization with a one-time **enrollment token** (`rse_...`):
+A new host joins your organization with a one-time **enrollment token** (`rse_...`). In the dashboard, open **Servers**, then **Add a server**: it shows the install command with a fresh token. Or from a terminal:
 
 ```sh
 rowsafe hosts enroll-token            # valid for 1 hour
@@ -25,14 +25,13 @@ rowsafe hosts enroll-token --ttl 24h  # 1 minute to 7 days
 
 The token works **once**. On its first start, the agent trades it for its own identity, saved in `/var/lib/rowsafe/agent.json`. After that you can delete the token from the agent's configuration.
 
-The dashboard does the same under **Servers**, then **Add server**: it shows the install command with a fresh token.
-
 ## What the agent does
 
 - Runs as the `postgres` system user, never as root.
 - Connects to PostgreSQL over the local Unix socket only.
-- Makes only outbound HTTPS requests. Nothing listens for Rowsafe on your server.
-- Runs only a fixed set of tasks: inspect, adopt, check, backup, drill (Proof), restore point (Mark), and restart, only on a server where you allowed it.
+- Makes only outbound HTTPS requests. Nothing listens for Rowsafe on your server. On a [standby](/docs/guides/standby), it also checks every few seconds that the primary's PostgreSQL port answers.
+- Runs only a fixed set of tasks: inspect, adopt, check, backup, drill (Proof), restore point (Mark), and restart, only on a server where you allowed it, and the [standby](/docs/guides/standby) tasks you start.
+- Has its own key pair, created on first start (`/var/lib/rowsafe/box.key`, readable by `postgres` only). Secrets for a standby are encrypted to it, so Rowsafe never reads them. `sudo -u postgres rowsafe-agent key` prints its fingerprint.
 - Uses at most half the default CPU and IO weight, and the kernel's out-of-memory killer picks it before PostgreSQL.
 
 See [Security](/docs/security#what-runs-on-your-server) for the full list.
@@ -54,6 +53,8 @@ See [Agent offline](/docs/troubleshooting#agent-offline) to find out why.
 On servers, the agent **updates itself** with signed releases, tests the new version first and rolls back if it fails. In Docker, you update by changing the image tag. See [Updating and uninstalling the agent](/docs/guides/agent-updates).
 
 ## Removing a host
+
+Remove it on the **Servers** page, or from a terminal:
 
 ```sh
 rowsafe hosts remove db-1

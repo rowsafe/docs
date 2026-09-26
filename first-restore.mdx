@@ -1,0 +1,115 @@
+---
+title: Your first restore
+description: A safe practice run, right after setup. Make a practice database, delete some rows on purpose, then find the moment, restore a copy, compare it and bring the rows back.
+---
+
+The worst time to learn how to restore is during an outage. This practice run takes about 20 minutes, and it never touches your real data: you make a practice database, delete rows from it on purpose, and get them back with **Rewind**, the same way you would on a bad day.
+
+## Before you start
+
+- Your database is set up and its **first backup has finished** (see the [Quickstart](/docs/quickstart)). You can only go back to moments after the first backup.
+- You are an **owner or admin** of the organization. Members can look, but can't restore.
+- The server has free disk for a copy: about **1.3 × the database size + 1 GB**. If it hasn't, Rowsafe says how much it needs and doesn't start.
+
+<Steps>
+<Step>
+
+### Make a practice database
+
+In the dashboard, open the server, then **Databases & users**. Click **Create database**, name it `practice`, and click **Create database**. You get a password and a connection string once; you don't need them for this run. See [Create databases and users](/docs/guides/databases-and-users).
+
+Using a separate database means nothing you do here can touch your app's data.
+
+</Step>
+<Step>
+
+### Add a table with 100 rows
+
+This is the one step with SQL, because it puts practice data in your own database. On the database server:
+
+```sh
+sudo -u postgres psql -d practice
+```
+
+```sql
+CREATE TABLE customers (id int PRIMARY KEY, name text);
+INSERT INTO customers SELECT g, 'Customer ' || g FROM generate_series(1, 100) AS g;
+```
+
+PostgreSQL in Docker? Use `docker compose exec postgres psql -U postgres -d practice` instead (with your own service name and user).
+
+The table has a primary key on purpose: Rowsafe needs one to compare rows and bring them back.
+
+</Step>
+<Step>
+
+### Wait two minutes, then delete 40 rows
+
+Every change reaches your bucket within about a minute. Wait two minutes, so the "before" moment is easy to tell apart. Then, in the same `psql` session:
+
+```sql
+DELETE FROM customers WHERE id <= 40;
+SELECT count(*) FROM customers;   -- 60
+```
+
+</Step>
+<Step>
+
+### Find the moment
+
+Open your database in the dashboard, then **Rewind** → **Find the moment**. Pick **deleted rows** and the last hour, and click **Find the moment**. After a few seconds you see your delete: 40 rows deleted from `customers`, with the exact second. See [Find the moment](/docs/guides/find-the-moment).
+
+Click **Rewind to just before this**. It takes you to Rewind with that point filled in: everything before the delete is kept, the delete itself is left out.
+
+</Step>
+<Step>
+
+### Restore a copy
+
+Click **Restore a copy**. Rowsafe restores the database as it was at that moment, on your server, next to production. Production keeps running. It takes about as long as a [Proof](/docs/concepts/restore-drills) run; the page shows the progress.
+
+The copy is private: it has no network port, so no app can connect to it by mistake. It is kept for 24 hours by default and then **deleted by itself**. See [Restore a copy](/docs/guides/restore#restore-a-copy).
+
+</Step>
+<Step>
+
+### Compare with production
+
+When the copy is ready, click **Compare with production** on its card and pick the `customers` table. Rowsafe counts the rows by primary key. You should see **Missing in production: 40**. See [Compare with production](/docs/guides/restore#compare-with-production).
+
+</Step>
+<Step>
+
+### Bring the rows back
+
+Select the table and click **Bring back 40 missing rows**. Type the database name to confirm. Rowsafe saves a Mark first, then puts back only the rows that are missing, in one transaction. See [Bring back rows](/docs/guides/restore#bring-back-rows).
+
+Check in `psql`:
+
+```sql
+SELECT count(*) FROM customers;   -- 100 again
+```
+
+</Step>
+<Step>
+
+### Clean up
+
+- **The copy:** click **Delete** on its card, or leave it: it deletes itself when it expires.
+- **The practice database:** in **Databases & users**, open the `practice` database's menu, click **Remove database** and type its name.
+
+</Step>
+</Steps>
+
+You now know the steps. Write down how long the copy took: that is roughly how long a real one takes on this database.
+
+## Other ways to practise
+
+- **With a Mark.** Before you delete, save a Mark (a named restore point) from the database's page in the dashboard, or with `rowsafe mark app before-practice`. Then pick it in Rewind instead of a time, or click **Restore a copy at this Mark** on the **Marks** page. See [Marks](/docs/concepts/restore-points).
+- **By hand, on another server.** For the case where your server is lost, practise [restoring by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server) once on a scratch server. It takes longer, and it's worth doing once.
+
+<Callout type="warn" title="Rewinding the whole database is not a practice step">
+
+[Rewind the whole database](/docs/guides/restore#rewind-the-whole-database) replaces your live database and stops PostgreSQL while it works. It's for the worst case only. Don't try it on a production server to practise.
+
+</Callout>

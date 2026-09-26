@@ -1,0 +1,368 @@
+---
+title: Connection pooling
+description: Put PgBouncer in front of PostgreSQL so many app connections share a few database connections. Rowsafe installs it, configures it, watches it in Pulse and points it at the new primary after a failover.
+---
+
+**Connection pooling** puts [PgBouncer](https://www.pgbouncer.org/) between your apps and PostgreSQL. Your apps open as many connections as they like to PgBouncer, and PgBouncer shares a small number of real PostgreSQL connections between them.
+
+Rowsafe can install PgBouncer on your server, configure it, show it in Pulse, and point it at the new primary after a failover. It does this only on servers where you allowed it during install, and only when someone turns pooling on.
+
+The examples use a database named `app` on a server named `db-1`.
+
+## When you need it
+
+Each PostgreSQL connection is a process on the server, and `max_connections` caps how many there can be. Pooling helps when:
+
+- **you run out of connections.** Pulse says "Most connections are in use" or "Almost out of connections", and apps get `too many clients already` or `remaining connection slots are reserved`;
+- **you run many app instances**, each with its own pool of connections: several web servers, background workers, autoscaling containers;
+- **your code runs on serverless platforms** (functions, edge runtimes) that open a new connection for each request;
+- **most connections sit idle.** Many idle connections cost memory and slow PostgreSQL down, even when they do nothing.
+
+If a few long-lived app servers use a handful of connections each, you probably don't need pooling yet.
+
+## Allow it on the server
+
+Rowsafe installs nothing for pooling unless root on the server allows it. When you install the agent from a terminal, the installer asks:
+
+```text
+Allow Rowsafe to install and manage PgBouncer? Nothing is installed now: only when someone turns connection pooling on in the dashboard and confirms. [Y/n]
+```
+
+Answering yes installs nothing yet. It only lets Rowsafe install and manage PgBouncer later, when someone turns pooling on. The installer (as root, with `pg_lsclusters`) writes the ports of the server's PostgreSQL clusters to `/etc/rowsafe/pooler-allowed`, and installs a small root helper that runs only when the agent asks for a pooling change. PgBouncer can only be put in front of those clusters.
+
+To answer without the question, or to change your answer later, run the install command again with an option:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-pooler      # allow it
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-allow-pooler   # don't allow it
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-pooler --allow-pooler-public   # also allow listening on public addresses
+```
+
+Running the installer again keeps your earlier answer and the list as it is. If you add a cluster later, run it again from a terminal: it asks before adding the new one (`--allow-pooler` adds it without asking).
+
+With `--no-allow-pooler`, a PgBouncer that Rowsafe already set up **keeps running** for your apps, but Rowsafe can no longer change it or turn it off. Turn pooling off first if you want it gone.
+
+## Turn it on
+
+You can turn pooling on in three places. Each shows what will happen and asks you to confirm:
+
+- the database's **Connections** tab: **Turn on pooling**;
+- Pulse: on the finding "Most connections are in use" or "Almost out of connections", **Apply fix** with **Turn on pooling** (see [Apply fix](/docs/guides/monitoring#apply-fix));
+- the CLI:
+
+```sh
+rowsafe pooling on app                           # Rowsafe's defaults
+rowsafe pooling on app --mode session --port 6433
+```
+
+Only **owners and admins** can turn pooling on, change it or turn it off; members see the buttons disabled. From the CLI or the API it needs an API key with write access. Every change is in the audit log.
+
+It takes about a minute. **Nothing changes for your apps yet:** they keep connecting to PostgreSQL directly until you [point them at PgBouncer](#connect-your-apps).
+
+### What Rowsafe does
+
+1. **Installs PgBouncer** if it isn't installed: the `pgbouncer` package from apt. That comes from apt.postgresql.org when that repository is configured, otherwise from your distribution.
+2. **Creates a lookup role** in PostgreSQL, `rowsafe_pgbouncer`, and a function PgBouncer uses to look up passwords (details below).
+3. **Checks that PgBouncer can log in** to PostgreSQL at `127.0.0.1` with a password, before it changes PgBouncer.
+4. **Writes `/etc/pgbouncer/pgbouncer.ini`** from Rowsafe's own template. The file is owned by root, and its first line says it's managed by Rowsafe. Changes you make to it are replaced the next time Rowsafe writes it.
+5. **Raises PgBouncer's open-file limit** to 65536 with a systemd drop-in, so it can hold many client connections.
+6. **Starts PgBouncer** and enables it at boot, then **makes a test connection** through it.
+
+When it's done, the task says what it set up, for example:
+
+```text
+Pooling is on: PgBouncer 1.24.1 listens on 127.0.0.1, 10.0.0.5, port 6432, in transaction mode, with up to 20 server connections per pool.
+```
+
+If PgBouncer is already installed with its **own configuration**, Rowsafe stops and changes nothing: `PgBouncer on this server has its own configuration (/etc/pgbouncer/pgbouncer.ini); Rowsafe doesn't replace it`. An untouched configuration from the package is fine.
+
+### Settings
+
+Leave the settings empty and Rowsafe picks them. You can change each one when you turn pooling on, or later.
+
+| Setting | CLI flag | Default | |
+|---|---|---|---|
+| Mode | `--mode` | `transaction` | `transaction` or `session`. See [Transaction or session mode](#transaction-or-session-mode). |
+| Pool size | `--pool-size` | From the server | PostgreSQL connections per pool. A pool is one database and one user. |
+| Client connections | `--max-client-conn` | `1000` | How many app connections PgBouncer accepts, 10 to 100000. |
+| Where it listens | `--listen` | `local` | `local`, `private` or `public`. See below. |
+| Port | `--port` | `6432` | 1024 to 65535. |
+
+**Pool size.** Rowsafe starts from twice the server's CPUs, at least 10 and at most 50. It never picks more than half of what PostgreSQL has room for: `max_connections`, less the reserved connections, less 10 kept free for Rowsafe, admins and replication. You can set a larger pool size, up to that room. PgBouncer's total connections to PostgreSQL are also capped at three quarters of the room, so many pools together can't use up `max_connections`. A small reserve pool (a quarter of the pool size) helps with short bursts.
+
+**Where it listens.**
+
+| `--listen` | PgBouncer accepts connections on |
+|---|---|
+| `local` | This server only (`127.0.0.1`). For apps on the same server. The default. |
+| `private` | This server and its private network addresses (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, fc00::/7). |
+| `public` | Every address, public ones included. Only if you choose it, and only on a server where root also allowed it (`--allow-pooler-public`). Put a firewall in front of it. |
+
+Rowsafe never makes PgBouncer listen on a public address unless you choose `public` and root allowed it.
+
+<Accordions>
+<Accordion title="How passwords work">
+
+Apps log in to PgBouncer with **their own PostgreSQL user and password**, with `scram-sha-256`. You don't keep a separate list of users.
+
+- PgBouncer looks up each password with `auth_query`, logged in as the role `rowsafe_pgbouncer`.
+- It calls one function, `rowsafe_pgbouncer.user_lookup`. The function is `SECURITY DEFINER`, returns the password hash of one login role, and **never returns superusers** or expired passwords. Only `rowsafe_pgbouncer` can call it.
+- The role's password is random. PostgreSQL only gets its SCRAM verifier. The password itself is only in PgBouncer's user list, `/etc/pgbouncer/userlist.txt`, owned by root and readable by the `postgres` group (the agent uses it to read PgBouncer's statistics).
+- The role isn't a superuser, can't create databases or roles, can't replicate or bypass row-level security, and is limited to 20 connections.
+
+Because superusers are never returned, **superusers can't log in through PgBouncer**. Connect to PostgreSQL directly for admin work.
+
+</Accordion>
+</Accordions>
+
+## Transaction or session mode
+
+**Transaction mode** (the default) lends a PostgreSQL connection to a client for **one transaction at a time**. When the transaction ends, the connection goes back to the pool for another client. A few PostgreSQL connections can then serve hundreds of clients. This is what fixes "too many connections".
+
+The catch: consecutive transactions from the same client can run on different PostgreSQL connections. Anything that should last longer than one transaction doesn't carry over:
+
+- `SET` (use `SET LOCAL` inside a transaction, or set it on the role: `ALTER ROLE app SET ...`);
+- `LISTEN` and `NOTIFY` listeners;
+- session-level advisory locks (`pg_advisory_lock`; `pg_advisory_xact_lock` works);
+- prepared statements made with SQL `PREPARE`;
+- temporary tables that outlive a transaction, including `ON COMMIT PRESERVE ROWS`;
+- `WITH HOLD` cursors.
+
+**Prepared statements made by drivers** (at the protocol level, which is what most drivers use) work with PgBouncer 1.21 or newer: Rowsafe sets `max_prepared_statements = 200` for that. With an older PgBouncer, turn prepared statements off in your driver.
+
+**Session mode** gives each client its own PostgreSQL connection for as long as it stays connected. Everything works as with a direct connection, but it only saves the cost of opening connections: it doesn't let more clients connect than PostgreSQL allows.
+
+If one app needs session features, such as a job queue that uses `LISTEN`, connect that app to PostgreSQL directly, and keep the others on PgBouncer in transaction mode.
+
+## Connect your apps
+
+After pooling is on, the **Connections** tab and `rowsafe pooling status app` show two connection strings:
+
+```text
+Direct:      postgres://USER:PASSWORD@db-1:5432/DATABASE
+Pooled:      postgres://USER:PASSWORD@10.0.0.5:6432/DATABASE
+```
+
+Point your apps at the **pooled** one: same user, password and database, a different host and port. Every database of that PostgreSQL is reachable by its name. The pooled host is the first private address PgBouncer listens on, `127.0.0.1` with `--listen local`, or the server's name with `--listen public`.
+
+Move one app at a time and watch it for a while. Keep the direct string for migrations, admin work and anything that needs session features.
+
+Driver notes for transaction mode:
+
+| Stack | What to do |
+|---|---|
+| **Prisma** | Add `?pgbouncer=true` to the pooled URL, and put the direct URL in `directUrl`: `prisma migrate` needs a direct connection. |
+| **Rails** | In `database.yml`, set `advisory_locks: false` (migrations take an advisory lock), or run migrations over the direct URL. With PgBouncer older than 1.21, also set `prepared_statements: false`. |
+| **Go (pgx)** | Works as is with PgBouncer 1.21 or newer. With an older one, add `default_query_exec_mode=simple_protocol` to the connection string. |
+| **Java (JDBC)** | Works as is with PgBouncer 1.21 or newer. With an older one, add `prepareThreshold=0` to the JDBC URL. |
+| **Python (psycopg, SQLAlchemy)** | psycopg 2 works as is. psycopg 3 prepares queries it runs often: with PgBouncer older than 1.21, pass `prepare_threshold=None`. With SQLAlchemy, keep its own pool small, or use `NullPool` and let PgBouncer do the pooling. |
+| **Node.js (node-postgres)** | Works as is, unless you name your queries (`name:` makes a prepared statement): then use PgBouncer 1.21 or newer. |
+
+Apps that keep their own connection pool can keep it, but make it smaller: PgBouncer does the sharing now.
+
+## Change the settings
+
+Change any setting the same way you turned pooling on: **Change settings** on the Connections tab, or `rowsafe pooling on` with the flags you want to change. Settings you don't mention stay as they are.
+
+```sh
+rowsafe pooling on app --pool-size 30
+```
+
+Changing the mode, the pool size or the client limit **reloads** PgBouncer: nothing is disconnected. Changing the **port** or **where it listens** restarts PgBouncer, which drops the connections that go through it.
+
+Some Pulse findings change the settings for you, with **Apply fix**: see [Watch it in Pulse](#watch-it-in-pulse).
+
+## Watch it in Pulse
+
+Once pooling is on, the agent reads PgBouncer's statistics every minute, with the database's other metrics:
+
+| Metric | Meaning |
+|---|---|
+| `pooler_up` | 1 when PgBouncer answered that minute, 0 when it didn't |
+| `pooler_clients_active` | Client connections to PgBouncer using a server connection or idle |
+| `pooler_clients_waiting` | Client connections waiting for PgBouncer to give them a server connection |
+| `pooler_servers_active` | PgBouncer's server connections in use by a client |
+| `pooler_servers_idle` | PgBouncer's server connections open and free |
+| `pooler_pool_used_pct` | Server connections in use in the busiest pool, as a percentage of its pool size |
+| `pooler_wait_max_seconds` | How long the longest-waiting client has waited for a server connection |
+| `pooler_wait_avg_ms` | Average time clients waited for a server connection over the last minute |
+| `pooler_xact_rate` | Transactions per second through PgBouncer |
+| `pooler_query_rate` | Queries per second through PgBouncer |
+
+The database's **Monitoring** and **Connections** tabs chart the clients waiting, pool usage, the average wait and transactions per second. `rowsafe pooling status app` also lists the busiest pools: clients, waiting clients, server connections, pool size, the longest wait and transactions per second.
+
+Two findings count in the health score:
+
+| Finding | Severity | Fix |
+|---|---|---|
+| **PgBouncer isn't answering** (`pooler_down`). Apps that connect through it can't reach the database. | Critical | **Start PgBouncer again**: rewrites its configuration with the current settings and starts it. If it keeps stopping, `sudo journalctl -u pgbouncer` says why. |
+| **Apps wait for a database connection** (`pooler_waiting`). Clients are waiting: the longest for a second or more, or 100 ms or more on average. | Warning | **Raise the pool size**, by half, within what `max_connections` allows. In session mode, also **Switch to transaction mode**. |
+
+Two built-in alert rules page you the same way as the others (see [alert rules](/docs/guides/monitoring)): `pooler_down` (critical, after 2 minutes) and `pooler_clients_waiting` (warning, when a client has waited more than 2 seconds for 5 minutes). You can change or turn them off under **Alerts**.
+
+When the pool already uses every connection PostgreSQL allows, the finding says so: raise `max_connections` (a restart), or make long transactions shorter. Long transactions hold a server connection the whole time, and are the most common reason clients wait.
+
+## Failover
+
+PgBouncer managed by Rowsafe only sends connections to PostgreSQL **on its own server**, to a cluster on root's list (`127.0.0.1`, an allowed port): the root helper refuses any other target. So Rowsafe can move it from one cluster to another on the same server, for example to a standby promoted there, but not to a new primary on another server. Then point your apps at the new primary directly.
+
+When it does switch clusters:
+
+1. It waits until the new primary accepts PgBouncer's login and is out of recovery (up to 45 seconds).
+2. It writes the new target into PgBouncer's configuration.
+3. It **pauses** PgBouncer: transactions in progress finish, and new queries wait instead of failing (up to 15 seconds).
+4. It **reloads** PgBouncer with the new target and **resumes** it. The waiting queries run on the new primary.
+
+The task reports how long clients waited, for example "Clients waited 850 ms; none got an error." If PgBouncer can't pause in time, for example because the old primary stopped answering, Rowsafe switches anyway: connections to the old server are closed, and clients in the middle of a transaction get an error.
+
+For this to work:
+
+- **The new cluster must accept password logins from `127.0.0.1`** in its `pg_hba.conf` (Debian's default does).
+- **The roles must exist on the new cluster.** Physical replication copies them, including `rowsafe_pgbouncer` and its lookup function, so a streaming standby has them already.
+
+## Turn it off
+
+On the Connections tab, **Turn pooling off**, or:
+
+```sh
+rowsafe pooling off app
+```
+
+Rowsafe:
+
+- stops PgBouncer and disables it at boot;
+- puts back PgBouncer's own configuration files, if there were any before;
+- removes the `pgbouncer` package **if Rowsafe installed it**. A PgBouncer you installed yourself stays installed, and is started again if it was enabled before;
+- removes the open-file limit drop-in;
+- drops the lookup function and the `rowsafe_pgbouncer` role.
+
+**Apps that connect through PgBouncer lose their connection** and must connect to PostgreSQL directly again. Switch them to the direct connection string first.
+
+Uninstalling the agent, or running the installer with `--no-allow-pooler`, doesn't turn pooling off: PgBouncer keeps running, and Rowsafe can no longer change it. To stop it yourself then: `sudo systemctl disable --now pgbouncer`.
+
+## Docker
+
+Rowsafe doesn't install PgBouncer next to PostgreSQL in a container. Run PgBouncer as another service in your compose file instead, and let Rowsafe **monitor** it: it then shows in Pulse, with the same metrics and findings, but Rowsafe can't change it, turn it off or point it at another server.
+
+<Callout type="warn">
+There is no Docker Official Image for PgBouncer, and Rowsafe doesn't ship one. The files below are **an example to adapt**, not a setup Rowsafe tests: they use `edoburu/pgbouncer`, a community image. Any PgBouncer image works; check its documentation for how it takes a configuration file, and pin a version you have tried. What Rowsafe does test is the monitoring side: reading a PgBouncer's statistics through `ROWSAFE_POOLER_STATS_URL`.
+</Callout>
+
+```ini title="pgbouncer/pgbouncer.ini"
+[databases]
+* = host=postgres port=5432
+
+[pgbouncer]
+listen_addr = 0.0.0.0
+listen_port = 6432
+auth_type = scram-sha-256
+auth_file = /etc/pgbouncer/userlist.txt
+pool_mode = transaction
+default_pool_size = 20
+max_client_conn = 1000
+max_prepared_statements = 200
+stats_users = stats
+ignore_startup_parameters = extra_float_digits
+```
+
+The user list has each app role with its SCRAM verifier (`SELECT rolname, rolpassword FROM pg_authid;` as a superuser), and a **stats** user for Rowsafe with a long random password of its own. The stats user needs no role in PostgreSQL: it only reads PgBouncer's statistics.
+
+```text title="pgbouncer/userlist.txt"
+"app" "SCRAM-SHA-256$4096:..."
+"stats" "a-long-random-password"
+```
+
+Keep both files readable only by you and the container's user: the user list holds secrets.
+
+```yaml title="compose.yml"
+services:
+  postgres:
+    # ... unchanged
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest       # pin a version in production
+    restart: unless-stopped
+    depends_on: [postgres]
+    volumes:
+      - ./pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    # ports: ["6432:6432"]                # only for apps outside this compose project
+
+  rowsafe-agent:
+    # ... unchanged
+```
+
+Apps in the same compose project connect to `postgres://app:PASSWORD@pgbouncer:6432/app`.
+
+Then tell the agent where PgBouncer is, in `rowsafe-agent.env`, and recreate it with `docker compose up -d rowsafe-agent`:
+
+```sh title="rowsafe-agent.env"
+ROWSAFE_POOLER_STATS_URL=postgres://stats:PASSWORD@pgbouncer:6432/pgbouncer
+# ROWSAFE_POOLER_DATABASE=app       # the database's name in Rowsafe, if this agent has several
+```
+
+The same two settings work on a server where you run PgBouncer yourself: Rowsafe then monitors it and leaves it alone.
+
+## Limits
+
+- **PgBouncer runs on the database's server and only reaches clusters on that server** (ports root allowed). After a failover to another server, point your apps at the new primary directly, or run PgBouncer on a server of its own.
+- **At most one install or removal of the pgbouncer package every 10 minutes.**
+- **One Rowsafe-managed PgBouncer per server**, in front of one PostgreSQL cluster. To pool a second cluster on the same server, run PgBouncer for it yourself.
+- **Debian and Ubuntu servers only.** In Docker, Rowsafe only monitors a PgBouncer you run (see [Docker](#docker)).
+- **Not on a standby.** Turn pooling on for the primary. The lookup role is created there and replicated.
+- **PgBouncer 1.14 or newer** (SCRAM passwords), and 1.21 or newer for drivers' prepared statements in transaction mode. Some distributions ship PgBouncer older than 1.20, for example Debian 12 and Ubuntu 22.04. With apt.postgresql.org configured, you get a current one.
+- **PgBouncer older than 1.20** looks passwords up in the database each client connects to, so Rowsafe adds its lookup function to every database. A database created later isn't reachable through PgBouncer until you click **Change settings** (or run `rowsafe pooling on app` again). PgBouncer 1.20 or newer doesn't have this limit.
+- **md5 passwords don't work through PgBouncer.** Rowsafe lists the roles that still have one. Set their password again with `password_encryption = scram-sha-256` (the default since PostgreSQL 14), for example with `\password app` in `psql`.
+- **Superusers can't log in through PgBouncer.** Connect directly for admin work.
+- **PgBouncer connects to PostgreSQL over TCP, at `127.0.0.1`, with a password.** If `pg_hba.conf` refuses that, Rowsafe stops before it changes anything and says which line to add, for example `host all all 127.0.0.1/32 scram-sha-256`. Add it, reload PostgreSQL (`SELECT pg_reload_conf();`) and try again.
+- **A PgBouncer with its own configuration is left alone.** Rowsafe doesn't take over a PgBouncer you configured yourself.
+- **AI agents can't change pooling.** The [MCP server](/docs/reference/mcp) has no tool for it, and the API refuses pooling changes made through MCP. Read-only API keys can't change it either. Every change is in the audit log.
+
+## If something goes wrong
+
+The task log (`rowsafe task ID`, or the task on the Connections tab) says what failed and what to do:
+
+| Message | Fix |
+|---|---|
+| `installing and managing PgBouncer from Rowsafe isn't allowed for port 5432 on db-1` | Run the installer on `db-1` again with `--allow-pooler`. |
+| `PgBouncer is allowed on db-1, but not for this PostgreSQL (port 5433)` | The cluster was added after the installer ran. Run it again to refresh the list. |
+| `PgBouncer on db-1 already pools other-db; Rowsafe manages one pooler per server` | Turn pooling off for the other database first. |
+| `PostgreSQL refuses password logins from PgBouncer` | Add the line it names to `pg_hba.conf` and reload PostgreSQL. |
+| `PostgreSQL doesn't accept TCP connections on 127.0.0.1:5432 (check listen_addresses)` | Make `listen_addresses` include `localhost` (a restart). |
+| `PgBouncer 1.12.0 is too old: Rowsafe needs 1.14 or newer` | Install a newer `pgbouncer` package, for example from apt.postgresql.org. |
+| `this PostgreSQL is a standby` | Turn pooling on for the primary. |
+| `the PgBouncer helper on db-1 did not answer` | Check `systemctl status rowsafe-pooler.path rowsafe-pooler.service`, then run the installer again with `--allow-pooler`. |
+| `PgBouncer did not start` | `sudo journalctl -u pgbouncer` and `/var/log/postgresql/pgbouncer.log` say why. |
+
+## Files on the server
+
+```text
+/etc/rowsafe/pooler-allowed                  root 0644; the PostgreSQL ports Rowsafe may pool (--allow-pooler)
+/etc/pgbouncer/pgbouncer.ini                 root:postgres 0640; written by Rowsafe from its template
+/etc/pgbouncer/userlist.txt                  root:postgres 0640; the password of rowsafe_pgbouncer
+/etc/systemd/system/pgbouncer.service.d/rowsafe.conf   the open-file limit
+/etc/systemd/system/rowsafe-pooler.path      starts the root helper when the agent asks
+/etc/systemd/system/rowsafe-pooler.service   the root helper, in PgBouncer mode: no network, writes only /etc/pgbouncer and its drop-in
+/etc/systemd/system/rowsafe-pooler-apt@.service   installs or removes the pgbouncer package, nothing else
+/var/lib/rowsafe/pooler/                     the agent's requests to the helper
+/var/lib/rowsafe/pooling.json                what the agent set up: database, settings, target
+/var/lib/rowsafe-pooler/                     root 0700; PgBouncer's original files, and whether Rowsafe installed it
+/var/log/postgresql/pgbouncer.log            PgBouncer's log
+```
+
+The agent never installs or configures anything itself: it runs as `postgres`, without privileges. It writes a request, and the root helper checks every value against a strict pattern, writes PgBouncer's files from its own template, and only ever installs or removes the `pgbouncer` package. PgBouncer's admin console is on the Unix socket in `/var/run/postgresql`, on PgBouncer's port.
+
+## API
+
+| Request | |
+|---|---|
+| `GET /v1/databases/{ref}/pooling` | State (`off`, `turning_on`, `on`, `turning_off`, `failed`), whether it's allowed and available (and why not), settings, addresses, target, connection strings, the latest statistics, and the settings Rowsafe would pick. |
+| `PUT /v1/databases/{ref}/pooling` | Turn pooling on, or change its settings. Body: `{"settings": {"mode": "transaction", "pool_size": 20, "max_client_conn": 1000, "listen": "private", "port": 6432}, "confirm": "app"}`. Leave out settings Rowsafe should pick or keep. Returns `202` and the task. |
+| `POST /v1/databases/{ref}/pooling/off` | Turn pooling off. Body: `{"confirm": "app"}`. Returns `202` and the task. |
+
+`confirm` must be the database's name. Errors:
+
+- `400`: a missing or wrong `confirm`, or an invalid setting;
+- `403`: pooling isn't allowed on that server (the message says why), a read-only API key, or a request through MCP;
+- `409`: pooling is already off, the agent isn't connected, a pooling change is already running, or the server's PgBouncer already serves another database.
+

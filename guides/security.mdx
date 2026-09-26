@@ -1,0 +1,109 @@
+---
+title: "Security check: who can reach your database"
+description: Pulse checks who can connect to your database and how they log in, looks at it from the internet the way a stranger would, and fixes what it finds with one click, without Rowsafe ever seeing a password.
+---
+
+A database on your own server is only as safe as its settings: which addresses may connect, whether logins ask for a password, whether connections are encrypted. The **security check** looks at all of it every 15 minutes, tries your database's port **from the internet** the way a stranger would, grades the result from **A to F**, and fixes most of what it finds with one click.
+
+It is part of **Pulse** (the database's **Pulse** tab, **Security**), starts as soon as you add a database, and is included in every plan. The database's **Overview** shows the grade and the most important thing to fix.
+
+## Fix what it found
+
+<Steps>
+<Step>
+
+### Open Security
+
+In the dashboard, open the database, then **Pulse** and **Security**. The grade and one sentence say how it stands, for example "Anyone on the internet can try to log in."
+
+</Step>
+<Step>
+
+### Let only your app servers connect
+
+Click **Only allow your app servers**. Rowsafe lists the addresses that connected in the last 14 days (the ones your apps use are ticked), the private networks they are in, and the server's own addresses. Add any other address or range, like `10.0.1.25` or `10.0.0.0/16`, and click **Allow**.
+
+If an address that connected recently would be cut off, Rowsafe says which one and asks you to type the database's name to go ahead. A superuser's address being cut off is usually what you want.
+
+</Step>
+<Step>
+
+### Turn on encryption and modern passwords
+
+Click the button on each remaining finding: **Turn on encryption**, **Require encryption**, **Use modern password hashing**, **Renew the certificate**. For a user with an old MD5 password, click **Set a new password** (see [New passwords](#new-passwords)).
+
+</Step>
+<Step>
+
+### Check again
+
+Rowsafe checks by itself after every change, from the server and from the internet. **Check now** does it right away.
+
+</Step>
+</Steps>
+
+Every change shows its progress and what happened, for example "Rules open to every address now let only 10.0.1.5/32, 10.0.1.0/24. The previous rules are kept in pg_hba.conf.rowsafe-20260925T101500.123456Z." **Put back the previous rules** undoes the last change of who can connect.
+
+## What it checks
+
+| Area | What Rowsafe looks at |
+|---|---|
+| Who can connect | `listen_addresses`, and the rules in `pg_hba.conf` (as PostgreSQL reads them): rules open to every address (`all`, `0.0.0.0/0`, `::/0`), `trust` (no password) for network connections, the unencrypted `password` method |
+| From the internet | Whether the port answers from the internet, whether PostgreSQL offers encryption, and how far a stranger's login gets |
+| Encryption | Whether TLS is on, and when the certificate expires |
+| Passwords | `password_encryption` (MD5 or scram-sha-256), which users still have MD5 passwords, and superusers logging in over the network |
+| Privileges | `CREATE` on schema `public` for everyone, and untrusted languages (such as `plpython3u`) someone marked trusted |
+| PostgreSQL version | Whether it still gets security fixes, and when that ends |
+
+Only the kind of each user's password is read (none, MD5 or SCRAM), never the password or its hash. The addresses that connected are kept for 14 days, to suggest which ones to allow.
+
+### The grade
+
+Every problem takes points off 100. Anything that lets strangers in without a password is an **F**, any other warning keeps the grade at **B** or below: A is 90 to 100, B 80 to 89, C 65 to 79, D 50 to 64, F below 50. The same findings also count toward the database's [health score](/docs/guides/monitoring#health-score), up to 25 points, and the [weekly Pulse email](/docs/guides/monitoring#your-weekly-pulse) has a Security line.
+
+## The check from the internet
+
+Every 30 minutes, and after every change of who can connect, Rowsafe's servers connect to your database's port the way a stranger would:
+
+1. They open a TCP connection. No answer means a firewall drops it; a refusal means nothing listens there.
+2. They ask whether PostgreSQL offers encryption (TLS) and read its certificate.
+3. They start a login as a made-up user, `rowsafe_outside_check`, and hang up as soon as PostgreSQL asks for a password. They never send one and never log in.
+
+Rowsafe checks only your server's own addresses: the address its agent connects to Rowsafe from, and public addresses of the server itself. Never private addresses. The result is one of: not reachable, blocked by a firewall, reachable but turns strangers away, **anyone can try passwords**, or **lets strangers in without a password**.
+
+<Callout type="info">
+PostgreSQL may log the attempt, for example `no pg_hba.conf entry for host "...", user "rowsafe_outside_check"`. To turn the check off for a database, open **Security**, **More options**, and switch off **Check from the internet**.
+</Callout>
+
+The check runs from Rowsafe's servers. A firewall that allows only some sources may let Rowsafe in and not others, or the other way round.
+
+## New passwords
+
+**Set a new password** makes a strong password (24 random characters) in your browser and sends Rowsafe only its **SCRAM-SHA-256 verifier**, the one-way fingerprint PostgreSQL stores instead of the password. The agent sets it with `ALTER ROLE ... PASSWORD`, kept out of PostgreSQL's log. The dialog shows the password once, with a copy button; close it and it is gone. Rowsafe never sees, stores or logs the password, and drops the verifier from the task as soon as the agent has used it.
+
+Apps that log in as that user need the new password right away.
+
+## The firewall
+
+With **Use the firewall too**, the server's own firewall drops connections to PostgreSQL's port from every address but the ones you choose, before they reach PostgreSQL. This needs your permission on the server: run the installer with `--allow-firewall` (or answer yes to its question). The dashboard shows **Allowed on this server** or **Not allowed on this server**.
+
+- It uses **nftables**, in a table of its own (`inet rowsafe`) that matches **only PostgreSQL's port**. SSH and every other port are never touched, and connections from the server itself always work.
+- The installer finds the ports itself, as root (from `pg_lsclusters` and the `postgres` user's listening sockets), shows them, and keeps the list on a re-run; a new port is added only after you say yes again. Whatever the list says, the helper refuses ports below 1024, any port SSH uses, and a port PostgreSQL doesn't listen on.
+- A port Docker publishes isn't covered: its traffic is forwarded past the server's own firewall. Rowsafe refuses it; limit it in your compose file instead.
+- After a change, the agent must confirm within a minute that it still reaches Rowsafe and PostgreSQL. If it can't, the server puts the previous rules back by itself.
+- The rules come back after a reboot. If you reload your own firewall with a full flush (`flush ruleset`), Rowsafe's table goes too; the check from the internet then shows the port reachable again, and you can apply it again.
+- **Remove the firewall rule** takes Rowsafe's rule away; `--no-allow-firewall` or uninstalling removes the helper and its rules.
+
+## What keeps it safe
+
+- **pg_hba.conf changes are checked before they take effect.** Rowsafe keeps a copy of the file, writes the new rules, has PostgreSQL check them (`pg_hba_file_rules`), and only then reloads. If PostgreSQL rejects a rule, or the agent can no longer connect over its own local socket after the reload, the copy is put back at once. Rules open to every address become the same rules for your addresses; the old line stays in the file as a comment. Local rules and narrower rules are left alone.
+- **Nothing restarts**, except **Listen on this server only** (under **More options**), which sets `listen_addresses` to `localhost` and restarts PostgreSQL right after, and only where [restarts are allowed](/docs/reference/agent-configuration#installer). Rowsafe refuses it while apps connect over the network.
+- **A new certificate is self-signed**, valid for 3 years, in the data directory. Apps that connect with `sslmode=require` get encryption right away. Apps that verify the server (`verify-full`) need a certificate from a certificate authority you trust: Rowsafe uses the one PostgreSQL already has, and never replaces one it didn't make.
+- **Owners and admins only**, confirmed with the database's name, and every change is in the [audit log](/docs/guides/teams#audit-log) (without any password or verifier). Read-only API keys can look but not change. AI agents on the [MCP server](/docs/reference/mcp) can see the findings but have no tool that changes security settings.
+
+## Limits
+
+- Rowsafe edits `pg_hba.conf` on PostgreSQL 10 and newer, and not when it includes other files (`include`, `include_dir`) or continues rules over several lines. The agent needs its PostgreSQL user to be a superuser (it is, by default) to read the rules and the kinds of passwords.
+- **Docker:** the agent can't change the PostgreSQL container's files, and Docker's published ports bypass the server's firewall. The check shows the findings; fix them in your compose file (publish the port only where needed, and set `ssl` and `pg_hba.conf` in the image or its volume).
+- A rule that trusts your app servers without a password (`trust`) stays trust after **Only allow your app servers**: change it to `scram-sha-256` yourself (the finding shows how), after giving those users passwords.
+- The minor version (for example 17.2 versus 17.6) is covered by PostgreSQL updates, not here; the Security page links to it when an update is available.

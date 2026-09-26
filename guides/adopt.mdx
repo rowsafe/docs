@@ -3,7 +3,7 @@ title: Adopt an existing database
 description: The careful, step-by-step way to put a production PostgreSQL server under Rowsafe, with preflight checks, automation and a rollback plan.
 ---
 
-This guide adopts a production PostgreSQL server. At the end, every change is archived to your bucket, backups and the weekly restore test (Proof) run on their own, and you get alerts. If you back up with a nightly `pg_dump` today, the most you can lose drops from up to 24 hours to about 5 minutes.
+This guide adopts a production PostgreSQL server. At the end, every change is archived to your bucket, backups and the weekly restore test (Proof) run on their own, and you get alerts. If you back up with a nightly `pg_dump` today, the most you can lose drops from up to 24 hours to about a minute.
 
 The examples use a database named `app` on a server named `db-1`. Replace them with yours.
 
@@ -76,7 +76,7 @@ Store it, with the bucket keys, in your secret manager. Keep backup secrets in t
 
 ### Run the installer
 
-In the dashboard, open **Servers**, then **Add server**, and copy the install command. It holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.) Run it on the server:
+In the dashboard, open **Servers**, then **Add a server**, and copy the install command. It holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.) Run it on the server:
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
@@ -99,7 +99,7 @@ Read the plan before you answer. For a typical server it changes:
 | `pgbackrest stanza-create` | | | |
 | `archive_mode` | `off` | `on` | **yes** |
 | `archive_command` | (empty) | `/usr/bin/pgbackrest --config=/etc/rowsafe/pgbackrest/app.conf --stanza=app archive-push %p` | no |
-| `archive_timeout` | `0` | `300` | no |
+| `archive_timeout` | `0` | `60` | no |
 
 If `wal_level` is `minimal`, it becomes `replica` (also a restart). **Answer `n` if the plan shows anything else**, especially a warning about an existing `archive_command`.
 
@@ -158,7 +158,7 @@ rowsafe tasks app      # backup running ... succeeded
 rowsafe backups app    # type, duration, database size, stored size
 ```
 
-A few GB take several minutes. Then run Proof, the restore test, for the first time, ideally in a quiet hour:
+A few GB take several minutes. Then run Proof, the restore test, for the first time, ideally in a quiet hour: click **Run Proof now** on the database's page, or:
 
 ```sh
 rowsafe proof app
@@ -176,7 +176,7 @@ If you already back up, keep that job running unchanged for 30 days. During that
 
 - **every day**, backups succeed (alerts tell you if not);
 - **every week**, the Sunday Proof passes;
-- **once**, you do a real [point-in-time restore](/docs/guides/restore) to a scratch server and run your application's smoke tests against it. Write down how long it took.
+- **once**, you practise a restore: [restore a copy](/docs/guides/restore#restore-a-copy) in the dashboard and compare it with production, and do one [restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server) to a scratch server and run your application's smoke tests against it. Write down how long each took.
 
 Then retire the old job. Also [set up alert channels](/docs/guides/monitoring#notification-channels) now, if you haven't.
 

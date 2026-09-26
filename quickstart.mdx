@@ -3,7 +3,7 @@ title: Quickstart
 description: Protect your first PostgreSQL database in about 10 minutes. Create a storage bucket, run one command on your server, and answer its questions.
 ---
 
-This guide protects one PostgreSQL server. You create a storage bucket, run one command on the server, and answer a few questions. Nothing changes until you say yes.
+This guide protects one PostgreSQL server. You create a storage bucket, run one command on the server, and answer a few questions. Nothing changes until you say yes. You don't need to be a database expert: new words are in the [Glossary](/docs/glossary).
 
 **You need:**
 
@@ -40,7 +40,7 @@ Create a **private**, empty bucket, for example `app-rowsafe`, and an access key
 
 ### Copy the install command
 
-In the dashboard, open **Servers**, then **Add server**. It shows the install command with a one-time enrollment token (`rse_...`), valid for one hour.
+In the dashboard, open **Servers**, then **Add a server**. It shows the install command with a one-time enrollment token (`rse_...`), valid for one hour.
 
 </Step>
 <Step>
@@ -122,7 +122,7 @@ That's it. The database now shows up in the dashboard under **Databases**.
 Rowsafe now runs on its own:
 
 - **The first full backup** starts right away.
-- **Rewind** is on: every change is saved to your bucket, at most 5 minutes behind. You can restore to any second from the first backup on.
+- **Rewind** is on: every change is saved to your bucket, at most about a minute behind. You can restore to any second from the first backup on, in one click: see [Restore a database](/docs/guides/restore).
 - **Proof**, the weekly restore test, restores a copy of your database and checks it. The first one runs on Sunday. To run it sooner, wait for the first backup to finish, then click **Run Proof now** on the database's page.
 - **Pulse** watches the database's health and alerts you about problems. Every Monday, "Your weekly Pulse" arrives by email.
 
@@ -130,7 +130,7 @@ By default, in UTC:
 
 | When | What |
 |---|---|
-| Continuously | Every change is saved to your bucket, at most 5 minutes behind |
+| Continuously | Every change is saved to your bucket, at most about a minute behind |
 | Sundays 01:00 | Full backup |
 | Monday to Saturday 01:00 | Differential backup |
 | Sundays 21:15 | Proof (restore test) |
@@ -197,6 +197,12 @@ rowsafe pulse app       # health score and findings
 `rowsafe hosts enroll-token` also prints the install command, if you prefer the terminal to the dashboard.
 
 <Cards>
+  <Card title="What Rowsafe does for you" href="/docs/what-rowsafe-does">
+    What now runs by itself, and what you do when something goes wrong.
+  </Card>
+  <Card title="Your first restore" href="/docs/first-restore">
+    Practise now: delete rows from a practice table on purpose, then bring them back.
+  </Card>
   <Card title="Restore a database" href="/docs/guides/restore">
     Rewind to any second. Read it now, before you need it.
   </Card>

@@ -69,6 +69,23 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 
 **`apply` flags:** `--yes` skips the confirmation. `--force` replaces an existing `archive_command` or `archive_library` set by another tool. Only use it if you know what that tool was doing.
 
+## Databases and users
+
+The databases, users and extensions inside a PostgreSQL server ([guide](/docs/guides/databases-and-users)). `--on NAME` chooses the server; without it, the usual [name rules](#database-names) apply. Changes need an admin's or owner's read-write API key.
+
+| Command | What it does |
+|---|---|
+| `rowsafe db [ls]` | Databases (owner, size, connections, extensions) and users. `--json` for everything. |
+| `rowsafe db create DB` | Create a database owned by a new user named like it; the password is shown once. `--owner USER` gives it to an existing user, `--new-owner USER` names the new one, `--extension EXT` (repeatable) turns extensions on, `--locale L` and `--template template0`. |
+| `rowsafe db drop DB` | Remove a database and everything in it, after a Mark. Asks you to type the name; `--yes` skips that. |
+| `rowsafe db users` | Users, the databases they can connect to and how their password is stored. |
+| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. |
+| `rowsafe db user password USER` | A new password, shown once. |
+| `rowsafe db user remove USER` | Remove a user; `--reassign-to USER` gets what it owns. Asks first; `--yes` skips it. |
+| `rowsafe db ext on\|off DB EXTENSION` | Turn an extension on or off in one database. `--allow-untrusted` for extensions that can run programs on the server. |
+
+`--host ADDRESS` on `create`, `user add` and `user password` sets the address in the printed connection string (default: the one your apps use). The password is encrypted on your server to a key the CLI makes in memory for that command; Rowsafe only relays the ciphertext.
+
 ## Backups, Proof and Marks
 
 | Command | What it does |
@@ -87,6 +104,79 @@ Commands that run something wait for it to finish, and exit `1` if it fails. Pas
 
 With one argument, `rowsafe mark X` treats `X` as the database if it names one, and otherwise as the label for the inferred database. So in a project whose `.rowsafe.json` names `app`, `rowsafe mark before-drop` marks `app` as `before-drop`.
 
+## Rewind
+
+The same as the **Rewind** page in the dashboard: restore a copy as it was at any second or at a Mark, compare it with production, bring rows back, or rewind the whole database. See [Restore a database](/docs/guides/restore) for what each one does.
+
+| Command | What it does |
+|---|---|
+| `rowsafe rewind [NAME]` | The recovery window, the newest Marks, the copy, and data kept aside by a rewind, with the next command to run. `--json`. |
+| `rowsafe rewind copy [NAME] (--at TIME \| --mark LABEL)` | Restore a copy next to production. It never touches production. `--hours N` keeps it N hours (default 24, 1 to 168). Waits until the copy is ready; `--no-wait` returns at once. |
+| `rowsafe rewind compare [NAME] [TABLE...]` | Count, by primary key, the rows missing in production, changed, and added since. No `TABLE`: every table. `--db DB`, `--json`. |
+| `rowsafe rewind rows [NAME] TABLE...` | Bring back the rows missing in production from the copy. Rowsafe saves a Mark first. `--include-changed` also sets changed rows back to the copy's values. `--db DB`. Asks you to type the database name; `--yes` skips it. |
+| `rowsafe rewind extend [NAME]` | Keep the copy longer: `--hours N` from now (default 24, at most 168). |
+| `rowsafe rewind drop [NAME]` | Delete the copy. Asks first; `--yes` skips it. |
+| `rowsafe rewind database [NAME] (--at TIME \| --mark LABEL)` | Rewind the whole live database. PostgreSQL is stopped while Rowsafe restores it, and the current data is kept aside for 7 days. Only on servers that allow it. Asks you to type the database name; `--yes` skips it. |
+| `rowsafe rewind undo [NAME]` | Undo the latest rewind: put the data from before it back. Asks you to type the database name; `--yes` skips it. |
+| `rowsafe rewind cleanup [NAME]` | Delete the data kept aside by a rewind, to free disk. The rewind can't be undone afterwards. Asks first; `--yes` skips it. |
+
+`TIME` is in your time zone: `"2026-09-24 14:04"` or `"2026-09-24 14:04:05"`, `"14:04"` (today), `"10m ago"`, `"2h ago"`, `"1h30m ago"`, or RFC 3339 such as `2026-09-24T12:04:00Z`. It can't be in the future.
+
+`TABLE` is `schema.table`, or `table` for `public.table`. When the copy has several PostgreSQL databases, write `DB:schema.table` or pass `--db DB`.
+
+```sh
+rowsafe rewind copy app --at "14:04"
+rowsafe rewind compare app
+rowsafe rewind rows app public.orders public.order_items
+```
+
+The commands wait for the work to finish and print what happened, for example `Brought back 1,204 rows in public.orders and 3,310 in public.order_items.` Only owners and admins can run them, never with a read-only API key.
+
+## Move in
+
+Move a database in from a managed provider onto a server Rowsafe protects: see [Move in](/docs/guides/move-in). The connection string is typed without being shown, piped on stdin, or read from an environment variable, and encrypted on your machine to the server's key: Rowsafe never sees it.
+
+| Command | What it does |
+|---|---|
+| `rowsafe migrate [NAME]` | Moves, into `NAME` or all, with their progress. `--json` for JSON. |
+| `rowsafe migrate start [NAME]` | Check the source and start copying into the server of `NAME`, then wait until caught up. `--into DB` names the new database (default: the source's). `--method live` or `dump` (default: what the check recommends). `--source-env VAR` reads the connection string from `$VAR`. `--id ID` checks an existing move again. With `dump`: `--host ADDR` and `--user NAME` for the new connection string. `--yes` starts without asking. Exits `1` when the check found something to fix. |
+| `rowsafe migrate status ID` | Progress, the check's findings, the result. |
+| `rowsafe migrate fix ID` | Mark source tables without a primary key `REPLICA IDENTITY FULL`, then check again. |
+| `rowsafe migrate switch ID` | Switch over: the old database goes read-only (unless `--writes-stopped`), the last changes arrive, sequences are set, row counts compared, and the new connection string is printed once. `--user NAME`, `--host ADDR`. |
+| `rowsafe migrate password ID` | A new password for the apps' login, printed once. |
+| `rowsafe migrate writable ID` | Make the old database writable again (rollback). |
+| `rowsafe migrate cancel ID` | Stop, and remove Rowsafe's publication and replication slot from the old database. `--drop-copy` also deletes the partial copy. |
+| `rowsafe migrate finish ID` | Forget the old database's connection string. |
+
+## Standby
+
+A [standby](/docs/guides/standby) is a second server that stays in sync, is readable, and takes over if the primary dies.
+
+| Command | What it does |
+|---|---|
+| `rowsafe standby [NAME]` | The standby, how far behind it is, fenced old primaries, automatic failover and connection strings that follow the primary. `--json` prints JSON. |
+| `rowsafe standby add [NAME] --host SERVER` | Restore the latest backup on an empty cluster of `SERVER` and follow the primary. `--port N` picks the cluster when there are several; `--fingerprint F` confirms the server's key without asking; `--no-stream` follows through the bucket only; `--no-wait` returns at once. |
+| `rowsafe standby promote [NAME]` | Make the standby the primary. The old primary is stopped for good first. When its agent isn't reporting, `--primary-down` confirms it is down. `--force` promotes even if the standby misses some of the stopped primary's last changes. Asks you to type the name unless `--yes`. |
+| `rowsafe standby rebuild [NAME] [--host SERVER]` | Turn the fenced old primary into the new standby. |
+| `rowsafe standby unfence [NAME]` | Start the fenced primary again when the standby wasn't promoted. |
+| `rowsafe standby failover [NAME] --on\|--off` | Automatic failover. `--after 3m` is how long every condition must hold; `--max-data-loss 1m` bounds the changes it may lose. |
+| `rowsafe standby remove [NAME]` | Remove the standby: its cluster gets its own data back. |
+
+On the server, `sudo -u postgres rowsafe-agent key` prints the agent's key fingerprint, to compare with the one Rowsafe shows before pairing.
+
+### Move to a new server
+
+[Moving a database](/docs/guides/move) is a standby on the new server, then a planned switchover.
+
+| Command | What it does |
+|---|---|
+| `rowsafe move [NAME] --to SERVER` | Set the new server up and keep it in sync. `--at TIME` switches over by itself then; without it, it waits for `rowsafe move switch`. `--keep-days N` keeps the old server (stopped) as a way back, 1 to 30, default 7. `--port N`, `--fingerprint F` and `--no-wait` as for `standby add`. Without `--to`: the move in progress. |
+| `rowsafe move switch [NAME]` | Switch over now. Asks you to type the name unless `--yes`. |
+| `rowsafe move schedule [NAME] --at TIME` | Change when it switches over; `--clear` waits for `rowsafe move switch`. |
+| `rowsafe move cancel [NAME]` | Cancel before the switchover: the database stays where it is. |
+| `rowsafe move back [NAME]` | Move it back to the old server (its data is reused). |
+| `rowsafe move finish [NAME]` | Remove the old server: Rowsafe stops keeping it stopped. |
+
 ## Database settings
 
 ```sh
@@ -103,6 +193,19 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 |---|---|
 | `rowsafe remove NAME` | Stop managing a database. Never changes the server or the bucket. Once a plan was applied, it needs `--keep-archiving`, because the server keeps archiving. `--yes` skips the confirmation. |
 
+## Updates and upgrades
+
+| Command | What it does |
+|---|---|
+| `rowsafe update [NAME]` | Show the versions, then install PostgreSQL's newest minor release (e.g. 16.9 to 16.10) and restart it, after a Mark. Asks you to type the database name; `--yes` skips it, `--no-wait` returns once it is queued. |
+| `rowsafe update [NAME] --auto on\|off` | Install minor releases by itself on Sundays at 03:00 in `--timezone ZONE` (an IANA name such as `Europe/Berlin`; default: your computer's). |
+| `rowsafe upgrade [NAME]` | Versions, newer majors, the latest rehearsal and an upgrade that can be undone. `--json`. |
+| `rowsafe upgrade [NAME] --to 18` | Check, rehearse on a restored copy (unless a rehearsal to 18 passed in the last 14 days), then upgrade. `--mode safe` (default) or `fast`, `--rehearse-only` to stop after the rehearsal, `--yes` to skip typing the name. |
+| `rowsafe upgrade undo [NAME]` | Go back to the version the upgrade kept (for 7 days). |
+| `rowsafe upgrade cleanup [NAME]` | Remove the kept version and free its disk; the upgrade can't be undone afterwards. |
+
+They work only on servers where the installer allowed updates, and never through MCP. Security updates and reboots are fixes: `rowsafe fix NAME`. See [Update and upgrade PostgreSQL](/docs/guides/updates).
+
 ## Pulse: monitoring and alerts
 
 | Command | What it does |
@@ -111,9 +214,12 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 | `rowsafe alerts ack ID` | Acknowledge a firing alert: no more reminders. |
 | `rowsafe alerts rules` | The built-in alert rules with your organization's settings. |
 | `rowsafe pulse [NAME]` | [Pulse](/docs/guides/monitoring): health score (0-100) and findings with what to do. Without NAME, every database, worst first. Exit code 3 if one scores below 70. `--json`. |
-| `rowsafe fix [NAME] [FINDING [FIX] \| NUMBER]` | What Rowsafe can fix from `pulse` (clean up tables, refresh statistics, rebuild or remove an index, end a stuck session, remove an inactive slot, back up now...), numbered, and in a terminal asks which one to apply. `rowsafe fix app 2` applies number 2; `rowsafe fix app FINDING FIX` names it by ID. Asks before it runs; fixes that end a session or remove something ask you to type the database name. `--yes` skips the questions. Same fixes as **Apply fix** in the dashboard: see [Apply fix](/docs/guides/monitoring#apply-fix). |
+| `rowsafe fix [NAME] [FINDING [FIX] \| NUMBER]` | What Rowsafe can fix from `pulse` (clean up tables, refresh statistics, create, rebuild or remove an index, end a stuck session, remove an inactive slot, back up now...), numbered, and in a terminal asks which one to apply. `rowsafe fix app 2` applies number 2; `rowsafe fix app FINDING FIX` names it by ID. Asks before it runs; fixes that end a session or remove something ask you to type the database name. `--yes` skips the questions. Same fixes as **Apply fix** in the dashboard: see [Apply fix](/docs/guides/monitoring#apply-fix). |
 | `rowsafe insights [NAME]` | Largest tables and indexes, unused and duplicate indexes, estimated bloat, dead rows and vacuum, transaction ID age. `--limit N`, `--json`. |
 | `rowsafe top [NAME]` | Queries that took the most time in a range, and which got slower. `--since 24h` (e.g. `1h`, `168h`), `--sort total_time\|calls\|mean_time\|rows`, `--query ID` for one query over time, `--json`. Needs `pg_stat_statements`. |
+| `rowsafe recommendations [NAME]` | [Recommendations](/docs/guides/recommendations): what would make the database better (schema, queries, capacity, indexes), why and what it costs. Without NAME, each database's top one. `--group schema\|queries\|capacity\|indexes`, `--dismissed`, `--json`. `--dismiss ID [--reason not_relevant\|intended\|later\|wrong] [--note TEXT]` sets one aside, `--restore ID` brings it back. The ones Rowsafe can do are applied with `rowsafe fix`. |
+| `rowsafe recommendations find [NAME]` | Test index ideas on a copy of the database now (it runs every night by itself) and wait for the result; proven indexes appear in the Indexes group. `--no-wait`. |
+| `rowsafe recommendations schedule [NAME] auto\|off\|CRON` | When to test index ideas: `auto` (every night at the quietest hour), `off`, or a 5-field cron expression in UTC. |
 | `rowsafe report` | The weekly email, "Your weekly Pulse": show settings, `--preview` (`--html`), `--on`/`--off`, `--to A,B`, `--send-test`. |
 | `rowsafe activity NAME` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe channels list` | Notification channels. |
@@ -144,6 +250,17 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 
 Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. AI agents (MCP) and read-only API keys can't change it.
 
+## Settings and tuning
+
+| Command | What it does |
+|---|---|
+| `rowsafe settings [NAME] [SETTING]` | PostgreSQL's settings that matter, by group: value, default, where it is set, whether a change needs a restart, and how many changes Rowsafe recommends. With SETTING, one setting explained. `--all` adds the other settings set in a configuration file; `--json`. |
+| `rowsafe tune [NAME]` | What suits this server's memory, CPUs and disk, each change with why, then applies them after asking. `--workload web\|analytics\|mixed`, `--disk ssd\|hdd` (remembered), `--all` adds the optional changes, `--json` prints them and changes nothing. See [Tuning](/docs/guides/tuning). |
+| `rowsafe settings set [NAME] SETTING=VALUE...` | Change settings: a Mark first, then `ALTER SYSTEM` and a reload. `VALUE` `default` resets one. Rowsafe's archiving settings, and values PostgreSQL might not start with, are refused. `--yes`, `--no-wait`. |
+| `rowsafe settings undo [NAME] [CHANGE_ID]` | Undo the latest change made through Rowsafe (or CHANGE_ID). `--yes`. |
+
+Nothing restarts: settings that need a restart wait for `rowsafe restart` (or the next restart).
+
 ## Hosts
 
 | Command | What it does |
@@ -171,6 +288,10 @@ Pooling only works on a server where the installer allowed it (`--allow-pooler`)
 | `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds Marks; `--allow-writes` adds every write tool. |
 | `rowsafe guard` | The Claude Code `PreToolUse` hook: sets a Mark before a destructive database command. See [Guard](/docs/guides/ai-agents#the-guard-hook). |
 | `rowsafe guard --check COMMAND` | Whether `COMMAND` looks destructive. |
+| `rowsafe preview [NAME] FILE` | [Preview a migration](/docs/guides/preview-migrations) on a fresh copy: `--db DB`, `--json` or `--format markdown`, `--fail-on careful\|dangerous`, `--no-wait`. `FILE` may be `-` (stdin). |
+| `rowsafe previews [NAME] [ID]` | Recent previews, or one in full. |
+| `rowsafe copies [NAME]` | [Safe copies](/docs/guides/safe-copies). `copies create` (`--allow IP`, `--listen`, `--hours`, `--db`, `--json`), `copies extend ID`, `copies delete ID`, `copies password ID` (a new password, made on your machine). |
+| `rowsafe masking [NAME]` | Which columns safe copies mask. `masking set [DB:]TABLE.COLUMN STRATEGY`, `masking refresh`. |
 
 ## Exit codes
 
@@ -178,8 +299,8 @@ Pooling only works on a server where the installer allowed it (`--allow-pooler`)
 |---|---|
 | `0` | Success. For `status`: protected, or all healthy. For `guard --check`: destructive. |
 | `1` | An error, a task that failed, a cancelled confirmation. For `guard --check`: not destructive. |
-| `2` | `rowsafe` without arguments. For `guard`: the command was blocked because protection is required. |
-| `3` | For `status`: not protected, or the fleet has warnings or critical problems. For `pulse`: a database scores below 70. |
+| `2` | `rowsafe` without arguments. For `guard`: the command was blocked because protection is required. For `preview --fail-on`: the migration fails on the copy. |
+| `3` | For `status`: not protected, or the fleet has warnings or critical problems. For `pulse`: a database scores below 70. For `preview --fail-on`: the verdict is at or above it. |
 
 ## Environment variables
 

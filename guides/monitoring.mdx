@@ -73,7 +73,7 @@ Every database gets a score from **0 to 100** and a short list of findings, wors
 | 50-69 | At risk |
 | Under 50 | Critical |
 
-The score starts at 100 and loses points for each problem: backups and Proof (restore tests), whether PostgreSQL answers, disk space, connections, vacuum and transaction ID wraparound, locks and slow queries, replication. **One critical problem caps the score at 59, and a warning at 89**, so a serious problem is never hidden by an otherwise good score. Missing data means fewer findings, never a false alarm.
+The score starts at 100 and loses points for each problem: backups and Proof (restore tests), whether PostgreSQL answers, disk space, connections, vacuum and transaction ID wraparound, locks and slow queries, replication, and [security](/docs/guides/security) (at most 25 points). **One critical problem caps the score at 59, and a warning at 89**, so a serious problem is never hidden by an otherwise good score. Missing data means fewer findings, never a false alarm.
 
 ```sh
 rowsafe pulse          # every database, worst first
@@ -116,6 +116,7 @@ What Rowsafe can fix:
 | Security updates are waiting | **Install security updates** | Saves a Mark, installs the server's security updates (not PostgreSQL's own packages), on servers where you allowed them. |
 | The server needs a reboot | **Reboot the server** | Saves a Mark and reboots the server (you type the name), on servers where you allowed reboots. |
 | An upgrade keeps the old PostgreSQL version | **Remove PostgreSQL 16** | Deletes the version kept for undo, and frees its disk. |
+| Connections aren't encrypted, weak password hashing, `CREATE` on schema `public` for everyone | **Turn on encryption**, **Use modern password hashing**, **Remove CREATE from everyone** | See the [security check](/docs/guides/security); who may connect and new passwords are chosen on its page. |
 
 Pulse also tells you when your PostgreSQL major version no longer gets security fixes (or will within six months). Upgrading is not a one-click fix: it starts with a check and a rehearsal, on the database's **Updates** tab ([how](/docs/guides/updates#major-upgrades)).
 

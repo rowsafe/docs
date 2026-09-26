@@ -9,14 +9,14 @@ Rowsafe is built so that the hosted service never needs your data or your secret
 
 - **The agent** (`rowsafe-agent`), as the `postgres` system user. It refuses to run as root.
 - **pgBackRest**, which the agent and PostgreSQL's `archive_command` run.
-- A systemd unit with `NoNewPrivileges`, a read-only system except its own directories, a private `/dev`, no capabilities and restricted address families. The kernel's out-of-memory killer picks the agent before production PostgreSQL, and it gets half the default CPU and IO weight.
+- A systemd unit with `NoNewPrivileges`, a read-only system except its own directories (and `/etc/postgresql`, where Debian and Ubuntu keep `pg_hba.conf`, for standby servers and the [security check](/docs/guides/security)), a private `/dev`, no capabilities and restricted address families. The kernel's out-of-memory killer picks the agent before production PostgreSQL, and it gets half the default CPU and IO weight.
 - **Only if you allow it at install**, a small root helper, `rowsafe-pg-restart`, the one part that runs as root. It restarts, stops or starts PostgreSQL when a person asked for it (Restart, and Rewind the whole database). It reads the agent's request with the agent's own privileges, accepts one strict line, and acts only on the PostgreSQL units that root listed in `/etc/rowsafe/restart-allowed` at install. Restarts happen at most once a minute.
 
 The agent:
 
 - connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
 - makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket (or Rowsafe Storage). Nothing listens on your server;
-- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, and PostgreSQL updates and upgrades, security updates and reboots (only on a server where you allowed them), and Databases & users (create or remove databases, users and extensions, when a person asks), the [standby](/docs/guides/standby) tasks, and the Rewind tasks: restore a copy, compare, bring back rows, rewind in place, undo and clean up. It never runs commands or SQL sent over the network.
+- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, the [security check](/docs/guides/security) and its fixes, and PostgreSQL updates and upgrades, security updates and reboots (only on a server where you allowed them), and Databases & users (create or remove databases, users and extensions, when a person asks), the [standby](/docs/guides/standby) tasks, and the Rewind tasks: restore a copy, compare, bring back rows, rewind in place, undo and clean up. It never runs commands or SQL sent over the network.
 
 Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards. A Rewind copy is restored the same way and kept until it expires (24 hours by default, at most 7 days); the agent deletes it on time even when it can't reach Rowsafe.
 
@@ -32,6 +32,10 @@ Proof, the weekly restore test, restores your data onto the same server, into a 
 
 **Moving a database in needs a person and your password, which Rowsafe never sees.** [Move in](/docs/guides/move-in) starts only when an owner or admin pastes a connection string; the browser (or the CLI) encrypts it to a key the agent on your server made for that move, and Rowsafe relays only ciphertext. The password stays on your server in a 0600 file until you finish. The new login's connection string is encrypted on your server to a key your browser holds and shown once. AI agents on MCP can't start or change a move.
 
+**Security fixes run only when a person asks.** The [security check](/docs/guides/security) reads, every 15 minutes, which addresses may connect, the pg_hba rules, TLS, `password_encryption` and the *kind* of each user's password (none, MD5 or SCRAM, never the hash). Rowsafe's servers also try the database's port from the internet like a stranger, without ever logging in, and only at the server's own addresses. The fixes are a fixed list, each confirmed by an owner or admin and audited: allow only chosen addresses in `pg_hba.conf` (a backup first, checked by PostgreSQL before it takes effect, put back if anything is off), turn on or require TLS, renew a self-signed certificate, `scram-sha-256` hashing, remove `CREATE` on schema `public` from everyone, and set a user's password. A new password is made in the person's browser; only its SCRAM verifier reaches your server, and Rowsafe never sees the password.
+
+**The firewall is opt-in.** With `--allow-firewall` at install, a small root helper can let only chosen addresses reach PostgreSQL's port, in an nftables table of its own. It never touches SSH or other ports, and puts the previous rules back unless the agent confirms within a minute that it still reaches Rowsafe.
+
 ## What Rowsafe can and can't do
 
 Someone who controlled the Rowsafe service, or held one of your API keys, **could**:
@@ -43,6 +47,7 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 - on a server where you allowed it: install PostgreSQL's minor releases (a restart), upgrade PostgreSQL to a newer major after a rehearsal (minutes of downtime; undo for 7 days), install the server's security updates, or reboot the server;
 - create databases, users and extensions, give a user access to databases, remove a user (handing what it owns to another user) or a database (after a Mark), or set a new password on an existing user, which locks out apps using the old one until they get the new one. They could not read a password Rowsafe made: it is encrypted to the browser or CLI that asked;
 - with standby servers (`ROWSAFE_STANDBY=on`, the default): promote a standby, which stops the old primary for good, even where restarts aren't allowed; and pair a server of its own as a standby, which would receive the bucket settings. `ROWSAFE_STANDBY=pinned` or `off` rules both out;
+- change who can connect to your database (to addresses they choose, or back to the previous rules), turn on or require TLS, and set a user's password, which would lock out apps using the old one; and, where you allowed the firewall, limit PostgreSQL's port to chosen addresses;
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
 - change PostgreSQL settings an owner or admin picks in [Tuning](/docs/guides/tuning) (and the logging settings of **Turn on useful logging**): with `ALTER SYSTEM` and a reload, after a Mark. Values PostgreSQL might not start with are refused, and settings that need a restart wait for one;
 - during a move you started, switch it over (the old database goes read-only until you make it writable again) or cancel it (deleting the partial copy on your server);
@@ -56,6 +61,8 @@ They **could not**:
 - read your backups: they are encrypted with a passphrase that never leaves your server, except encrypted to another of your servers' agents when you set up a standby (see above);
 - with your own bucket, reach it at all: its keys never leave your server, except in that same way;
 - make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
+- change the firewall on a server where you didn't allow it, or touch any port but PostgreSQL's;
+- learn a password: a new one is made in the person's browser, and roles are reported without their hashes;
 - restart PostgreSQL on a server where you didn't allow it, or stop it, except to fence an old primary after a standby promotion (see above);
 - install or remove packages other than PostgreSQL's own and the security repository's upgrades, downgrade PostgreSQL, or do any of the updates on a server where you didn't allow them;
 - read your rows: comparisons and restores run on your server and report only counts and sizes;

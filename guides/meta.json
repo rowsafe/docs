@@ -8,6 +8,7 @@
     "adopt",
     "docker",
     "mysql",
+    "mongodb",
     "move-in",
     "---Rewind: get data back---",
     "restore",

@@ -47,7 +47,7 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | `rowsafe ls` | Your databases. |
 | `rowsafe show [NAME]` | One database in detail. |
 | `rowsafe status [NAME]` | With a name: is it [protected](/docs/concepts/protection-status)? Without: fleet health. `--json` for details. |
-| `rowsafe adopt NAME` | Register an existing PostgreSQL and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
+| `rowsafe adopt NAME` | Register an existing PostgreSQL (or, with `--engine mongodb`, MongoDB) and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
 | `rowsafe plan [NAME]` | Run the read-only plan again. |
 | `rowsafe apply [NAME]` | Apply the plan. Never restarts PostgreSQL. |
 | `rowsafe verify [NAME]` | Check now that changes reach your bucket. Rowsafe also does this by itself once it notices the restart. Activates the schedules and queues the first full backup. |
@@ -60,9 +60,10 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | Flag | Default | |
 |---|---|---|
 | `--host HOST` | | Host name or ID. Can be left out when the organization has one host. |
-| `--port N` | `5432` | PostgreSQL's port (names the Unix socket). |
+| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MongoDB's port (`27017` by default). |
+| `--engine ENGINE` | `postgresql` | `mongodb` for MongoDB ([Protect MongoDB](/docs/guides/mongodb)). |
 | `--socket-dir DIR` | `/var/run/postgresql` | PostgreSQL's Unix socket directory. |
-| `--retention-full N` | `2` | Full backups to keep, 1 to 52. |
+| `--retention-full N` | `2` | Full backups to keep, 1 to 52 (MongoDB: `7`, one a day). |
 | `--no-wait` | | Return without waiting for the plan. |
 
 `NAME` is 2 to 40 characters: lowercase letters, digits and dashes, starting with a letter.

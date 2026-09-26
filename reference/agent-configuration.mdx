@@ -76,6 +76,17 @@ If some are missing, the agent keeps working with the first bucket only and says
 | `ROWSAFE_STANDBY` | `on` | [Standby servers](/docs/guides/standby). `on`: this server pairs with the servers a person confirms in the dashboard. `pinned`: only with the key fingerprints in `ROWSAFE_STANDBY_PEERS`, so even a compromised Rowsafe can't pair a server of its own. `off`: it takes no part in standbys at all. |
 | `ROWSAFE_STANDBY_PEERS` | | With `ROWSAFE_STANDBY=pinned`: comma-separated key fingerprints (`sudo -u postgres rowsafe-agent key` on each server) this server may send its bucket settings to or receive them from. |
 
+### MongoDB
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_MONGODB_URI` | | A whole connection string (`mongodb://user:password@host:port/?authSource=admin`) instead of the login the installer saves. For a single server; Docker sidecars usually use `ROWSAFE_MONGODB_HOST` and `rowsafe-agent mongodb login` instead. |
+| `ROWSAFE_MONGODB_HOST` | `127.0.0.1` | Where MongoDB listens (the `mongo` service's name in Docker). |
+| `ROWSAFE_MONGODB_ARCHIVE_INTERVAL` | `1m` | How often new oplog entries are copied to your bucket (1s to 10m). |
+| `ROWSAFE_MONGODB_BIN_DIR` | `PATH`, then `/usr/bin` | Where `mongodump`, `mongorestore` and `mongod` are. |
+
+See [Protect MongoDB](/docs/guides/mongodb).
+
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 
 ## Connection pooling
@@ -166,6 +177,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--no-allow-reboot` | Don't allow it, without asking. |
 | `--allow-firewall` | Allow Rowsafe to limit who can reach PostgreSQL's port with the server's firewall (nftables), without asking. Only PostgreSQL's port, never SSH; only when someone chooses the addresses under [Security](/docs/guides/security#the-firewall) and confirms. |
 | `--no-allow-firewall` | Don't allow it, without asking; removes Rowsafe's firewall rule and helper. |
+| `--mongodb-replica-set` | MongoDB: turn a standalone server into a replica set of one without asking (one MongoDB restart). Restoring to any second needs it. |
+| `--no-mongodb-replica-set` | MongoDB: never do that. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage), coming soon; works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
@@ -262,6 +275,10 @@ rowsafe-agent selftest    check the configuration, pgBackRest, Rowsafe and every
 rowsafe-agent storage test [--wait 60s]
                           write, read back and delete a test file in the backup storage
 rowsafe-agent health      container health check (Docker)
+rowsafe-agent mongodb status|login|initiate|save-uri --port 27017 [--admin-user NAME]
+                          MongoDB: what the installer needs to know; create Rowsafe's
+                          MongoDB user; start a replica set of one; save a login you made
+rowsafe-agent unseal      decrypt a file Rowsafe wrote to your bucket (stdin to stdout)
 rowsafe-agent version
 ```
 

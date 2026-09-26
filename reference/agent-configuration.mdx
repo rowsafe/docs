@@ -96,7 +96,7 @@ See [Protect MongoDB](/docs/guides/mongodb).
 | `ROWSAFE_RESTIC_BIN` | `/usr/local/lib/rowsafe/restic` | restic, for [Files](/docs/guides/files). Falls back to `restic` on the `PATH`. |
 | `ROWSAFE_FILES_CACHE_DIR` | `<state dir>/files-cache` | restic's cache. |
 | `ROWSAFE_FILES_STAGING_DIR` | `<state dir>/files-staging` | Where restores are staged before they are put in place. The root helper expects the default. |
-| `ROWSAFE_FILES_ALLOW_FILE` | `/etc/rowsafe/files-allowed` | The folders root allowed Rowsafe to read and restore into (`--allow-files`). The agent only reads it. |
+| `ROWSAFE_FILES_ALLOW_FILE` | `/etc/rowsafe/files-allowed` | The exact folders root allowed Rowsafe to read and restore into, with their owner (`PATH UID` lines; `--files PATH --allow-files`). The agent only reads it. |
 | `ROWSAFE_FILES_MOUNT_DIR` | `/rowsafe-files` | Docker: where volumes to back up are mounted. |
 
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
@@ -179,7 +179,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
 | `--no-allow-restart` | Don't allow it, without asking. |
 | `--files PATH` | Back up the folder `PATH` (uploads, media) with the database, without asking; repeat for several. Gives the agent's user read-only access to it (ACL) if it needs it. See [Back up and restore files](/docs/guides/files). |
-| `--allow-files` | Allow Rowsafe to put restored files back into protected folders (as the folder's owner) and to read folders you add in the dashboard, under the roots in `/etc/rowsafe/files-allowed`. Only when someone asks and confirms. |
+| `--allow-files` | Allow Rowsafe to put restored files back into the folders protected with `--files` (as the folder's owner), and those folders only: they are listed with their owner in `/etc/rowsafe/files-allowed`. A folder added later in the dashboard needs `--files` and that folder once more. Only when someone asks and confirms. |
 | `--no-allow-files` | Don't allow it, without asking. |
 | `--no-files` | Don't ask about folders with uploads. |
 | `--allow-pooler` | Allow Rowsafe to install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)), without asking. Nothing is installed until someone turns pooling on and confirms. |
@@ -252,7 +252,7 @@ On a terminal, a first install asks:
 | `Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? [Y/n]` | For [forks](/docs/guides/fork): only when someone confirms a fork, on ports 5440-5499. Asked once, on Debian and Ubuntu, only when restarts are allowed. |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 | `Does this app store uploads on this server? Rowsafe found /srv/app/storage/app (2.3 GiB, ...). Back it up with app, so a restore brings back both? [Y/n]` | For up to three folders that look like uploads. See [Back up and restore files](/docs/guides/files). |
-| `Allow Rowsafe to put restored files back into these folders (as their owner), and to read folders you add later in the dashboard? [Y/n]` | Once a folder is protected. Only when someone asks and confirms. |
+| `Allow Rowsafe to put restored files back into /srv/app/storage/app, as the folder's owner? [Y/n]` | Once a folder is protected; it names exactly the folders it allows. Only when someone asks and confirms. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.
 
@@ -273,7 +273,7 @@ Secrets are never printed, and nothing is saved until you have answered the stor
   storage-credentials.json             postgres 0600; Rowsafe Storage only: the current short-lived credentials
 /var/log/rowsafe/                      postgres 0700; pgBackRest logs, rotated daily, 14 kept
 /usr/local/lib/rowsafe/restic          root 0755; restic, for Files
-/etc/rowsafe/files-allowed             root 0644; folders Rowsafe may read and restore into (--allow-files)
+/etc/rowsafe/files-allowed             root 0644; "PATH UID" per folder Rowsafe may read and restore into (--allow-files)
 /etc/systemd/system/rowsafe-agent.service
 /etc/logrotate.d/rowsafe
 
@@ -291,6 +291,8 @@ With `--allow-pooler`, the installer also writes `/etc/rowsafe/pooler-allowed` a
 **Logs:** `journalctl -u rowsafe-agent` (JSON lines), and `/var/log/rowsafe/<name>-<command>.log`. Each task's log, including pgBackRest's output, is also in `rowsafe task ID`.
 
 **The systemd unit** runs the agent as `postgres` with `NoNewPrivileges`, a read-only system, a private `/dev`, no capabilities and restricted address families. It is rewritten by the installer: put local changes in a drop-in (`sudo systemctl edit rowsafe-agent`).
+
+**The files helper** (only with `--allow-files`): `rowsafe-files-helper.{service,path}` in `/etc/systemd/system`, with a drop-in (`rowsafe-files-helper.service.d/folders.conf`) that lets it write only into the folders in `/etc/rowsafe/files-allowed`. It runs the same script as the root helper, in its own sandbox, and keeps its private copy and cooldowns in `/var/lib/rowsafe-files-helper`. See [Files](/docs/guides/files#permissions-on-the-server).
 
 **The firewall helper** (only with `--allow-firewall`): `/usr/local/lib/rowsafe/rowsafe-firewall` (root 0755), started by `rowsafe-firewall.path` when the agent asks, and loaded at boot by `rowsafe-firewall-restore.service`. It changes only its own nftables table (`inet rowsafe`), only for the ports in `/etc/rowsafe/firewall-allowed` (root 0644), and keeps its rules in `/var/lib/rowsafe-firewall`.
 

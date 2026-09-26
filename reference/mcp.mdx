@@ -8,9 +8,9 @@ Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI
 | | Transport | Credentials | Write tools |
 |---|---|---|---|
 | `rowsafe mcp` | stdio, on your machine | The CLI's login, or `ROWSAFE_API_KEY` | Off by default. `--allow-restore-points` or `--allow-writes`. |
-| `https://api.rowsafe.sh/mcp` | Streamable HTTP | `Authorization: Bearer rsk_...` | Always listed. A read-only key can't use them. |
+| `https://api.rowsafe.sh/mcp` | Streamable HTTP | **Sign in with Rowsafe** (OAuth), or `Authorization: Bearer rsk_...` | Signed-in apps: `create_restore_point` only, if you allowed Marks. API keys: always listed; a read-only key can't use them. |
 
-For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents).
+For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents). To add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf without an API key, see [Connect AI apps](/docs/guides/connect-ai-apps).
 
 ## Set up
 
@@ -56,30 +56,53 @@ Claude Desktop runs local servers from its config file: `~/Library/Application S
 
 Use the absolute path of `rowsafe` (`which rowsafe`): Desktop doesn't use your shell's `PATH`. Add `"--allow-restore-points"` or `"--allow-writes"` to `args` for write tools. Restart Claude Desktop afterwards.
 
-Desktop's remote connectors can't send an API-key header, so use this local setup there.
+Or use a remote connector instead (**Settings**, **Connectors**, **Add custom connector**, `https://api.rowsafe.sh/mcp`): you sign in with Rowsafe, no key or local binary needed. See [Connect AI apps](/docs/guides/connect-ai-apps).
 
 </Tab>
 <Tab value="Remote endpoint">
 
-No local binary needed:
+No local binary needed. Sign in with Rowsafe (run `/mcp` in Claude Code, then **Authenticate**):
+
+```sh
+claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp
+```
+
+Or with an API key, for CI and clients without OAuth:
 
 ```sh
 claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Authorization: Bearer rsk_..."
 ```
 
-- Every request needs an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
+- Every request needs an OAuth access token or an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
 - The endpoint is stateless and answers with plain JSON.
 - Tool calls wait at most 45 seconds.
 
 </Tab>
 </Tabs>
 
+## Sign in with Rowsafe (OAuth)
+
+The remote endpoint is an OAuth 2.1 protected resource, following the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (2026-07-28). MCP clients discover everything from the first `401`; you only give them the URL. See [Connect AI apps](/docs/guides/connect-ai-apps) for each client.
+
+| | |
+|---|---|
+| Protected resource metadata ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)) | `https://api.rowsafe.sh/.well-known/oauth-protected-resource/mcp`, named in `WWW-Authenticate` on every `401` |
+| Authorization server metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)) | `https://api.rowsafe.sh/.well-known/oauth-authorization-server` (issuer `https://api.rowsafe.sh`) |
+| Client registration | Client ID metadata documents (an HTTPS `client_id`), or dynamic registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591)) at `/oauth/register`. Clients are public: no client secret. |
+| Grant | Authorization code with PKCE, `S256` only. The response carries `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)). |
+| Redirect URIs | Exact match. Accepted: ChatGPT's, Claude's, VS Code's and Cursor's published callbacks, and loopback (`http://127.0.0.1`, `http://[::1]`, `http://localhost`, any port). |
+| Resource ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)) | `https://api.rowsafe.sh/mcp`. Tokens work on `/mcp` only. |
+| Scopes | `rowsafe:read` (always), `rowsafe:marks` (optional: adds `create_restore_point`). `offline_access` is accepted; other scopes are ignored. |
+| Tokens | Access tokens: 1 hour. Refresh tokens: 30 days, single use, rotated on every refresh; using one twice disconnects the app. Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)) at `/oauth/revoke`. |
+
+A person approves each app in the dashboard, for one organization. Owners and admins only. Apps are listed, and can be disconnected, in **Settings**, **Connected apps**.
+
 ## Safety model
 
 - **Everything goes through the Rowsafe API**, with the same API key, checks, plan limits and audit log as the CLI. Every change a tool makes is in `rowsafe audit`, attributed to the key.
 - **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
 - **No restarts.** No tool restarts PostgreSQL, even on a server where restarts from the dashboard are allowed. Only a person can, in the dashboard or with `rowsafe restart`.
-- **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only. `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
+- **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only, plus the copy tools, which never touch production (`preview_migration` runs SQL on a fresh copy as a regular role; `create_safe_copy` makes masked copies only, within your plan's limit). `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
 - **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, and agent update settings.
 - **`apply_adoption` needs your approval.** It refuses unless `confirm` is the database's exact name and a read-only plan succeeded. Its description tells the model to show you the plan and ask first, and never to pass `force` unless you asked.
 - **Annotations.** Read tools are marked read-only. `apply_adoption` and `update_schedule` (lowering retention deletes old backups) are marked destructive, so clients that confirm destructive calls will ask you.
@@ -102,9 +125,15 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 | `database_insights` | read | Largest tables, unused and duplicate indexes, estimated bloat, dead rows, tables that may need an index. |
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
+| `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
 | `find_moment` | read | [Find the moment](/docs/guides/find-the-moment): when rows were deleted or changed, or a table emptied or dropped, with the exact time and the point just before it. |
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
+| `preview_migration` | read | [Preview a migration](/docs/guides/preview-migrations): run its SQL on a fresh copy of the database (never production) and get a verdict with suggestions. |
+| `get_preview` | read | A preview's result, when it wasn't done within the wait. |
+| `create_safe_copy` | copies | Make a masked [safe copy](/docs/guides/safe-copies). Always masked. Locally the password is made on your machine and returned once; on the remote endpoint the copy starts without a password and the tool returns a dashboard link where you set it. |
+| `list_safe_copies` | read | Safe copies, their status and where to connect. |
+| `delete_safe_copy` | copies | Delete a safe copy. |
 | `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. |
 | `apply_adoption` | write, destructive | Apply the plan. Needs `confirm: "<database name>"`. |
 | `verify_database` | write | Prove WAL reaches the bucket; activates the schedules. |
@@ -119,7 +148,7 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 
 | Tool | Parameters |
 |---|---|
-| `get_database`, `safety_check`, `list_restore_points` | `database` (required) |
+| `get_database`, `safety_check`, `list_restore_points`, `backup_storage` | `database` (required) |
 | `database_health` | `database` (optional) |
 | `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
 | `query_trends` | `database` (required), `since_hours` (1 to 336, default 24), `sort` (`total_time`, `calls`, `mean_time`, `rows`), `limit` (1 to 50, default 10), `query_id` |
@@ -133,6 +162,11 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 | `apply_adoption` | `database` and `confirm` (required, the database's name), `force`, `wait_seconds` |
 | `run_backup` | `database` and `type` (required), `wait_seconds` |
 | `run_drill`, `verify_database` | `database` (required), `wait_seconds` |
+| `preview_migration` | `database` and `sql` (required), `db` (the PostgreSQL database, if the server has several), `label`, `wait_seconds` |
+| `get_preview` | `id` (required) |
+| `create_safe_copy` | `database` (required), `allow_from` (addresses or ranges; default the caller's address), `listen` (`private`, `public` or a server address), `hours` (1 to 168, default 24), `db` |
+| `list_safe_copies` | `database` (required) |
+| `delete_safe_copy` | `database` and `id` (required) |
 | `update_schedule` | `database` (required), and at least one of `schedule_full`, `schedule_diff` (`""` turns diffs off), `schedule_drill`, `retention_full` |
 
 Tasks run in the background. Write tools return the task at once, or wait up to `wait_seconds` (at most 60, and 45 on the remote endpoint); then poll `get_task`.

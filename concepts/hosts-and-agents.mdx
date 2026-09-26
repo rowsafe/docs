@@ -31,8 +31,9 @@ The dashboard does the same under **Servers**, then **Add server**: it shows the
 
 - Runs as the `postgres` system user, never as root.
 - Connects to PostgreSQL over the local Unix socket only.
-- Makes only outbound HTTPS requests. Nothing listens for Rowsafe on your server.
-- Runs only a fixed set of tasks: inspect, adopt, check, backup, drill (Proof), restore point (Mark), and restart, only on a server where you allowed it.
+- Makes only outbound HTTPS requests. Nothing listens for Rowsafe on your server. On a [standby](/docs/guides/standby), it also checks every few seconds that the primary's PostgreSQL port answers.
+- Runs only a fixed set of tasks: inspect, adopt, check, backup, drill (Proof), restore point (Mark), and restart, only on a server where you allowed it, and the [standby](/docs/guides/standby) tasks you start.
+- Has its own key pair, created on first start (`/var/lib/rowsafe/box.key`, readable by `postgres` only). Secrets for a standby are encrypted to it, so Rowsafe never reads them. `sudo -u postgres rowsafe-agent key` prints its fingerprint.
 - Uses at most half the default CPU and IO weight, and the kernel's out-of-memory killer picks it before PostgreSQL.
 
 See [Security](/docs/security#what-runs-on-your-server) for the full list.

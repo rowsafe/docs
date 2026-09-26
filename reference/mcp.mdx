@@ -130,6 +130,7 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
 | `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
+| `standby_status` | read | The database's [standby](/docs/guides/standby): in sync or not, streaming or through the bucket, how far behind, fenced old primaries, automatic failover, connection strings. No tool changes a standby. |
 | `find_moment` | read | [Find the moment](/docs/guides/find-the-moment): when rows were deleted or changed, or a table emptied or dropped, with the exact time and the point just before it. |
 | `list_databases_on_server` | read | The databases, users and extensions inside one server, as last read. Creating or removing them is for people. |
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
@@ -154,7 +155,7 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 
 | Tool | Parameters |
 |---|---|
-| `get_database`, `safety_check`, `list_restore_points`, `backup_storage` | `database` (required) |
+| `get_database`, `safety_check`, `list_restore_points`, `backup_storage`, `standby_status` | `database` (required) |
 | `database_health` | `database` (optional) |
 | `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
 | `database_settings` | `database` (required), `workload` (`web`, `analytics`, `mixed`) |

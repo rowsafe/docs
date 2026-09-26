@@ -5,6 +5,8 @@
     "second-copy",
     "adopt",
     "restore",
+    "standby",
+    "move",
     "find-the-moment",
     "move-in",
     "docker",

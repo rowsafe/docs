@@ -120,6 +120,35 @@ Move a database in from a managed provider onto a server Rowsafe protects: see [
 | `rowsafe migrate cancel ID` | Stop, and remove Rowsafe's publication and replication slot from the old database. `--drop-copy` also deletes the partial copy. |
 | `rowsafe migrate finish ID` | Forget the old database's connection string. |
 
+## Standby
+
+A [standby](/docs/guides/standby) is a second server that stays in sync, is readable, and takes over if the primary dies.
+
+| Command | What it does |
+|---|---|
+| `rowsafe standby [NAME]` | The standby, how far behind it is, fenced old primaries, automatic failover and connection strings that follow the primary. `--json` prints JSON. |
+| `rowsafe standby add [NAME] --host SERVER` | Restore the latest backup on an empty cluster of `SERVER` and follow the primary. `--port N` picks the cluster when there are several; `--fingerprint F` confirms the server's key without asking; `--no-stream` follows through the bucket only; `--no-wait` returns at once. |
+| `rowsafe standby promote [NAME]` | Make the standby the primary. The old primary is stopped for good first. When its agent isn't reporting, `--primary-down` confirms it is down. `--force` promotes even if the standby misses some of the stopped primary's last changes. Asks you to type the name unless `--yes`. |
+| `rowsafe standby rebuild [NAME] [--host SERVER]` | Turn the fenced old primary into the new standby. |
+| `rowsafe standby unfence [NAME]` | Start the fenced primary again when the standby wasn't promoted. |
+| `rowsafe standby failover [NAME] --on\|--off` | Automatic failover. `--after 3m` is how long every condition must hold; `--max-data-loss 1m` bounds the changes it may lose. |
+| `rowsafe standby remove [NAME]` | Remove the standby: its cluster gets its own data back. |
+
+On the server, `sudo -u postgres rowsafe-agent key` prints the agent's key fingerprint, to compare with the one Rowsafe shows before pairing.
+
+### Move to a new server
+
+[Moving a database](/docs/guides/move) is a standby on the new server, then a planned switchover.
+
+| Command | What it does |
+|---|---|
+| `rowsafe move [NAME] --to SERVER` | Set the new server up and keep it in sync. `--at TIME` switches over by itself then; without it, it waits for `rowsafe move switch`. `--keep-days N` keeps the old server (stopped) as a way back, 1 to 30, default 7. `--port N`, `--fingerprint F` and `--no-wait` as for `standby add`. Without `--to`: the move in progress. |
+| `rowsafe move switch [NAME]` | Switch over now. Asks you to type the name unless `--yes`. |
+| `rowsafe move schedule [NAME] --at TIME` | Change when it switches over; `--clear` waits for `rowsafe move switch`. |
+| `rowsafe move cancel [NAME]` | Cancel before the switchover: the database stays where it is. |
+| `rowsafe move back [NAME]` | Move it back to the old server (its data is reused). |
+| `rowsafe move finish [NAME]` | Remove the old server: Rowsafe stops keeping it stopped. |
+
 ## Database settings
 
 ```sh

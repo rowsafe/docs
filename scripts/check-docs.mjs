@@ -25,7 +25,7 @@ const root = path.resolve(process.argv[2] ?? path.join(path.dirname(fileURLToPat
 const COMPONENTS = new Set(["Callout", "Steps", "Step", "Tabs", "Tab", "Cards", "Card", "Accordions", "Accordion"]);
 
 // Pages of rowsafe.sh outside /docs that the docs may link to.
-const SITE_PATHS = new Set(["/", "/pricing", "/security", "/agents", "/contact", "/llms.txt", "/llms-full.txt"]);
+const SITE_PATHS = new Set(["/", "/pricing", "/features", "/compare", "/security", "/agents", "/contact", "/llms.txt", "/llms-full.txt"]);
 
 // Not part of the docs: repository files and tooling.
 const SKIP_DIRS = new Set(["node_modules", "scripts", ".github", ".git", "_repo"]);

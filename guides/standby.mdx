@@ -1,0 +1,216 @@
+---
+title: Standby servers and failover
+description: Keep a second server in sync with your database, read from it, and promote it when the primary dies, by hand or automatically, without two servers ever taking writes at once.
+---
+
+A **standby** is a second server that stays in sync with your database. You can:
+
+- **read from it**: reports and read-only queries run there, not on the primary;
+- **promote it**: it becomes the primary, for maintenance on the old one or when the old one is gone;
+- let Rowsafe **fail over automatically** when the primary dies (off by default).
+
+Rowsafe sets it up from your backups and your bucket, keeps it in sync, watches how far behind it is, and makes sure the old primary stays stopped after a promotion.
+
+## What you need
+
+- **Another server** in the same organization, with the Rowsafe agent installed natively (not in Docker).
+- On it, an **empty PostgreSQL cluster** of the **same major version** as the primary. Rowsafe replaces its data (and keeps the old data aside, so removing the standby gives it back). On Debian or Ubuntu, a second cluster is one command: `pg_createcluster 18 standby --port 5433 --start`.
+- On both servers, **Rowsafe may stop and start PostgreSQL**: answer yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?" when installing the agent (or pass `--allow-restart`). The dashboard shows it as "allowed on this server".
+- Backups running for the database: the standby starts from the latest backup.
+- The same extensions installed on both servers. Settings in `/etc/postgresql/...` aren't copied; settings made with `ALTER SYSTEM` are.
+
+Streaming, which keeps the standby seconds behind instead of about a minute, also needs a network path from the standby to the primary's PostgreSQL port, and PostgreSQL on the primary listening on that address (`listen_addresses`). Without it, the standby follows through your bucket.
+
+<Callout type="info" title="v1 limits">
+  One standby per database. No tablespaces outside the data directory. Linux servers with systemd, as the agent installer sets up.
+</Callout>
+
+## Create a standby
+
+In the dashboard, open the database, then **Standby**, **Add a standby**. Pick the server and its empty cluster, and confirm the server's **key fingerprint**. From a terminal:
+
+```sh
+rowsafe standby add app --host db-2
+```
+
+### Pairing and your secrets
+
+The standby needs your bucket settings and your encryption passphrase, and, for streaming, a password to connect to the primary. **Rowsafe never sees any of them.** Each agent has its own key pair; the primary's agent encrypts what the standby needs to the standby agent's key, and Rowsafe only passes the encrypted box along.
+
+To make sure the box goes to your server and nobody else's, compare the fingerprint the dashboard shows ("Pair with db-2? Its key fingerprint is 7F3A-91C2-0B4E-D8A1") with what the server itself prints:
+
+```sh
+sudo -u postgres rowsafe-agent key
+```
+
+```text
+Fingerprint: 7F3A-91C2-0B4E-D8A1
+Public key:  ...
+```
+
+If they differ, stop and don't pair. The primary's agent checks the fingerprint you confirmed too, and refuses to seal anything to another key.
+
+Rowsafe relays the keys, so this check depends on you comparing with what the server prints. To make the servers themselves refuse any other key, even from a compromised Rowsafe, list your servers' fingerprints in each one's `/etc/rowsafe/agent.env` and restart the agent:
+
+```sh title="/etc/rowsafe/agent.env"
+ROWSAFE_STANDBY=pinned
+ROWSAFE_STANDBY_PEERS=7F3A-91C2-0B4E-D8A1,2C9E-5B10-77AD-E403
+```
+
+`ROWSAFE_STANDBY=off` keeps a server out of standbys entirely.
+
+### What happens
+
+1. On the **primary**, the agent creates a replication role with a random password (PostgreSQL only gets its SCRAM hash) and adds `pg_hba.conf` lines that let that role in from the standby's addresses only, then reloads. Nothing else changes on the primary: no restart, no replication slot.
+2. On the **standby server**, the agent stops the empty cluster, sets its data directory aside, restores the latest backup from your bucket as a standby, and starts it.
+3. The standby follows the primary two ways at once:
+   - **through the bucket**: it fetches each archived WAL segment (`restore_command`). This works with no connection between the servers. It is about a minute behind, because the primary archives at least once a minute.
+   - **by streaming**, when it can reach the primary's PostgreSQL: seconds behind. When the primary has TLS on, the connection requires TLS. Without TLS, Rowsafe only streams over a private network address and otherwise stays with the bucket.
+
+## Use it for reads
+
+The standby is a hot standby: connect to it like to the primary, with the same users and passwords. It refuses writes. Use it for reports, exports and analytics, so they don't slow the primary down.
+
+Long queries on a standby can be cancelled when replay needs a row they read, or can delay replay. For long reports, prefer the standby that follows through the bucket, or set `max_standby_streaming_delay` on it.
+
+## Watch it
+
+**Standby** shows whether it is in sync, whether it streams or follows through the bucket, how far behind it is (time and bytes), and a timeline of everything that happened. Pulse and alerts cover it too:
+
+| Alert | When |
+|---|---|
+| Standby down | Its agent or PostgreSQL isn't reporting, or creating it failed. |
+| Standby behind | It replays more than 10 minutes late (you can change the threshold). |
+| Replication lag | The existing rule: a streaming standby is further behind than the threshold. |
+| Standby promoted | The database moved to its standby and has no standby since. Critical. |
+| Fenced old primary running | PostgreSQL runs on a fenced old primary. Critical. |
+
+When the standby fell behind or broke, the finding has a **Rebuild the standby** fix: Rowsafe restores the latest backup there again.
+
+To move a database to another server for good, with a set time and a way back, see [Move a database to a new server](/docs/guides/move).
+
+## Promote the standby
+
+**Standby**, **Promote**, then type the database's name. From a terminal: `rowsafe standby promote app`.
+
+### When the primary is up
+
+This is a planned switchover, for maintenance or a move. Nothing is lost:
+
+1. Rowsafe **fences** the primary: its agent writes `standby.signal` into the data directory, stops PostgreSQL (fast shutdown) through the root helper, and pushes the last WAL segment to the bucket.
+2. The standby replays everything up to the old primary's last checkpoint, then promotes. If it can't get all of it within 3 minutes, it doesn't promote, and says how much is missing: you promote anyway (and lose that), or start the old primary again.
+3. The database now lives on the standby's server. Backups continue there, in the same bucket, on a new timeline: Rowsafe takes a full backup right away.
+
+Apps are disconnected for about a minute.
+
+### When the primary is down
+
+Rowsafe can't stop a server it can't reach. You confirm, by typing `db-1 is down`, that it is down or will stay stopped. The standby replays everything it has received, then promotes. Changes the old primary made after the standby's last replayed change are not on the new primary: the timeline shows up to when the standby had replayed.
+
+When the old primary's agent reports again, it is told at once that its cluster is fenced, and stops PostgreSQL.
+
+### Fencing: the old primary stays stopped
+
+After a promotion, two servers must never both accept writes. Rowsafe keeps the old primary stopped in three ways, each enough on its own in the common case:
+
+- **PostgreSQL is stopped**, through the root helper, or with `pg_ctl` as the postgres user where the helper isn't allowed.
+- **`standby.signal` is in its data directory.** If anything starts it again (a reboot, a person, a script), it comes up **read-only**, and apps that ask for a read-write server skip it.
+- **The agent keeps the fence** on disk and checks every few seconds, even with no connection to Rowsafe: a fenced cluster found running is stopped again. It never starts one.
+
+The old primary stays fenced until you:
+
+- **Turn it into the new standby** (Rebuild). If it stopped cleanly and the new primary replayed all of it, its own data is reused: it just follows the new timeline. Otherwise Rowsafe restores the latest backup there and keeps its old data aside for 7 days, with anything it accepted after the promotion. Rowsafe never uses `pg_rewind` on an old primary that may have diverged, because that would throw those writes away.
+- **Start it again** (Unfence), only when the standby was not promoted, for example after a promotion that stopped short.
+- **Forget it**, when the server is gone for good. It stays stopped; Rowsafe stops watching it.
+
+## Automatic failover
+
+Off by default, per database: **Standby**, **Automatic failover**, and type the database's name. It needs a standby that **streams**: then there are two independent witnesses, Rowsafe (the primary's agent reporting) and the standby (its connection to the primary's PostgreSQL). With the bucket only, Rowsafe would be the only witness and couldn't tell a dead primary from a cut network.
+
+Rowsafe promotes the standby by itself only when **all** of these hold:
+
+1. The primary's agent hasn't reported for the wait you set (default **3 minutes**, at least 1).
+2. The standby can't connect to the primary's PostgreSQL either, for as long.
+3. The standby is running, reporting and replaying.
+4. At most the data loss you allow would be lost (default **1 minute**): the standby was streaming until at most that long before the primary was last heard from, and wasn't further behind than that.
+5. Nothing stops PostgreSQL on purpose: no restart, health fix, Rewind, agent update or other standby change is running or queued.
+
+Then it fences the old primary (its agent stops PostgreSQL the moment it reports again) and promotes the standby. The timeline, the audit log (as `rowsafed`) and a critical alert say so.
+
+Each condition shows in **Standby** with whether it holds now.
+
+### Split brain
+
+What automatic failover can't rule out. A failover is only safe if the old primary really is gone. Rowsafe decides from what it can see, and there is one case it can't see: **the primary cut off from both Rowsafe and the standby, but still reachable by your apps.** For example, the primary loses its internet uplink and its link to the standby, while the app servers next to it still reach it.
+
+Then both servers accept writes: the old primary from the apps that still reach it, the new one from the rest, until the old primary's agent can report again and Rowsafe stops it. Writes the old primary accepted meanwhile are not lost: they stay in its data directory (kept aside when you rebuild it), and in the bucket if it could still archive. But merging them back is manual.
+
+Why Rowsafe doesn't simply have the primary stop itself when it loses Rowsafe: that would turn any outage of Rowsafe, or of your server's internet access, into a database outage.
+
+How to make this case impossible or unlikely:
+
+- **Put your apps behind a Rowsafe pooler.** Rowsafe points the pooler at the new primary at promotion, so apps never reach the old one.
+- **Keep the standby on the same network path as your apps**, so a cut that isolates the primary from the standby also isolates it from the apps.
+- **Leave automatic failover off** and promote by hand after checking. With the primary up, a manual promotion fences it first and loses nothing.
+
+With `target_session_attrs=read-write`, apps skip a server that is read-only, so a fenced old primary that is started again never takes their writes. It doesn't help while the old primary still runs as a primary.
+
+## Connect your apps
+
+Give apps both servers; the driver connects to the one that accepts writes, so after a promotion they follow by themselves. **Standby** shows these strings with your servers' addresses.
+
+<Tabs items={["psql / libpq", "Python", "Go", "Java", "Node.js"]}>
+<Tab value="psql / libpq">
+
+```text
+postgresql://USER@10.0.0.1:5432,10.0.0.2:5432/DBNAME?target_session_attrs=read-write
+```
+
+libpq (PostgreSQL 10 and later) tries the hosts in order and keeps the first that accepts writes. For read-only work on the standby when it is up, use `target_session_attrs=prefer-standby` (libpq 14 and later) with the standby listed first.
+
+</Tab>
+<Tab value="Python">
+
+psycopg 2 and 3 use libpq, so the same string works:
+
+```text
+postgresql://USER@10.0.0.1:5432,10.0.0.2:5432/DBNAME?target_session_attrs=read-write
+```
+
+</Tab>
+<Tab value="Go">
+
+pgx understands several hosts and `target_session_attrs`:
+
+```text
+postgres://USER@10.0.0.1:5432,10.0.0.2:5432/DBNAME?target_session_attrs=read-write
+```
+
+</Tab>
+<Tab value="Java">
+
+The PostgreSQL JDBC driver:
+
+```text
+jdbc:postgresql://10.0.0.1:5432,10.0.0.2:5432/DBNAME?targetServerType=primary
+```
+
+</Tab>
+<Tab value="Node.js">
+
+node-postgres connects to one host only. Point it at a Rowsafe pooler, which follows the primary, or at a DNS name you move after a promotion.
+
+</Tab>
+</Tabs>
+
+Existing connections break at a promotion; the driver's normal reconnect then finds the new primary. Make sure your app retries a failed transaction.
+
+## Remove a standby
+
+**Standby**, **Remove**, or `rowsafe standby remove app`. Rowsafe stops the standby, gives its cluster its own data back and starts it, and removes the standby's role and `pg_hba.conf` lines on the primary.
+
+## From a terminal and AI agents
+
+All of it is in the CLI: `rowsafe standby`, `add`, `promote`, `rebuild`, `unfence`, `failover` and `remove`. See [CLI reference](/docs/reference/cli#standby).
+
+AI assistants can read a standby's status (the `standby_status` MCP tool). They can't create, promote, rebuild or remove one, or turn automatic failover on: that is for people only, like every change to production.

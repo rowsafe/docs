@@ -1,0 +1,89 @@
+---
+title: Logs API and log forwarding
+description: The fields of a forwarded PostgreSQL log line, the signed log webhook, what each destination receives, and the Logs API endpoints.
+---
+
+This is the reference for [Logs](/docs/guides/logs). Every line was redacted on the database server before it reached Rowsafe (unless the database sends full query text).
+
+## A log line
+
+Every destination receives the same fields (as JSON attributes, labels or structured data):
+
+| Field | Meaning |
+|---|---|
+| `id` | Rowsafe's ID of the line, increasing |
+| `time` | When PostgreSQL wrote it (RFC 3339, UTC) |
+| `host` | The server's host name in Rowsafe |
+| `database_id`, `database_name` | The database in Rowsafe |
+| `severity` | PostgreSQL's severity: `LOG`, `WARNING`, `ERROR`, `FATAL`, `PANIC`, ... |
+| `kind` | `error`, `slow_query`, `lock_wait`, `deadlock`, `auth_failure`, `too_many_connections`, `checkpoint`, `autovacuum`, `temp_file`, `connection`, `statement`, `server` or `other` |
+| `sqlstate` | PostgreSQL's error code, e.g. `23505` |
+| `message`, `detail`, `hint`, `context` | With values removed |
+| `statement` | The statement behind it, normalized (`$1`, `$2`, ...) |
+| `user`, `database`, `application`, `client`, `pid` | Who and where: the PostgreSQL user and database, `application_name`, the client address, the process ID |
+| `duration_ms` | Slow statements and lock waits |
+| `redacted` | `true` when values were removed from the line |
+
+## Webhook
+
+Rowsafe POSTs JSON batches of up to 500 lines, as soon as they arrive (every few seconds while there are new ones):
+
+```json
+{
+  "version": 1,
+  "event": "logs",
+  "delivery_id": "lgf_4k2q9x7m1b3c",
+  "sent_at": "2026-09-25T10:15:04Z",
+  "entries": [
+    {
+      "id": "48213",
+      "time": "2026-09-25T10:15:01.123Z",
+      "host": "db-prod-1",
+      "database_id": "db_7h2k4m9q",
+      "database_name": "app-prod",
+      "severity": "ERROR",
+      "kind": "error",
+      "sqlstate": "23505",
+      "message": "duplicate key value violates unique constraint \"customers_email_key\"",
+      "detail": "Key (email)=(…) already exists.",
+      "statement": "INSERT INTO customers (email, name) VALUES ($1, $2)",
+      "user": "app",
+      "database": "app",
+      "application": "web",
+      "client": "10.0.1.12",
+      "pid": 48213,
+      "redacted": true
+    }
+  ]
+}
+```
+
+Headers: `X-Rowsafe-Event: logs`, `X-Rowsafe-Delivery: <delivery_id>` and `X-Rowsafe-Signature: t=<unix seconds>,v1=<hex>`, an HMAC-SHA256 of `<t>.<body>` with the destination's signing secret, shown once when you add it. Check it exactly like an [alert webhook's](/docs/reference/webhooks#verify-the-signature).
+
+Answer with any 2xx within 15 seconds. Anything else (or a redirect, which isn't followed) counts as a failure: Rowsafe retries the same lines after 30 seconds, then waits twice as long each time, up to an hour, and the destination shows the error. A batch can arrive twice after a timeout; use each line's `id` to drop duplicates.
+
+## What each destination receives
+
+- **Datadog**: `POST https://http-intake.logs.<site>/api/v2/logs` with `DD-API-KEY`. Each line: `ddsource: postgresql`, `service: postgresql`, `hostname`, `status` (`critical`, `error`, `warning`, `notice`, `info`, `debug`), `timestamp`, `ddtags: source:rowsafe,database:<name>,kind:<kind>`, `message` (the line as text) and the fields above under `rowsafe`.
+- **Better Stack**: `POST` to the ingesting host with `Authorization: Bearer <source token>`: the fields above plus `dt`, `level` and `message` as text.
+- **Grafana Loki**: `POST <url>/loki/api/v1/push`, basic auth with the user and token (or a bearer token without a user). One stream per `source="rowsafe"`, `host`, `database`, `level` and `kind`; the line as text.
+- **Elasticsearch and OpenSearch**: `POST <url>/_bulk` (`create` actions, so data streams work) with `Authorization: ApiKey <key>`, or basic auth with a user name. Documents have the fields above plus `@timestamp` and `log.level`. Refused documents count as a failure.
+- **Papertrail and syslog**: RFC 5424 over TLS with octet-counting framing (RFC 5425), facility `local0`, app name `postgresql`, the process ID as `PROCID`, the kind as `MSGID`, and structured data `[rowsafe@32473 database="..." kind="..." sqlstate="..."]`. The server's certificate must be valid for its host name.
+
+Destinations must resolve to public addresses; Rowsafe refuses private, loopback and cloud metadata addresses, also after DNS resolution.
+
+## API
+
+With an API key (read-only keys may read), or the CLI's login:
+
+| Endpoint | |
+|---|---|
+| `GET /v1/databases/{ref}/logs` | Lines, newest first. `kind` (a kind, or `errors`, `locks`, `maintenance`), `q` (search), `group`, `from`, `to`, `before` and `after` (line IDs), `limit` (up to 500). `after` returns lines newer than an ID, for a live tail |
+| `GET /v1/databases/{ref}/logs/groups` | Repeated messages with their count, first and last time, and the newest line; the last 24 hours unless `from` is given |
+| `GET /v1/databases/{ref}/logs/overview` | Settings, where the agent reads the log (or why it can't), counts per kind in 24 hours, retention and today's usage |
+| `PATCH /v1/databases/{ref}/logs/settings` | `{"enabled": true, "full_text": false}` |
+| `GET`, `POST /v1/log-destinations` | List, add (`type`, `name`, `config`, `filter`, `secret`) |
+| `PATCH`, `DELETE /v1/log-destinations/{id}` | Change (`name`, `enabled`, `config`, `filter`, `secret`), remove |
+| `POST /v1/log-destinations/{id}/test` | Send one test line: `{"ok": true}` or `{"ok": false, "error": "..."}` |
+
+`config` holds the destination's settings: `site` (Datadog), `url`, `host` and `port` (syslog, Papertrail), `username` and `index`. `filter` is `{"kinds": ["errors", "auth_failure"], "database_ids": []}`; empty lists mean everything.

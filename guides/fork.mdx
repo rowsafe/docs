@@ -1,0 +1,329 @@
+---
+title: Fork a database
+description: Clone a database into a new, independent database as it was now, at any second of its recovery window, or at a Mark. For staging with masked personal data, trying a migration on real data, or looking at yesterday's state.
+---
+
+A **fork** is a new, independent database, cloned from one of yours as it was at a moment you choose: **now**, **any second** in its recovery window, or a **Mark**. Rowsafe restores it on a server you pick, can mask personal data before anyone can connect, and then protects it like any other database: its own backups, Proof, Pulse and Rewind.
+
+Use a fork to:
+
+- give **staging** real data, with emails, names, phone numbers and other personal data replaced by fake values;
+- **try a migration** on real data before you run it on production;
+- **look at yesterday's state** without touching production, for example to find rows that were deleted.
+
+Production isn't touched. The fork is restored from the source's backups in your bucket, and it never writes into them.
+
+## What you need
+
+- **Backups running** for the source database: it has at least one full backup. You can fork from any second between its oldest kept full backup and its last archived change.
+- **A server for the fork**: the same server, or another server of your organization with the Rowsafe agent. It needs:
+  - PostgreSQL of the **same major version** as the source;
+  - a **place** for the fork: Rowsafe may create a new PostgreSQL cluster there, or there is an empty cluster it may use, or a Docker fork target (see [Choose where](#choose-where));
+  - free disk of at least the source's size plus 10%.
+- To be an **owner or admin** of the organization.
+
+A fork is a new database in Rowsafe, so it counts toward your plan's databases. Its backups go to the **fork server's own bucket**, encrypted with **that server's own passphrase** (the one its installer showed), under the fork's name.
+
+## Fork in the dashboard
+
+<Steps>
+<Step>
+
+### Start
+
+Open the database and click **Fork**.
+
+</Step>
+<Step>
+
+### When
+
+Pick **Now**, a **time** in the recovery window (the dashboard shows the window), or a **Mark**.
+
+</Step>
+<Step>
+
+### Where
+
+Pick the server, then the place on it, for example "A new PostgreSQL 18 on port 5440 (Rowsafe creates it)" or "The empty PostgreSQL cluster on port 5433". A server that can't take the fork says why, in plain words.
+
+</Step>
+<Step>
+
+### Name and masking
+
+Name the fork, for example `app-staging`: 2 to 40 lowercase letters, digits and dashes. Turn on **Mask personal data** for staging or any copy that people outside production work with. See [Mask personal data](#mask-personal-data).
+
+</Step>
+<Step>
+
+### Confirm
+
+Check the summary. For another server, confirm its **key fingerprint** (see [Security](#security)). Then click **Fork**.
+
+</Step>
+</Steps>
+
+The page shows each step live:
+
+| Step | What happens |
+|---|---|
+| Save a Mark on app | Only for **Now**: Rowsafe saves a Mark on the source and forks exactly from it. |
+| Hand over access to app's backups | Only for another server: the source's server sends what's needed to read its backups, encrypted to the fork server's key. |
+| Create a new PostgreSQL on db-2 | Rowsafe creates the new cluster, or checks the empty one ("Prepare PostgreSQL on db-2"). |
+| Restore app as it was at ... | Downloads the backup and replays the changes up to your moment, privately. |
+| Mask personal data | Only with masking: replaces personal data. |
+| Start the fork | Starts the fork for real, so your apps can connect. |
+| Turn on its own backups | The fork gets its own backups, in the fork server's bucket. |
+| Take its first backup | Its first full backup. From then on, the fork is protected. |
+
+When it's done, the fork is an ordinary database in your list. The source lists the forks made from it, and the fork shows which database it was forked from, and when.
+
+## Fork with the CLI
+
+```sh
+rowsafe fork app --to db-2 --name app-staging --mask
+```
+
+This forks `app` as it is now to a new PostgreSQL cluster on `db-2`, with personal data masked. The CLI waits and prints each step until the fork is protected, then where it runs:
+
+```text
+app-staging is ready on db-2:5440, restored to 2026-09-25 10:12:09 CEST (08:12:09 UTC), with its own backups. Open it with: rowsafe status app-staging
+Masked 6 columns in 2 tables (1204 rows).
+```
+
+More examples:
+
+```sh
+rowsafe fork app --to db-1                                  # the same server, a new port; named app-fork
+rowsafe fork app --to db-2 --at "2026-09-24 14:04"          # a time, in your time zone
+rowsafe fork app --to db-2 --at "10m ago"
+rowsafe fork app --to db-2 --mark before-migration-42       # a Mark
+rowsafe fork app --to db-2 --port 5441                      # pick the new cluster's port
+rowsafe fork app --to db-2 --into-port 5433                 # use an existing empty cluster
+rowsafe forks app                                           # the forks made from app
+```
+
+Without `--name`, the fork is named after the source with `-fork`, such as `app-fork`. Without `--to`, the CLI lists the servers and why any of them can't take the fork.
+
+For another server, the CLI shows its key fingerprint and asks you to type it. Compare it with what the server prints first. Without a terminal, pass `--fingerprint`. See the [CLI reference](/docs/reference/cli#fork) for every flag.
+
+## Choose when
+
+- **Now**: Rowsafe first saves a Mark on the source, named `fork-<id>`, waits until it is in your bucket, and forks exactly from it. It stays in `rowsafe marks app`.
+- **A time**: any second in the recovery window. The fork has everything committed up to that time. The CLI reads `--at` in your computer's time zone, as `2026-09-24 14:04`, `14:04` (today), `10m ago`, or an RFC 3339 time such as `2026-09-24T12:04:00Z`.
+- **A Mark**: the fork stops exactly at it, like a [restore to a Mark](/docs/guides/restore#to-a-restore-point). The Mark must be in your bucket, after a full backup.
+
+## Choose where
+
+<Tabs items={["A new cluster", "An empty cluster", "Docker"]}>
+<Tab value="A new cluster">
+
+On Debian or Ubuntu, Rowsafe can create a new PostgreSQL cluster for the fork, next to the ones already there. It uses `pg_createcluster`, named after the fork with underscores (for `app-staging` on PostgreSQL 18: `postgresql@18-app_staging`), on a free port between 5440 and 5499, or the one you pick in that range. It starts at boot like your other clusters.
+
+Creating a cluster needs root, so the agent can't do it on its own. It works only where root allowed it when installing the agent. Where restarts are allowed, the installer asks:
+
+```text
+Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? Only when someone confirms a fork; ports 5440-5499. [Y/n]
+```
+
+`--allow-create-cluster` or `--no-allow-create-cluster` answers without asking. To allow it on a server where the agent is already installed, run the installer again:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-create-cluster
+```
+
+The installer writes the allowed ports to `/etc/rowsafe/create-cluster-allowed`. A separate, sandboxed unit (`rowsafe-pg-create-cluster@`) creates the cluster, and lists it in `/etc/rowsafe/created-clusters`, so Rowsafe may also stop and start it later, when someone asks (for example with **Restart**).
+
+</Tab>
+<Tab value="An empty cluster">
+
+Rowsafe can use a cluster that already exists, if it is:
+
+- **empty**: no databases or tables of your own;
+- **running**, so Rowsafe can check that it is empty;
+- the **same major version** as the source, and not a standby;
+- one that **Rowsafe may stop and start**: you said yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?" when installing the agent (or passed `--allow-restart`) after the cluster existed.
+
+Rowsafe stops it, sets its own empty data aside for 7 days, restores the fork in its place and starts it. The cluster keeps its own configuration files. If the fork fails, the cluster gets its own data back.
+
+On Debian or Ubuntu, you create one with `pg_createcluster 18 staging --port 5433 --start`, then run the installer again with `--allow-restart`.
+
+</Tab>
+<Tab value="Docker">
+
+In Docker, set up a **fork target**: a new `postgres` service that waits until Rowsafe has restored the fork into its empty volume, and an agent sidecar next to it with that volume mounted **read-write**. The sidecar is its own server in Rowsafe, with its own enrollment token, bucket settings and passphrase: the fork's backups go there.
+
+```yaml title="compose.yml"
+services:
+  postgres-staging:
+    image: postgres:17
+    restart: unless-stopped
+    # Waits until Rowsafe has restored the fork into the volume, then starts on it.
+    entrypoint: ["sh", "-c", "until [ -e /var/lib/postgresql/data/rowsafe-fork.done ]; do sleep 2; done; exec docker-entrypoint.sh postgres"]
+    volumes:
+      - staging-data:/var/lib/postgresql/data
+      - staging-socket:/var/run/postgresql
+      - staging-spool:/rowsafe-spool
+
+  rowsafe-agent-staging:
+    image: ghcr.io/rowsafe/agent:<version>-pg17
+    hostname: staging-1                           # the server name Rowsafe shows
+    user: "999:999"
+    restart: unless-stopped
+    depends_on: [postgres-staging]
+    env_file: rowsafe-agent-staging.env           # its own enrollment token, bucket settings and passphrase
+    environment:
+      ROWSAFE_FORK_TARGET_DIR: /var/lib/postgresql/data
+    shm_size: 256m
+    volumes:
+      - staging-data:/var/lib/postgresql/data     # read-write: Rowsafe restores the fork into it
+      - staging-socket:/var/run/postgresql
+      - staging-spool:/rowsafe-spool
+      - staging-agent:/var/lib/rowsafe
+
+volumes:
+  staging-data:
+  staging-socket:
+  staging-spool:
+  staging-agent:
+```
+
+`rowsafe-agent-staging.env` is like the `rowsafe-agent.env` in [Run the agent in Docker](/docs/guides/docker#set-up), with a new enrollment token. Give it its own passphrase, stored in your secret manager first.
+
+For `postgres:18` and later images, the data lives in `/var/lib/postgresql/18/docker` and the volume is mounted at `/var/lib/postgresql` in both services. Set `ROWSAFE_FORK_TARGET_DIR: /var/lib/postgresql/18/docker`, and wait for `/var/lib/postgresql/18/docker/rowsafe-fork.done`.
+
+Start both with `docker compose up -d`. Once the sidecar reports, the target shows up under **Where** as "Its PostgreSQL 17 container, waiting for a fork". A fork target takes **one** fork: its volume must be empty. For another fork, add another target.
+
+The fork has the source's users and passwords: the image's `POSTGRES_PASSWORD` isn't used, because the volume isn't empty when the container starts. If the source keeps its configuration outside its data directory (Debian and Ubuntu), the fork gets the `postgres` image's default `postgresql.conf` and `pg_hba.conf`, which accept password logins from any address.
+
+A database that runs in Docker can be the **source** of a fork to another server, but not forked on its own Docker server.
+
+</Tab>
+</Tabs>
+
+A new or empty cluster keeps its own configuration files (`postgresql.conf`, `pg_hba.conf`). Settings made with `ALTER SYSTEM` on the source come along. A new cluster on Debian or Ubuntu listens on `localhost` only: to reach it from another machine, set `listen_addresses` and add a `pg_hba.conf` line, as for any cluster.
+
+## Mask personal data
+
+With **Mask personal data** (`--mask`), Rowsafe replaces personal data with realistic fake values **before anyone can connect** to the fork. It masks every database of the fork, and finds personal data by **column name** (and type):
+
+| Columns named like | Become |
+|---|---|
+| `email`, `contact_email` | `user.<random>@example.com` |
+| `first_name`, `last_name`, `full_name`, `display_name`; `name` in tables such as `users`, `customers` or `members` | Fake names |
+| `phone`, `mobile`; `ssn`, `iban`, `passport`, `tax_id`, `card_number`; `api_key`, `token`, `secret` | Other digits and letters in the same format |
+| `address`, `street`; `city` | Fake addresses and cities |
+| `ip`, `last_sign_in_ip`, and every `inet` column | Private addresses (`10.x.x.x`) |
+| `password`, `password_hash`, `encrypted_password` | bcrypt hashes become the hash of the password `rowsafe-copy`, so you can sign in to your app on the fork as any user; other hashes become random |
+| `birth_date`, `dob` | Moved by up to 30 days |
+| JSON columns named `address`, `contact`, `profile`, `personal` or `pii` | Emptied (`NULL`) |
+
+Values are replaced the same way everywhere in one fork: the same email becomes the same fake email in every table, so joins keep working. They come from a random key made for this fork and thrown away afterwards, so nobody can map them back.
+
+While masking, triggers don't fire, so audit logs and webhooks in your schema stay quiet. Afterwards, Rowsafe rewrites each masked table (`VACUUM FULL`) so the old values don't stay in its files, rebuilds statistics, refreshes materialized views and resets `pg_stat_statements`.
+
+When the fork is done, it lists **every masked column** and how it was masked (`rowsafe forks app --json` too). **Read that list** before you give anyone access.
+
+Masking rules you save for Guard's safe copies will apply to forks too once that feature ships; until then, masking goes by column names only.
+
+<Callout type="warn" title="Know what masking doesn't do">
+
+- **The real data reaches the fork's server first.** Rowsafe restores it there, then masks it on that server. Files it deletes aren't wiped from the disk. If a server must never hold real personal data, don't fork to it.
+- **Detection goes by column names.** A column named `notes` or `data` that holds emails isn't found, and neither is personal data in free text. Check the list.
+- **JSON columns aren't masked field by field.** A JSON column whose name looks personal is emptied when it allows `NULL`, and left as it is otherwise. Personal data inside other JSON columns stays.
+- **If masking fails, the fork fails.** It is removed and never starts unmasked.
+
+</Callout>
+
+## What happens
+
+1. **Now** only: Rowsafe saves a Mark on the source and waits until it is in your bucket.
+2. **Another server** only: the source's agent checks the fingerprint you confirmed, and encrypts the bucket settings needed to read the source's backups to the fork server's key. Rowsafe relays the encrypted box.
+3. On the fork server, the agent checks the major version and the free disk, then creates the cluster (through the root helper) or stops the empty one and sets its data aside.
+4. It restores the backup that comes before your moment, and replays the changes up to it. PostgreSQL runs **with no network listener**, on a private Unix socket in the agent's state directory: nobody can connect yet. Its `archive_command` discards WAL, so the fork can't write into the source's backups.
+5. With masking: it masks the personal data.
+6. It stops the private instance and starts the fork for real through the root helper (in Docker, the `postgres` container starts on it).
+7. Rowsafe registers the fork as a new database, and turns on its backups like for any database: in the fork server's bucket, under the fork's name, with that server's passphrase. It checks that changes reach the bucket and takes the first full backup.
+
+From then on, the fork has its own Proof, Pulse and Rewind. It is not linked to the source: changes on one never reach the other.
+
+If a step fails, the fork server is left as it was: the half-restored data is removed, an empty cluster gets its own data back, and a cluster Rowsafe created stays, empty: pick it as an empty cluster for the next try. In Docker, the volume is emptied again.
+
+## Security
+
+**On the same server, nothing moves.** The agent reads the source's backups with the server's own settings.
+
+**To another server, only encrypted.** The fork server needs to read the source's backups: the bucket endpoint and keys, and the encryption passphrase. **Rowsafe never sees them.** It is the same sealed handoff as for a [standby](/docs/guides/standby#pairing-and-your-secrets): the source's agent encrypts them to the fork server agent's key, and Rowsafe only relays the encrypted box.
+
+To make sure the box goes to your server and nobody else's, compare the fingerprint that the dashboard or the CLI shows with what the fork server prints:
+
+```sh
+sudo -u postgres rowsafe-agent key
+docker compose exec rowsafe-agent-staging rowsafe-agent key   # a Docker fork target
+```
+
+If they differ, stop. The source's agent checks the fingerprint you confirmed too, and refuses to seal anything to another key.
+
+On the fork server, the settings are written to a temporary pgBackRest configuration (mode 0600) for the restore only, and deleted right after the replay. The fork then backs up with its own server's bucket and passphrase.
+
+<Callout type="info" title="Fork only to servers you trust with the source">
+
+The fork server receives the source's bucket keys and passphrase. It uses them only to read, and deletes them after the replay, but while the fork restores, that server could read all of the source's backups. Fork to servers you trust as much as the source.
+
+</Callout>
+
+`ROWSAFE_STANDBY` in `/etc/rowsafe/agent.env` covers forks too. Because Rowsafe relays the keys, a compromised Rowsafe could present a key of its own as a fork target. With `pinned`, a server only hands its bucket settings to (or accepts them from) the fingerprints in `ROWSAFE_STANDBY_PEERS`, so that is ruled out. With `off`, it never hands them over: fork on the same server instead. See [Agent configuration](/docs/reference/agent-configuration#postgresql-and-the-server).
+
+Only owners and admins can fork, in the dashboard, with the CLI or with an API key that can write. AI assistants (the [MCP server](/docs/reference/mcp)) can't fork. Every fork is in the [audit log](/docs/guides/teams#audit-log) as `database.fork`, with the server, the moment, whether it was masked and the fingerprint.
+
+## Limits
+
+- **The same major version.** A fork of PostgreSQL 17 needs PostgreSQL 17 on the fork server.
+- **The whole cluster.** A fork is a full copy of the source cluster: all its databases, and its users and passwords. If staging is less trusted than production, change the passwords on the fork.
+- **No tablespaces** outside the data directory.
+- **New clusters** only on Debian and Ubuntu (`pg_createcluster`), on ports 5440 to 5499.
+- **Extensions:** install the source's extensions on the fork server. Libraries the source preloads with `ALTER SYSTEM` that the fork server doesn't have are dropped, with a warning. Production's scheduled jobs (`pg_cron`) don't run on the fork unless the fork preloads `pg_cron`. If it does, check `cron.job` on the fork and unschedule what shouldn't run there.
+- **One fork restore at a time** per server.
+- **Docker:** only into a fork target as above, one fork per target. A Docker server can't create clusters.
+- Rowsafe doesn't delete forks: see [Remove a fork](#remove-a-fork).
+
+## If it fails
+
+The fork's progress, and the CLI, show the failed step and the reason. The most common ones:
+
+| Message | What to do |
+|---|---|
+| `Rowsafe isn't allowed to create a PostgreSQL cluster there, and there's no empty cluster it may use` | Run the installer on that server again with `--allow-create-cluster`, or give it an empty cluster. |
+| `PostgreSQL 17 isn't installed there, and a fork needs the same major version` | Install that PostgreSQL version on the fork server (`apt-get install postgresql-17`), or pick another server. |
+| `its Rowsafe agent is too old to receive a fork (or forks are turned off there)` | Update the agent there. If it has `ROWSAFE_STANDBY=off`, fork on the same server instead. |
+| `not enough free disk in ...: the fork needs about ...` | Free up disk, or pick another server. |
+| `no free port between 5440 and 5499` / `port ... is already used on this server` | Pick another port, or stop what uses it. |
+| `the cluster on port 5433 isn't empty (...)` | Rowsafe only forks into an empty cluster. Create a new one, or let Rowsafe create one. |
+| `the cluster on port 5433 must be running so Rowsafe can check it's empty` | Start it: `sudo systemctl start postgresql@18-staging`. |
+| `The fingerprint doesn't match ...'s agent key` / `the target server's key has fingerprint ..., not ... as confirmed: nothing was sent` | The key isn't the one you confirmed. Check again with `sudo -u postgres rowsafe-agent key` on the fork server before you retry. |
+| `handing this database's bucket settings to another server is turned off here (ROWSAFE_STANDBY=off ...)` | The source's server refuses. Fork on the same server, or change `ROWSAFE_STANDBY` there. |
+| `another fork is being restored on this server` | Wait until it has finished. |
+| `this database uses 1 tablespace; Rowsafe can't fork those to another server yet` | Not supported yet. |
+| `... (if the time is after the last change that reached the backups, pick an earlier one)` | The time is later than the newest change in your bucket. Pick an earlier time, or **Now**. |
+| `PostgreSQL runs in Docker there: set it up as a fork target first` | Add a fork target as in [Choose where](#choose-where). |
+| `the PostgreSQL container didn't start on the fork` | The `postgres` service's `entrypoint` must wait for `rowsafe-fork.done` in the data directory, as in the example. |
+| `masking: ... (the fork was never reachable, and it was removed)` | Masking failed on a table; the reason names it and what PostgreSQL refused, for example a check constraint the fake values don't meet. |
+
+## Remove a fork
+
+Rowsafe doesn't delete forks for you. A fork is an ordinary database in Rowsafe. When you no longer need it:
+
+1. Stop managing it: `rowsafe remove app-staging --keep-archiving`.
+2. On the fork server, drop its cluster: `sudo pg_dropcluster --stop 18 app_staging` (a cluster Rowsafe created is named after the fork, with underscores). In Docker, remove the two services and their volumes.
+3. When you no longer need its backups, delete `/rowsafe/app-staging` from the fork server's bucket.
+
+## API
+
+```text
+GET  /v1/databases/{ref}/forks    forks made from a database, its recovery window, Marks and the servers it can go to
+POST /v1/databases/{ref}/forks    start a fork (202, with its progress)
+GET  /v1/forks/{id}               one fork and its progress
+```
+
+`POST` takes `name`, `host_id` (a host ID or name), and optionally `placement` (`new_cluster`, `empty_cluster` or `docker`), `port`, `at` (RFC 3339) or `mark`, `mask` and, for another server, `fingerprint`. Without `at` and `mark`, it forks now. It needs an API key that can write.

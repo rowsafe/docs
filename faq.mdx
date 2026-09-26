@@ -4,6 +4,11 @@ description: Short answers to common questions about Rowsafe.
 ---
 
 <Accordions type="multiple">
+<Accordion title="Do I need to know PostgreSQL?">
+
+No. You answer a few questions when you install Rowsafe, and then it runs by itself: backups, the weekly Proof and monitoring. When something needs you, Rowsafe says what's wrong in plain words, and most problems have an **Apply fix** button. Getting data back is buttons too: see [Your first restore](/docs/first-restore) for a practice run. New words are explained in the [Glossary](/docs/glossary).
+
+</Accordion>
 <Accordion title="What are Rewind, Proof, Pulse and Guard?">
 
 The four parts of Rowsafe:
@@ -14,16 +19,52 @@ The four parts of Rowsafe:
 - **Guard**: the safety net for AI agents. See [Guard](/docs/guides/ai-agents).
 
 </Accordion>
+<Accordion title="What happens if I delete rows by mistake?">
+
+You get them back, and production keeps running. In the dashboard, open the database, then **Rewind**. [Find the moment](/docs/guides/find-the-moment) shows the exact second of the delete. **Restore a copy** of the database as it was just before, compare it with production, and **bring back** the missing rows. Rows written since stay as they are. See [Restore a database](/docs/guides/restore), and practise once with [Your first restore](/docs/first-restore).
+
+Every change is saved within about a minute, so you can go back to any second of about the last two weeks (by default).
+
+</Accordion>
+<Accordion title="What if I use an AI coding agent?">
+
+Set up [Guard](/docs/guides/ai-agents). Before a migration or a risky command, the agent checks that the database can be restored and saves a **Mark**, a named moment you can rewind to. The Claude Code plugin also sets a Mark by itself before destructive commands. Agents can also [preview a migration](/docs/guides/preview-migrations) on a copy, and test against a masked [safe copy](/docs/guides/safe-copies) instead of production.
+
+Agents never restore, rewind, restart PostgreSQL or apply fixes: no tool lets them. If something breaks, you decide what to do, in the dashboard.
+
+</Accordion>
+<Accordion title="Can Rowsafe read my data?">
+
+No. Backups are encrypted on your server before they are uploaded to your bucket, and the passphrase (and your bucket keys) never leave your server. Rowsafe stores metadata only: names, sizes, settings, task logs and metrics. See the [security model](/docs/security).
+
+</Accordion>
+<Accordion title="Does it slow down my database?">
+
+Barely, and it is built to stay out of the way:
+
+- **Monitoring** opens one short session every minute, over the local socket, and runs a few cheap queries. Each has a 2-second timeout, so a busy server gets a gap in the graphs, never a pile of monitoring queries. See [what the agent collects](/docs/guides/monitoring#what-the-agent-collects).
+- **Saving every change** copies files PostgreSQL has already written.
+- **Backups** run at low CPU and IO priority. **Proof**, Rewind copies and safe copies run at low CPU and IO priority too.
+- **The agent** gets at most half the default CPU and IO weight, and if the server runs out of memory, the kernel stops it before PostgreSQL.
+
+Proof and copies need free disk: about 1.3 × the database size plus 1 GB.
+
+</Accordion>
 <Accordion title="Does Rowsafe ever restart my database?">
 
 Never on its own. Settings that need a restart (`archive_mode`, and `wal_level` if it is `minimal`) are written with `ALTER SYSTEM`. The installer asks whether to restart now: usually a few seconds, and open connections are dropped. Say no, and restart when it suits you: Rowsafe notices by itself.
 
-If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. AI agents can't.
+If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. The same permission lets them [rewind the whole database](/docs/guides/restore#rewind-the-whole-database), which stops PostgreSQL while Rowsafe restores it. AI agents can do neither.
+
+Two things restart or stop PostgreSQL without a click, and only if you turn them on yourself: [automatic minor updates](/docs/guides/updates#minor-updates) (Sundays at 03:00 in your time zone) and [automatic failover](/docs/guides/standby#automatic-failover) to a standby. Both are off by default.
 
 </Accordion>
 <Accordion title="Which databases are supported?">
 
-PostgreSQL 13 to 18: on Debian 12/13 and Ubuntu 22.04/24.04 servers (amd64 or arm64), and in Docker with the official `postgres` images 14 to 18. MySQL, MariaDB, MongoDB and Redis/Valkey are planned, without dates yet.
+- **PostgreSQL 13 to 18**, fully supported: on Debian 12/13 and Ubuntu 22.04/24.04 servers (amd64 or arm64), and in Docker with the official `postgres` images 14 to 18.
+- **MySQL 8.0 and 8.4, and MariaDB 10.6, 10.11 and 11.4**, in **Beta**: on the same servers and in Docker. They work end to end in our tests so far; see [Protect MySQL or MariaDB](/docs/guides/mysql) and its limits.
+- **MongoDB 6.0, 7.0 and 8.0**, in **Beta**: replica sets (one member is enough) on the same servers and in Docker with the official `mongo` images; not sharded clusters. See [Protect MongoDB](/docs/guides/mongodb) and its limits.
+- **Redis/Valkey** is planned, without a date.
 
 </Accordion>
 <Accordion title="What counts as a database?">
@@ -31,29 +72,33 @@ PostgreSQL 13 to 18: on Debian 12/13 and Ubuntu 22.04/24.04 servers (amd64 or ar
 One PostgreSQL cluster: one server instance, on one host and port. Every database inside it is backed up and checked together.
 
 </Accordion>
-<Accordion title="Can Rowsafe read my data?">
-
-No. Backups are encrypted on your server before they are uploaded to your bucket, and the bucket keys and passphrase never leave your server. Rowsafe stores metadata only: names, sizes, settings, task logs and metrics. See the [security model](/docs/security).
-
-</Accordion>
 <Accordion title="Which storage can I use?">
 
-Any S3-compatible bucket you own: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, or self-hosted storage such as MinIO. The installer walks you through it; see [Set up backup storage](/docs/guides/storage). Storage is billed by your provider, not by Rowsafe. With Cloudflare R2, the first 10 GB are free.
+Any S3-compatible bucket you own: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, or self-hosted storage such as MinIO. The installer walks you through it; see [Set up backup storage](/docs/guides/storage). Your own bucket is billed by your provider, not by Rowsafe. With Cloudflare R2, the first 10 GB are free.
+
+[Rowsafe Storage](/docs/guides/rowsafe-storage), a bucket run by Rowsafe with nothing to set up, is coming soon. It isn't available yet.
 
 </Accordion>
 <Accordion title="How much data can I lose?">
 
-At most about 5 minutes of changes, usually less. PostgreSQL archives each WAL segment as it fills, and at least every 5 minutes (`archive_timeout = 300`). A nightly `pg_dump` can lose up to 24 hours.
+At most about a minute of changes, usually less. PostgreSQL archives each WAL segment as it fills, and at least every minute (`archive_timeout = 60`). A nightly `pg_dump` can lose up to 24 hours.
+
+Databases set up before this was the default archive at least every 5 minutes. **Health** shows "Backups can be up to 5 minutes behind" for them, and **Apply fix** changes it without a restart.
 
 </Accordion>
 <Accordion title="How far back can I restore?">
 
-From the start of your oldest kept full backup to the last archived change. By default Rowsafe keeps 2 weekly full backups: about two weeks. Change it with `rowsafe set NAME --retention-full N`.
+From the start of your oldest kept full backup to the last archived change. By default Rowsafe keeps 2 weekly full backups: about two weeks. Change it in the database's settings in the dashboard, or with `rowsafe set NAME --retention-full N`.
 
 </Accordion>
 <Accordion title="Does Rowsafe restore for me?">
 
-Not yet. Restoring a production database is a documented pgBackRest procedure: see [Restore a database](/docs/guides/restore). Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
+Yes, in one click, on the database's own server. On the **Rewind** tab, pick a second or a Mark and:
+
+- **restore a copy** next to production, compare it with production, and **bring back** the rows you lost. Production keeps running;
+- or **rewind the whole database** to that moment, for the worst case. You can undo it for 7 days.
+
+See [Restore a database](/docs/guides/restore). Rewinding the whole database in Docker needs the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), and tables need a primary key to bring rows back. When the server itself is lost, you restore by hand onto a new one with pgBackRest, as the same guide describes. Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
 
 </Accordion>
 <Accordion title="What if I lose the encryption passphrase?">
@@ -71,19 +116,14 @@ PostgreSQL keeps archiving its changes to your bucket by itself, so point-in-tim
 The same: PostgreSQL keeps archiving. Backups, Proof and metrics pause, you get the `agent_offline` alert after 5 minutes, and the database stops counting as protected after 10.
 
 </Accordion>
-<Accordion title="Does it slow down my database?">
-
-Barely. Archiving copies WAL files PostgreSQL has already written. Backups and Proof run with half the default CPU and IO weight, and Proof also at low priority. Monitoring queries are cheap and time out after 2 seconds. Proof needs free disk of about 1.3 × the database size plus 1 GiB.
-
-</Accordion>
 <Accordion title="Can I keep my existing backups?">
 
-Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: four passing Proof runs and one manual restore, then retire it.
+Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: four passing Proof runs and one restore you did yourself, then retire it.
 
 </Accordion>
 <Accordion title="Does it do replicas and failover?">
 
-Not yet. Rowsafe backs up and proves your backups today. Standbys can't be adopted: adopt the primary.
+Yes, for PostgreSQL. A [standby](/docs/guides/standby) is a second server that Rowsafe keeps in sync from your backups. You can read from it, and promote it when the primary dies, by hand or automatically (off by default). One standby per database, on Linux servers with systemd; the standby's agent is installed natively, not in Docker. To back up, adopt the primary: a standby can't be adopted on its own.
 
 </Accordion>
 <Accordion title="Is it open source?">

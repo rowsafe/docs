@@ -21,7 +21,7 @@ The CLI, scripts, CI and AI agents use **API keys** (`rsk_...`).
 
 On your own machine you don't need to create one: `rowsafe login` opens the dashboard, you approve it, and a key is created for you. Only admins and owners can approve a CLI login.
 
-For CI and headless machines, create a key and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key` (to save a Mark before each deploy, see [Save a Mark before every deploy](/docs/guides/deploys)):
+For CI and headless machines, create a key in the dashboard under **Settings**, then **API keys**, and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key` (to save a Mark before each deploy, see [Save a Mark before every deploy](/docs/guides/deploys)). Or from a terminal:
 
 ```sh
 rowsafe api-keys create deploy-ci
@@ -38,7 +38,7 @@ rowsafe api-keys revoke key_...
 
 ## Audit log
 
-Every change is recorded: who did it, what, and to which database or host.
+Every change is recorded: who did it, what, and to which database or host. See it in the dashboard under **Settings**, then **Audit log**, or from a terminal:
 
 ```sh
 rowsafe audit              # newest first
@@ -53,5 +53,3 @@ WHEN                 ACTOR                                      ACTION          
 It records, among others: databases added, changed and removed; hosts changed and removed; enrollment tokens created; tasks queued (backups, Proof runs, plans, restarts); Marks; Rewind (`rewind.copy`, `rewind.copy_extend`, `rewind.copy_delete`, `rewind.compare`, `rewind.rows`, `rewind.in_place`, `rewind.undo`, `rewind.cleanup`); API keys created and revoked; alerts acknowledged; alert rules and notification channels changed; plan changes; and CLI logins approved or denied.
 
 Changes the installer makes, such as adding a database, show an actor like `installer on db-1`.
-
-The audit log is also in the dashboard under **Settings**, then **Audit log**.

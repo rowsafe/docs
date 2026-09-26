@@ -76,7 +76,7 @@ Store it, with the bucket keys, in your secret manager. Keep backup secrets in t
 
 ### Run the installer
 
-In the dashboard, open **Servers**, then **Add server**, and copy the install command. It holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.) Run it on the server:
+In the dashboard, open **Servers**, then **Add a server**, and copy the install command. It holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.) Run it on the server:
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
@@ -159,7 +159,7 @@ rowsafe tasks app      # backup running ... succeeded
 rowsafe backups app    # type, duration, database size, stored size
 ```
 
-A few GB take several minutes. Then run Proof, the restore test, for the first time, ideally in a quiet hour:
+A few GB take several minutes. Then run Proof, the restore test, for the first time, ideally in a quiet hour: click **Run Proof now** on the database's page, or:
 
 ```sh
 rowsafe proof app

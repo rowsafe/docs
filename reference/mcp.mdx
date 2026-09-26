@@ -8,9 +8,9 @@ Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI
 | | Transport | Credentials | Write tools |
 |---|---|---|---|
 | `rowsafe mcp` | stdio, on your machine | The CLI's login, or `ROWSAFE_API_KEY` | Off by default. `--allow-restore-points` or `--allow-writes`. |
-| `https://api.rowsafe.sh/mcp` | Streamable HTTP | **Sign in with Rowsafe** (OAuth), or `Authorization: Bearer rsk_...` | Signed-in apps: `create_restore_point` only, if you allowed Marks. API keys: always listed; a read-only key can't use them. |
+| `https://api.rowsafe.sh/mcp` | Streamable HTTP | `Authorization: Bearer rsk_...` (an API key). **Sign in with Rowsafe** (OAuth) is coming soon. | Signed-in apps: `create_restore_point` only, if you allowed Marks. API keys: always listed; a read-only key can't use them. |
 
-For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents). To add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf without an API key, see [Connect AI apps](/docs/guides/connect-ai-apps).
+For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents). To add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf, see [Connect AI apps](/docs/guides/connect-ai-apps) (signing in there without an API key is coming soon).
 
 ## Set up
 
@@ -56,22 +56,18 @@ Claude Desktop runs local servers from its config file: `~/Library/Application S
 
 Use the absolute path of `rowsafe` (`which rowsafe`): Desktop doesn't use your shell's `PATH`. Add `"--allow-restore-points"` or `"--allow-writes"` to `args` for write tools. Restart Claude Desktop afterwards.
 
-Or use a remote connector instead (**Settings**, **Connectors**, **Add custom connector**, `https://api.rowsafe.sh/mcp`): you sign in with Rowsafe, no key or local binary needed. See [Connect AI apps](/docs/guides/connect-ai-apps).
+Coming soon: a remote connector instead (**Settings**, **Connectors**, **Add custom connector**, `https://api.rowsafe.sh/mcp`), where you sign in with Rowsafe, with no key or local binary. See [Connect AI apps](/docs/guides/connect-ai-apps).
 
 </Tab>
 <Tab value="Remote endpoint">
 
-No local binary needed. Sign in with Rowsafe (run `/mcp` in Claude Code, then **Authenticate**):
-
-```sh
-claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp
-```
-
-Or with an API key, for CI and clients without OAuth:
+No local binary needed. Connect with an API key:
 
 ```sh
 claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Authorization: Bearer rsk_..."
 ```
+
+Coming soon: sign in with Rowsafe instead of a key (add it without `--header`, then run `/mcp` in Claude Code and choose **Authenticate**).
 
 - Every request needs an OAuth access token or an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
 - The endpoint is stateless and answers with plain JSON.
@@ -81,6 +77,12 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 </Tabs>
 
 ## Sign in with Rowsafe (OAuth)
+
+<Callout type="warn" title="Coming soon">
+
+Signing in with Rowsafe from AI apps isn't available yet. Until it is, use an API key with the remote endpoint (`Authorization: Bearer rsk_...`), or the local `rowsafe mcp`: see [Set up](#set-up). This section describes how it will work.
+
+</Callout>
 
 The remote endpoint is an OAuth 2.1 protected resource, following the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (2026-07-28). MCP clients discover everything from the first `401`; you only give them the URL. See [Connect AI apps](/docs/guides/connect-ai-apps) for each client.
 

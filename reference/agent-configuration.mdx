@@ -11,7 +11,7 @@ In `agent.env`, values are single-quoted and must not contain single quotes or n
 
 | Variable | Default | |
 |---|---|---|
-| `ROWSAFE_STORAGE` | `own` | `rowsafe` for [Rowsafe Storage](/docs/guides/rowsafe-storage): the location and short-lived credentials come from Rowsafe, and the `ROWSAFE_REPO_S3_*` settings below are not used (`ROWSAFE_REPO_CIPHER_PASS` still is). `own` for your bucket. |
+| `ROWSAFE_STORAGE` | `own` | `rowsafe` for [Rowsafe Storage](/docs/guides/rowsafe-storage) (coming soon, not available yet): the location and short-lived credentials come from Rowsafe, and the `ROWSAFE_REPO_S3_*` settings below are not used (`ROWSAFE_REPO_CIPHER_PASS` still is). `own` for your bucket. |
 
 ## Bucket (repository)
 
@@ -143,7 +143,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--allow-reboot` | Allow rebooting the server from Rowsafe, without asking. Needs `--allow-restart`. |
 | `--no-allow-reboot` | Don't allow it, without asking. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
-| `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage); works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
+| `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage), coming soon; works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
 | `--check-storage` | Test the backup storage in `agent.env` (your bucket, or Rowsafe Storage through the agent, and the second copy's, if there is one). Change nothing. |
 | `--add-storage` | Add a second copy in another bucket, with questions like the first storage, or move it to another bucket. Without a terminal, takes `ROWSAFE_REPO2_*` from the environment and tests it before saving. |

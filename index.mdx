@@ -7,6 +7,25 @@ Rowsafe protects the databases you already run, on your own servers or in Docker
 
 You keep your database where it is. You don't move it to a hosted service.
 
+## Start here
+
+New to Rowsafe, or to running a database? Read these four pages in order.
+
+<Cards>
+  <Card title="1. Quickstart" href="/docs/quickstart">
+    Protect your first database with one command, in about 10 minutes.
+  </Card>
+  <Card title="2. What Rowsafe does for you" href="/docs/what-rowsafe-does">
+    What runs by itself, what you do on a bad day, and what Rowsafe never does.
+  </Card>
+  <Card title="3. Your first restore" href="/docs/first-restore">
+    A safe practice run: delete rows on purpose, then get them back.
+  </Card>
+  <Card title="4. Glossary" href="/docs/glossary">
+    Every word on these pages, in plain words.
+  </Card>
+</Cards>
+
 ## What you get
 
 <Cards>
@@ -52,7 +71,7 @@ Your S3-compatible bucket
 ```
 
 1. A small open-source **agent** runs next to your database. It only makes outbound HTTPS requests. Nothing on your server listens for Rowsafe.
-2. The agent encrypts backups **on your server** and sends them to **your own bucket**, or to [Rowsafe Storage](/docs/guides/rowsafe-storage) if you'd rather not set one up. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
+2. The agent encrypts backups **on your server** and sends them to **your own bucket**. ([Rowsafe Storage](/docs/guides/rowsafe-storage), a bucket run by Rowsafe, is coming soon.) Rowsafe never sees your data, your bucket keys or your encryption passphrase.
 3. The hosted **Rowsafe service** schedules backups and the weekly Proof, keeps the history, watches for problems and alerts you.
 
 Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
@@ -62,12 +81,12 @@ Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
 | Database | Status | Where |
 |---|---|---|
 | PostgreSQL 13 to 18 | **Supported** | Linux servers (Debian 12/13, Ubuntu 22.04/24.04) and Docker (official `postgres` images, 14 to 18) |
-| MySQL | Planned | |
-| MariaDB | Planned | |
-| MongoDB | Planned | |
+| MySQL 8.0, 8.4 | **Beta** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
+| MariaDB 10.6, 10.11, 11.4 | **Beta** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
+| MongoDB | **Beta** | Docs come with its release |
 | Redis / Valkey | Planned | |
 
-Planned engines are not available yet, and we don't give dates. The rest of these docs describe PostgreSQL.
+PostgreSQL is the fully supported engine, and most of these docs describe it. **Beta** means it works end to end in our tests so far, and may still change; the MySQL and MariaDB guide lists its [limits](/docs/guides/mysql#honest-limits). [Tell us](/contact) about any problem. Planned engines are not available yet, and we don't give dates.
 
 ## Safety first
 
@@ -79,19 +98,62 @@ Rowsafe works on production databases, so it is careful by design:
 - **Your secrets stay on your server.** Backups are encrypted before they leave it.
 - **Signed releases.** The agent only installs and runs releases signed by Rowsafe, and rolls back a bad update by itself.
 
-## Next steps
+## Every feature
 
-<Cards>
-  <Card title="Quickstart" href="/docs/quickstart">
-    Protect your first database with one command, in about 10 minutes.
-  </Card>
-  <Card title="Adopt a production database" href="/docs/guides/adopt">
-    The careful, step-by-step version for a server that matters, and automation.
-  </Card>
-  <Card title="Restore a database" href="/docs/guides/restore">
-    Rewind: restore a copy, bring back deleted rows, or rewind the whole database to a point in time or a Mark.
-  </Card>
-  <Card title="Use Rowsafe with AI agents" href="/docs/guides/ai-agents">
-    Guard: a Mark before every migration an agent runs.
-  </Card>
-</Cards>
+One line each, grouped by what you want to do. The [features page](/features) lists them too.
+
+### Rewind: get data back
+
+- [Restore a database](/docs/guides/restore): go back to any second or to a Mark. Restore a copy and bring back rows, or rewind the whole database, with undo.
+- [Find the moment](/docs/guides/find-the-moment): find the exact second rows were deleted or a table was dropped.
+- [Marks](/docs/concepts/restore-points): name a moment before a risky change, so you can rewind exactly to it.
+- [Backups and point-in-time recovery](/docs/concepts/backups-and-recovery): full and differential backups plus every change, and how far back you can go.
+
+### Proof: know your backups restore
+
+- [Proof](/docs/concepts/restore-drills): every week, Rowsafe restores your latest backup on a scratch copy and checks it.
+- [Protection status](/docs/concepts/protection-status): one yes-or-no answer to "could this database be restored right now?".
+
+### Pulse: health and speed
+
+- [Monitoring and alerts](/docs/guides/monitoring): the health score, findings with **Apply fix**, alerts, slow queries and the Monday email.
+- [Logs](/docs/guides/logs): PostgreSQL's log in the dashboard, with values removed on your server.
+- [Tuning](/docs/guides/tuning): PostgreSQL's settings explained, and set for your server in one click, with undo.
+- [Recommendations](/docs/guides/recommendations): what will bite later, and indexes proven on a copy of your database.
+- [Ask Rowsafe](/docs/guides/ask): ask about your databases in plain words.
+
+### Guard: AI agents and deploys
+
+- [Guard for AI agents](/docs/guides/ai-agents): coding agents check the database is safe and save a Mark before risky changes.
+- [Connect AI apps](/docs/guides/connect-ai-apps): use Rowsafe from Claude, ChatGPT, Cursor, VS Code, Codex or Windsurf.
+- [Save a Mark before every deploy](/docs/guides/deploys): one step in GitHub Actions, GitLab CI, Bitbucket or any CI.
+- [Preview a migration](/docs/guides/preview-migrations): run it on a fresh copy first and see what it would do.
+- [Safe copies](/docs/guides/safe-copies): a masked copy of your database for developers and AI agents.
+
+### Run your database
+
+- [Update and upgrade PostgreSQL](/docs/guides/updates): minor updates in one click, major upgrades after a rehearsal.
+- [Standby servers and failover](/docs/guides/standby): a second server in sync, to read from and to promote.
+- [Move to a new server](/docs/guides/move): about a minute of downtime, nothing lost, with a way back.
+- [Create databases and users](/docs/guides/databases-and-users): without logging in to the server; passwords only you see.
+- [Teams, API keys and audit log](/docs/guides/teams): roles, keys for scripts and CI, and who changed what.
+- [Updating the agent](/docs/guides/agent-updates): signed, self-testing updates, and how to uninstall.
+
+### Set up
+
+- [Set up backup storage](/docs/guides/storage): a bucket at Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces or any S3-compatible storage.
+- [Rowsafe Storage](/docs/guides/rowsafe-storage) (coming soon): a bucket run by Rowsafe, so you don't set one up.
+- [Keep a second copy](/docs/guides/second-copy): your backups in a second bucket at another provider.
+- [Adopt a production database](/docs/guides/adopt): the careful, step-by-step setup for a server that matters.
+- [Run the agent in Docker](/docs/guides/docker): PostgreSQL in the official `postgres` image.
+- [MySQL and MariaDB](/docs/guides/mysql) (Beta): the same protection for MySQL and MariaDB.
+- [Move in from a managed database](/docs/guides/move-in): from RDS, Supabase, Neon, DigitalOcean and others onto your own server.
+- [Plans and limits](/docs/concepts/plans-and-limits): every plan has every feature.
+
+### How it works underneath
+
+- [How Rowsafe works](/docs/concepts/how-it-works): the agent, the Rowsafe service and your bucket, and what each can do.
+- [Hosts and agents](/docs/concepts/hosts-and-agents): how servers join, report in and update.
+- [How PostgreSQL backups work](/docs/concepts/postgresql): WAL archiving with pgBackRest, and the settings Rowsafe changes.
+- [How MySQL and MariaDB backups work](/docs/concepts/mysql) (Beta): physical backups and the binary log.
+- [Security model](/docs/security): what Rowsafe can and can't see or do.

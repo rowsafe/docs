@@ -76,7 +76,7 @@ Each database has three schedules, in UTC, written as 5-field cron expressions:
 - Schedules start when a database becomes `active`. Missed runs are not replayed as a backlog.
 - If the previous run is still going, the next one is skipped.
 - A schedule may run at most once an hour.
-- Change them with `rowsafe set` or in the database's settings in the dashboard.
+- Change them in the database's settings in the dashboard, or with `rowsafe set`.
 
 ## If the service is down
 

@@ -3,6 +3,12 @@ title: Protect MySQL or MariaDB
 description: Backups to your own bucket, restore to any second, a weekly restore test and monitoring for MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4, on a server or in Docker.
 ---
 
+<Callout title="Beta">
+
+MySQL and MariaDB support is in **Beta**. It works end to end in our tests so far, and it may still change. PostgreSQL is the fully supported engine. If something doesn't work as this page says, [tell us](/contact). The [honest limits](/docs/guides/mysql#honest-limits) list what it doesn't do yet.
+
+</Callout>
+
 Rowsafe protects MySQL and MariaDB the way it protects PostgreSQL: physical backups encrypted on your server and stored in your own bucket, every change copied there continuously so you can restore **any second**, a weekly **Proof** that the backups really restore, **Rewind** copies to bring deleted rows back, **Marks**, and **Pulse** monitoring with fixes. How it works under the hood: [How MySQL and MariaDB backups work](/docs/concepts/mysql).
 
 ## Supported versions

@@ -44,10 +44,11 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 - create databases, users and extensions, give a user access to databases, remove a user (handing what it owns to another user) or a database (after a Mark), or set a new password on an existing user, which locks out apps using the old one until they get the new one. They could not read a password Rowsafe made: it is encrypted to the browser or CLI that asked;
 - with standby servers (`ROWSAFE_STANDBY=on`, the default): promote a standby, which stops the old primary for good, even where restarts aren't allowed; and pair a server of its own as a standby, which would receive the bucket settings. `ROWSAFE_STANDBY=pinned` or `off` rules both out;
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
+- change PostgreSQL settings an owner or admin picks in [Tuning](/docs/guides/tuning) (and the logging settings of **Turn on useful logging**): with `ALTER SYSTEM` and a reload, after a Mark. Values PostgreSQL might not start with are refused, and settings that need a restart wait for one;
 - during a move you started, switch it over (the old database goes read-only until you make it writable again) or cancel it (deleting the partial copy on your server);
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
 - withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back;
-- with [Rowsafe Storage](/docs/guides/rowsafe-storage) only: delete or withhold your backups, because Rowsafe runs that bucket. They still couldn't read them. If that matters to you, use your own bucket.
+- with [Rowsafe Storage](/docs/guides/rowsafe-storage) only (coming soon, not available yet): delete or withhold your backups, because Rowsafe runs that bucket. They still couldn't read them. If that matters to you, use your own bucket.
 
 They **could not**:
 
@@ -59,7 +60,7 @@ They **could not**:
 - install or remove packages other than PostgreSQL's own and the security repository's upgrades, downgrade PostgreSQL, or do any of the updates on a server where you didn't allow them;
 - read your rows: comparisons and restores run on your server and report only counts and sizes;
 - drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped (removing a whole database is the exception above, always after a Mark);
-- change settings other than the archiving settings above.
+- change the settings Rowsafe uses for backups, restores, standbys or its own connection through Tuning, or restart PostgreSQL to apply a setting on a server where you didn't allow restarts.
 
 ## Encryption
 

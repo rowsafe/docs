@@ -107,7 +107,7 @@ sudo tail -50 /var/log/rowsafe/app-archive-push.log
 
 Common causes:
 
-- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env` and restart the agent (the keys never leave your server, so this part is yours). Then click **Test again** on the Health page (or run `rowsafe verify app`): it rewrites the configuration `archive_command` uses and proves it works.
+- **The bucket keys were rotated or revoked**, or the token's IP allowlist no longer matches the server. Update `/etc/rowsafe/agent.env` and restart the agent (the keys never leave your server, so this part is yours). Then click **Check again** on the Health page (or run `rowsafe verify app`): it rewrites the configuration `archive_command` uses and proves it works.
 - **The bucket is unreachable** from the server: firewall, DNS or a provider outage. Archiving catches up by itself once it's reachable again.
 - **A full disk** on the server.
 - In **Docker**, the agent container is stopped, or can't reach the bucket: WAL waits in the spool. `docker compose logs rowsafe-agent` shows the pgBackRest error. Don't delete spooled files.

@@ -1,0 +1,194 @@
+---
+title: Glossary
+description: The words you see in Rowsafe and in these docs, explained in plain words, from agent to WAL, each with a link to its guide.
+---
+
+The words you meet in Rowsafe, in plain words, A to Z. Each one links to the page that explains it in full.
+
+## Agent
+
+The small open-source program Rowsafe installs on your database server (or runs next to your database container). It takes the backups, runs Proof and checks, and reports health. It only makes outbound connections: nothing on your server listens for Rowsafe. See [Hosts and agents](/docs/concepts/hosts-and-agents).
+
+## API key
+
+A key (`rsk_...`) that lets the CLI, a script, a CI job or an AI assistant use your organization's Rowsafe. A **read-only** key can only look. Create one in the dashboard under **Settings**, then **API keys**. See [API keys](/docs/guides/teams#api-keys).
+
+## Apply fix
+
+The button on a Pulse finding that fixes the problem for you: Rowsafe does the work on your server, after you confirm. See [Apply fix](/docs/guides/monitoring#apply-fix).
+
+## Ask Rowsafe
+
+Ask questions about your databases in plain words, such as "Why is my database slow today?", and get an answer from Rowsafe's own data, with the fix as a button when there is one. See [Ask Rowsafe](/docs/guides/ask).
+
+## Backup
+
+A copy of the whole database, taken on a schedule. A **full** backup copies everything (Sundays by default). A **differential** backup copies only what changed since the last full one (the other nights), so it is smaller and faster. See [Backup types](/docs/concepts/backups-and-recovery#backup-types).
+
+## Bring back rows
+
+Put rows you lost back into production from a restored [copy](#copy), without touching anything else. Rows added since stay as they are. See [Bring back rows](/docs/guides/restore#bring-back-rows).
+
+## Bucket
+
+A place in cloud storage where your backups are kept: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces or any **S3-compatible** storage (storage that speaks the same language as Amazon S3). It is yours, and Rowsafe never has its keys. See [Set up backup storage](/docs/guides/storage).
+
+## Change log (WAL)
+
+PostgreSQL's running diary of every change. Rowsafe copies it to your bucket continuously, at most about a minute behind, so it can replay changes up to any second. PostgreSQL calls it the write-ahead log, or WAL. See [How PostgreSQL backups work](/docs/concepts/postgresql#wal-archiving).
+
+## Connection pooling
+
+A pooler, such as PgBouncer, sits between your apps and PostgreSQL. Many app connections share a few database connections, so a busy app doesn't run PostgreSQL out of connections. A guide to connection pooling with Rowsafe is coming.
+
+## Control plane
+
+See [Rowsafe service](#rowsafe-service).
+
+## Copy
+
+A **Rewind copy**: your database as it was at a moment you pick, restored on your own server next to production. It is private (no network port), read-only, and deleted by itself after 24 hours unless you keep it longer. You compare it with production and [bring back rows](#bring-back-rows) from it. See [Restore a copy](/docs/guides/restore#restore-a-copy).
+
+## Database
+
+In Rowsafe, a "database" is one PostgreSQL server instance (a cluster): one host and port, with every database inside it. They are backed up, restored and checked together. See [Create databases and users](/docs/guides/databases-and-users).
+
+## Drill
+
+The internal name for a [Proof](#proof) run. You see it in task lists and logs.
+
+## Encryption passphrase
+
+The secret that encrypts your backups on your server before they leave it. It is created on your server and stays there: Rowsafe never has it. **Without it, no backup can be restored**, so keep it in your password manager. See [The encryption passphrase](/docs/guides/storage#the-encryption-passphrase).
+
+## Enrollment token
+
+A one-time code (`rse_...`) in the install command that joins a new server to your organization. It is valid for one hour by default and works once. See [Enrollment](/docs/concepts/hosts-and-agents#enrollment).
+
+## Failover
+
+Switching your database to its [standby](#standby) when the main server (the primary) dies. You can do it by hand (**Promote**) or let Rowsafe do it automatically, which is off by default. See [Promote the standby](/docs/guides/standby#promote-the-standby) and [Automatic failover](/docs/guides/standby#automatic-failover).
+
+## Find the moment
+
+Finds the exact second rows were deleted or changed, or a table was emptied or dropped, so you can rewind to just before it instead of guessing. See [Find the moment](/docs/guides/find-the-moment).
+
+## Finding
+
+One problem Pulse found, in plain words, such as "the disk will be full in about 9 days". Most come with an [Apply fix](#apply-fix) button. See [Pulse](/docs/guides/monitoring#health-score).
+
+## Guard
+
+Rowsafe's safety net for AI coding agents: the MCP tools, the Claude Code plugin, the `rowsafe guard` hook, migration previews, safe copies and the GitHub Action. Before a risky change, the agent checks the database is safe and saves a [Mark](#mark). See [Guard](/docs/guides/ai-agents).
+
+## Health score
+
+A number from 0 to 100 for each database. It starts at 100 and loses points for each problem. One critical problem caps it at 59, and a warning at 89, so a serious problem is never hidden. See [Health score](/docs/guides/monitoring#health-score).
+
+## Host
+
+A server (or, with Docker, the agent's container) running the Rowsafe [agent](#agent). One host can protect several databases. The dashboard calls hosts **Servers**. See [Hosts and agents](/docs/concepts/hosts-and-agents).
+
+## Logs
+
+PostgreSQL's own log in the dashboard, with values removed on your server before anything is sent. Filter errors and slow queries, and watch it live. See [Logs](/docs/guides/logs).
+
+## Major upgrade
+
+Moving PostgreSQL to a new major version, for example 16 to 18. Rowsafe checks first, rehearses it on a copy, then upgrades, with undo. It needs Debian or Ubuntu, with PostgreSQL installed from packages. See [Major upgrades](/docs/guides/updates#major-upgrades).
+
+## Mark
+
+A named restore point, such as `before-migration-42`: a moment you can rewind to exactly. Set one before a risky change; AI agents set them through Guard. See [Marks](/docs/concepts/restore-points).
+
+## MCP
+
+The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health and save Marks. No MCP tool restores, rewinds, restarts PostgreSQL or applies fixes. See [MCP server](/docs/reference/mcp).
+
+## Migration preview
+
+Runs a migration on a fresh copy of your database first, and tells you what it would do to production: locks, table rewrites, time. Production is never touched. See [Preview a migration](/docs/guides/preview-migrations).
+
+## Minor update
+
+A bug and security release of the PostgreSQL version you run, for example 16.9 to 16.10. One click and a restart of a few seconds, on Debian or Ubuntu servers with PostgreSQL installed from packages. See [Minor updates](/docs/guides/updates#minor-updates).
+
+## Move in
+
+Copies a database from a managed provider (RDS, Supabase, Neon, DigitalOcean and others) onto your own server, while your apps keep running. See [Move in](/docs/guides/move-in).
+
+## Point-in-time recovery
+
+Restoring a database to any second you choose, not only to the last backup. Rowsafe starts from a [backup](#backup) and replays the [change log](#change-log-wal) up to that second. Also called **restore to any second**. See [Backups and point-in-time recovery](/docs/concepts/backups-and-recovery).
+
+## Promote
+
+Making a [standby](#standby) the main server. See [Failover](#failover).
+
+## Proof
+
+Rowsafe's weekly restore test. Every week it restores your latest backup into a private scratch copy, checks it, and deletes it, so you know restores work before you need one. Internally called a "drill". See [Proof](/docs/concepts/restore-drills).
+
+## Protected
+
+Rowsafe's yes-or-no answer to "could this database be restored right now?": recent backups, changes reaching the bucket, and a passing Proof. See [Protection status](/docs/concepts/protection-status).
+
+## Pulse
+
+Rowsafe's monitoring: the [health score](#health-score), findings with [Apply fix](#apply-fix), alerts, slow queries, [logs](#logs), [tuning](#tuning), [recommendations](#recommendations) and the Monday email, "Your weekly Pulse". See [Pulse](/docs/guides/monitoring).
+
+## Recommendations
+
+Suggestions that aren't problems yet but will be, or that would make the database faster or cheaper: a missing index, an id column running out of numbers. Rowsafe applies the safe ones for you. See [Recommendations](/docs/guides/recommendations).
+
+## Recovery window
+
+How far back you can go: from the start of your oldest kept full backup up to the last change saved, about a minute ago. With the default [retention](#retention), about two weeks. See [The recovery window](/docs/concepts/backups-and-recovery#the-recovery-window).
+
+## Replica
+
+See [Standby](#standby).
+
+## Retention
+
+How many full backups Rowsafe keeps (2 by default). Older ones are removed for you. More full backups means a longer [recovery window](#recovery-window). See [The recovery window](/docs/concepts/backups-and-recovery#the-recovery-window).
+
+## Rewind
+
+Every change saved, and restore to any second or to a [Mark](#mark), in one click: restore a [copy](#copy) and [bring back rows](#bring-back-rows), or [rewind in place](#rewind-in-place). See [Restore a database](/docs/guides/restore).
+
+## Rewind in place
+
+Rewinding the whole live database to a moment, for the worst case. PostgreSQL stops while Rowsafe restores it. What was written after that moment is kept aside for 7 days, so you can **undo** the rewind. See [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database).
+
+## Rowsafe service
+
+The hosted part of Rowsafe (also called the control plane): the dashboard, the API, schedules, history and alerts. It tells the agent what to do, and never sees your data or your secrets. See [How Rowsafe works](/docs/concepts/how-it-works).
+
+## Rowsafe Storage
+
+**Coming soon, not available yet.** A bucket run by Rowsafe, so you don't have to set one up, with backups still encrypted on your server. Until it's available, use [your own bucket](/docs/guides/storage). See [Rowsafe Storage](/docs/guides/rowsafe-storage).
+
+## Safe copy
+
+A copy of your database with personal data replaced by realistic fakes, that developers and AI agents can connect to and test against. It deletes itself after a day unless you keep it longer. See [Safe copies](/docs/guides/safe-copies).
+
+## Second copy
+
+Your backups kept in a second bucket too, ideally at another provider, so losing one bucket or account never loses them. See [Keep a second copy](/docs/guides/second-copy).
+
+## Server
+
+See [Host](#host).
+
+## Standby
+
+A second server kept in sync with your database, also called a replica. You can read from it, and promote it when the main server dies. One standby per database. See [Standby servers and failover](/docs/guides/standby).
+
+## Tuning
+
+PostgreSQL's settings that matter, explained, with values that suit your server's memory, CPUs and disk. Rowsafe changes them when you click, with undo. See [Tuning](/docs/guides/tuning).
+
+## WAL
+
+See [Change log (WAL)](#change-log-wal).

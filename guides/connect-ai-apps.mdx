@@ -1,7 +1,18 @@
 ---
 title: Connect AI apps
-description: Add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf. You sign in with Rowsafe and choose what the app may do; no API key.
+description: Add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf. Today you connect with an API key or the local rowsafe mcp; signing in with Rowsafe, with no key, is coming soon.
 ---
+
+<Callout type="warn" title="Sign in with Rowsafe is coming soon">
+
+Signing in with Rowsafe from AI apps (the OAuth steps on this page) isn't available yet. Until it is, connect your app with an **API key**:
+
+- **Remote**, with the key in a header: `https://api.rowsafe.sh/mcp` with `Authorization: Bearer rsk_...`. Use a [read-only key](/docs/guides/teams#api-keys) for an assistant that should only look. See the **Remote endpoint** tab in the [MCP reference](/docs/reference/mcp#set-up).
+- **Local**, with `rowsafe mcp` on your own computer: it uses your CLI login, or `ROWSAFE_API_KEY`. See [Guard](/docs/guides/ai-agents#set-it-up) and the [MCP reference](/docs/reference/mcp#set-up).
+
+In the dashboard, the **Use your own AI** tab of the Ask panel shows the setup for each assistant; see [Ask Rowsafe](/docs/guides/ask#use-your-own-ai-assistant-instead). The rest of this page describes how signing in will work.
+
+</Callout>
 
 Ask your AI app "Are my databases backed up?", "Why is the orders database slow today?" or "What should I fix first?", and let coding agents save a [Mark](/docs/concepts/restore-points) before a risky change. Apps connect to Rowsafe's MCP server at:
 
@@ -9,7 +20,7 @@ Ask your AI app "Are my databases backed up?", "Why is the orders database slow 
 https://api.rowsafe.sh/mcp
 ```
 
-The first time, the app opens Rowsafe in your browser. You pick the organization, choose whether the app may save Marks, and click **Allow**. That's it: no API key to create or paste. The dashboard has the same steps, with one-click install links for Cursor and VS Code, under **Ask your AI**.
+Once signing in with Rowsafe is available: the first time, the app opens Rowsafe in your browser. You pick the organization, choose whether the app may save Marks, and click **Allow**. That's it: no API key to create or paste. The dashboard has the same steps, with one-click install links for Cursor and VS Code, under **Ask your AI**.
 
 ## What a connected app can do
 

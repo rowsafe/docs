@@ -103,6 +103,9 @@ What Rowsafe can fix:
 | Some changes didn't reach the second copy, or it has no full backup | **Back up to the second copy** | A full backup into the [second copy](/docs/guides/second-copy). |
 | Keeping one full backup fewer would save money, safely | **Keep 1 full backup** | Changes the setting; the oldest full backup goes away at the next backup (after you confirm). |
 | The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
+| PostgreSQL uses default memory settings on a bigger server | **Tune for this server** | Applies the recommended settings, after saving a Mark. See [Tuning](/docs/guides/tuning). |
+| Query statistics are off (`pg_stat_statements` isn't loaded) | **Turn on query statistics** | Adds it to `shared_preload_libraries`; it starts after the next restart. |
+| Changed settings wait for a restart | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts during install. |
 | A newer PostgreSQL minor release is available | **Update to 16.10** | Saves a Mark, installs the release and restarts PostgreSQL, on servers where you allowed updates. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
 | A newer release is installed but not running yet | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts. |
 | Security updates are waiting | **Install security updates** | Saves a Mark, installs the server's security updates (not PostgreSQL's own packages), on servers where you allowed them. |

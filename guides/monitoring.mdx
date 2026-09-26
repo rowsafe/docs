@@ -50,6 +50,7 @@ To turn on `pg_stat_statements`, add it to `shared_preload_libraries` (a restart
 - **Activity query text is not normalized**: it is the statement as the client sent it, which can include personal data. Set `ROWSAFE_COLLECT_QUERY_TEXT=false` in `/etc/rowsafe/agent.env` to send activity without query text.
 - A statement that looks like it carries a password (`CREATE ROLE ... PASSWORD`, `password=` in a connection string, and similar) is redacted on your server before it is sent.
 - `ROWSAFE_MONITORING=false` turns monitoring off. The agent then sends only heartbeats and task results.
+- PostgreSQL's own log is separate: see [Logs](/docs/guides/logs) for what it sends and how values are removed.
 
 ### Retention
 

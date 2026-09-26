@@ -125,6 +125,7 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 | `database_insights` | read | Largest tables, unused and duplicate indexes, estimated bloat, dead rows, tables that may need an index. |
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `database_settings` | read | PostgreSQL's settings that matter, explained, with the server's memory, CPUs and disk, what Rowsafe recommends for it, and recent changes. No tool changes settings: people do, in [Tuning](/docs/guides/tuning). |
+| `get_logs` | read | PostgreSQL's log (values removed on the server): errors, slow queries, lock waits, failed logins, or repeated messages with counts. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
 | `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
@@ -156,6 +157,7 @@ There is also one prompt, `incident_triage`: check the fleet, read the evidence 
 | `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
 | `database_settings` | `database` (required), `workload` (`web`, `analytics`, `mixed`) |
 | `query_trends` | `database` (required), `since_hours` (1 to 336, default 24), `sort` (`total_time`, `calls`, `mean_time`, `rows`), `limit` (1 to 50, default 10), `query_id` |
+| `get_logs` | `database` (required), `kind` (`errors`, `locks`, `maintenance` or one kind), `search`, `grouped`, `limit` (1 to 200, default 50) |
 | `list_backups` | `database` (required), `limit` (1 to 100, default 20) |
 | `list_drills` | `database` (required), `limit` (1 to 50, default 10) |
 | `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`), `limit` (1 to 100, default 20) |

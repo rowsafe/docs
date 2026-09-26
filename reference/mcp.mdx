@@ -103,7 +103,7 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 - **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL, restores a backup or reads backup contents: Rowsafe can't do those at all.
 - **No restarts.** No tool restarts PostgreSQL, even on a server where restarts from the dashboard are allowed. Only a person can, in the dashboard or with `rowsafe restart`.
 - **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only, plus the copy tools, which never touch production (`preview_migration` runs SQL on a fresh copy as a regular role; `create_safe_copy` makes masked copies only, within your plan's limit). `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds every write tool.
-- **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, and agent update settings.
+- **Not exposed at all:** enrollment tokens, API keys, removing hosts or databases, plan changes, agent update settings, and creating or removing databases, users or extensions inside a server (and their passwords).
 - **`apply_adoption` needs your approval.** It refuses unless `confirm` is the database's exact name and a read-only plan succeeded. Its description tells the model to show you the plan and ask first, and never to pass `force` unless you asked.
 - **Annotations.** Read tools are marked read-only. `apply_adoption` and `update_schedule` (lowering retention deletes old backups) are marked destructive, so clients that confirm destructive calls will ask you.
 - **No secrets in output.** Bucket keys and the passphrase never leave your server. Outputs are capped in size.
@@ -131,6 +131,7 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 | `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
 | `find_moment` | read | [Find the moment](/docs/guides/find-the-moment): when rows were deleted or changed, or a table emptied or dropped, with the exact time and the point just before it. |
+| `list_databases_on_server` | read | The databases, users and extensions inside one server, as last read. Creating or removing them is for people. |
 | `create_restore_point` | restore points | Set a Mark: name this moment, and wait until it is in your bucket. |
 | `preview_migration` | read | [Preview a migration](/docs/guides/preview-migrations): run its SQL on a fresh copy of the database (never production) and get a verdict with suggestions. |
 | `get_preview` | read | A preview's result, when it wasn't done within the wait. |

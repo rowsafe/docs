@@ -86,8 +86,10 @@ The installer verifies the agent's signature and installs pgBackRest if it is mi
 
 1. **The bucket URL**, then the access key ID and secret. It writes, reads back and deletes a test file in the bucket. If that fails, it tells you why (wrong key, wrong region, missing delete access) and asks again.
 2. **The passphrase.** Choose **Use my own passphrase** and paste the one from your secret manager. Input is hidden.
-3. **The database.** It finds PostgreSQL on the server, for example `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`, and asks `Name it in Rowsafe [app]:`. The name covers the whole PostgreSQL server (all its databases): lowercase letters, digits and dashes.
-4. **The plan**, then `Nothing changes until you say yes. Turn on backups for app now? [Y/n]`.
+3. **Restarts.** Once it has found PostgreSQL, it asks `Allow Rowsafe to restart or stop PostgreSQL when you ask?`. If you allow it, admins and owners can restart it later with a button, always with a confirmation.
+4. **PgBouncer.** `Allow Rowsafe to install and manage PgBouncer?`. Nothing is installed now. If you allow it, an admin or owner can later turn [connection pooling](/docs/guides/connection-pooling) on, with a confirmation. You can change both answers by running the install command again (or with `--allow-restart`, `--no-allow-restart`, `--allow-pooler`, `--no-allow-pooler`).
+5. **The database.** For the PostgreSQL it found, for example `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`, it asks `Name it in Rowsafe [app]:`. The name covers the whole PostgreSQL server (all its databases): lowercase letters, digits and dashes.
+6. **The plan**, then `Nothing changes until you say yes. Turn on backups for app now? [Y/n]`.
 
 Read the plan before you answer. For a typical server it changes:
 
@@ -103,10 +105,7 @@ If `wal_level` is `minimal`, it becomes `replica` (also a restart). **Answer `n`
 
 When you answer yes, the agent writes the pgBackRest configuration, runs `stanza-create` (the first real test of the bucket, token and passphrase: if it fails, nothing in PostgreSQL has changed yet), then sets the settings with `ALTER SYSTEM` and reloads. There is no downtime.
 
-Two more questions follow:
-
-- `Restart PostgreSQL now? [y/N]`: for production, answer **N** and restart in your maintenance window (next step).
-- `Allow restarting PostgreSQL from the Rowsafe dashboard?`: if you allow it, admins and owners can restart it later with a button, always with a confirmation. You can change your answer by running the install command again.
+One last question follows: `Restart PostgreSQL now? [y/N]`. For production, answer **N** and restart in your maintenance window (next step).
 
 On your computer or in the dashboard, check that the server reports in (`rowsafe hosts list`: `db-1`, the agent version, last seen a few seconds ago). On the server, `sudo journalctl -u rowsafe-agent -n 20` should show `enrolled` and no errors. You can now delete the `ROWSAFE_ENROLL_TOKEN` line from `/etc/rowsafe/agent.env`: it is used up.
 

@@ -14,9 +14,9 @@ Rowsafe is built so that the hosted service never needs your data or your secret
 
 The agent:
 
-- connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
-- makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket (or Rowsafe Storage). Nothing listens on your server;
-- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, the [security check](/docs/guides/security) and its fixes, and PostgreSQL updates and upgrades, security updates and reboots (only on a server where you allowed them), and Databases & users (create or remove databases, users and extensions, when a person asks), the [standby](/docs/guides/standby) tasks, and the Rewind tasks: restore a copy, compare, bring back rows, rewind in place, undo and clean up. It never runs commands or SQL sent over the network.
+- connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups). With connection pooling on, it also logs in over TCP as `rowsafe_pgbouncer`, to check that PgBouncer can reach PostgreSQL;
+- makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket (or Rowsafe Storage). Nothing listens on your server (except PgBouncer, if you turn [connection pooling](/docs/guides/connection-pooling) on);
+- runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart and connection pooling (each only on a server where you allowed it), maintenance, a short list of fixes described below, the [security check](/docs/guides/security) and its fixes, and PostgreSQL updates and upgrades, security updates and reboots (only on a server where you allowed them), and Databases & users (create or remove databases, users and extensions, when a person asks), the [standby](/docs/guides/standby) tasks, and the Rewind tasks: restore a copy, compare, bring back rows, rewind in place, undo and clean up. It never runs commands or SQL sent over the network.
 
 Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards. A Rewind copy is restored the same way and kept until it expires (24 hours by default, at most 7 days); the agent deletes it on time even when it can't reach Rowsafe.
 
@@ -36,12 +36,15 @@ Proof, the weekly restore test, restores your data onto the same server, into a 
 
 **The firewall is opt-in.** With `--allow-firewall` at install, a small root helper can let only chosen addresses reach PostgreSQL's port, in an nftables table of its own. It never touches SSH or other ports, and puts the previous rules back unless the agent confirms within a minute that it still reaches Rowsafe.
 
+**Connection pooling is opt-in.** Rowsafe installs and manages PgBouncer only on servers where root allowed it during install (`--allow-pooler`), and only when someone turns pooling on and confirms. The agent never gets root: a separate root helper does the work, checks every value, writes PgBouncer's configuration from its own template, and only ever installs or removes the `pgbouncer` package. PgBouncer looks passwords up through a role that sees the password hashes of login roles, never those of superusers. Read-only API keys and MCP can't change pooling. See [Connection pooling](/docs/guides/connection-pooling).
+
 ## What Rowsafe can and can't do
 
 Someone who controlled the Rowsafe service, or held one of your API keys, **could**:
 
 - queue the fixed tasks for your databases: plans, backups, checks, Proof runs and Marks, and apply an adoption plan (which sets `archive_mode`, `archive_command`, `archive_timeout` and, if it is `minimal`, `wal_level`);
 - restart PostgreSQL, a few seconds of downtime, but only on a server where you allowed restarts during install;
+- turn connection pooling on, change it or turn it off, but only on a server where you allowed it during install: install or remove the `pgbouncer` package, create the `rowsafe_pgbouncer` role and its password lookup function, change where PgBouncer listens (public addresses only where root also allowed that, `--allow-pooler-public`), and disconnect apps that connect through it;
 - restore copies of your databases next to production (they use disk and some CPU until they expire), compare them with production, and bring rows back from a copy: insert rows that are missing in production, or set changed rows back to their older values. It never deletes rows this way;
 - on a server where you allowed restarts, rewind a whole database to an earlier moment (downtime while it restores), and delete the data kept aside for undo. Every change is still in your bucket until retention removes it, so you could still [restore it by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server);
 - on a server where you allowed it: install PostgreSQL's minor releases (a restart), upgrade PostgreSQL to a newer major after a rehearsal (minutes of downtime; undo for 7 days), install the server's security updates, or reboot the server;
@@ -64,7 +67,8 @@ They **could not**:
 - change the firewall on a server where you didn't allow it, or touch any port but PostgreSQL's;
 - learn a password: a new one is made in the person's browser, and roles are reported without their hashes;
 - restart PostgreSQL on a server where you didn't allow it, or stop it, except to fence an old primary after a standby promotion (see above);
-- install or remove packages other than PostgreSQL's own and the security repository's upgrades, downgrade PostgreSQL, or do any of the updates on a server where you didn't allow them;
+- install PgBouncer on a server where you didn't allow it, or point it at another server;
+- install or remove packages other than PostgreSQL's own, `pgbouncer` (where you allowed pooling) and the security repository's upgrades, downgrade PostgreSQL, or do any of the updates on a server where you didn't allow them;
 - read your rows: comparisons and restores run on your server and report only counts and sizes;
 - drop a table: the maintenance actions never touch table data, and an index that backs a primary key, unique or exclusion constraint is never dropped (removing a whole database is the exception above, always after a Mark);
 - change the settings Rowsafe uses for backups, restores, standbys or its own connection through Tuning, or restart PostgreSQL to apply a setting on a server where you didn't allow restarts.

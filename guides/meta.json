@@ -28,6 +28,7 @@
     "---Run your database---",
     "updates",
     "standby",
+    "connection-pooling",
     "move",
     "databases-and-users",
     "teams",

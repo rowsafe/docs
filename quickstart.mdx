@@ -120,7 +120,7 @@ That's it. The database now shows up in the dashboard under **Databases**.
 Rowsafe now runs on its own:
 
 - **The first full backup** starts right away.
-- **Rewind** is on: every change is saved to your bucket, at most 5 minutes behind. You can restore to any second from the first backup on.
+- **Rewind** is on: every change is saved to your bucket, at most about a minute behind. You can restore to any second from the first backup on, in one click: see [Restore a database](/docs/guides/restore).
 - **Proof**, the weekly restore test, restores a copy of your database and checks it. The first one runs on Sunday. To run it sooner, wait for the first backup to finish, then click **Run Proof now** on the database's page.
 - **Pulse** watches the database's health and alerts you about problems. Every Monday, "Your weekly Pulse" arrives by email.
 
@@ -128,7 +128,7 @@ By default, in UTC:
 
 | When | What |
 |---|---|
-| Continuously | Every change is saved to your bucket, at most 5 minutes behind |
+| Continuously | Every change is saved to your bucket, at most about a minute behind |
 | Sundays 01:00 | Full backup |
 | Monday to Saturday 01:00 | Differential backup |
 | Sundays 21:15 | Proof (restore test) |

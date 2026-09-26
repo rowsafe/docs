@@ -1,0 +1,73 @@
+---
+title: "Ask Rowsafe"
+description: Ask questions about your databases in plain words, like "Why is my database slow today?", and get answers from Rowsafe's own data, with the fix as a button. What the AI sees, how to turn it on, your own AI key, and using your own AI assistant instead.
+---
+
+**Ask Rowsafe** answers questions about your databases: "Why is app-prod slow today?", "Is it safe to deploy this migration now?", "What should I fix first?", "Could I restore billing right now, and to when?". It looks at the same data you see in the dashboard (Pulse health and findings, query trends, sessions, metrics, alerts, Rewind backups, Proofs and Marks), answers in a few sentences with numbers, and links to the data it used.
+
+When a fix Rowsafe offers is the right next step, the answer comes with the fix as a button. Nothing runs until you click it and confirm, exactly as on the health page. Ask Rowsafe can't change anything by itself.
+
+## Turn it on
+
+Ask Rowsafe is off until an admin or owner turns it on for the organization.
+
+<Steps>
+<Step>
+Open **Settings → Ask Rowsafe**. The page lists what is sent to the AI provider, what never is, and who handles a question.
+</Step>
+<Step>
+Tick **I understand what is sent** and click **Turn on Ask Rowsafe**. The change is in the audit log (`ask.enabled`).
+</Step>
+<Step>
+Press <kbd>⌘</kbd> <kbd>J</kbd> (<kbd>Ctrl</kbd> <kbd>J</kbd> on Windows and Linux) anywhere in the dashboard, or click **Ask** in the top bar. On a database's pages, questions are about that database.
+</Step>
+</Steps>
+
+Everyone in the organization can ask once it's on. **Explain** buttons on health findings, firing alerts and query details open the panel with a question about that item. Turn on **Think deeper** for a stronger (slower) model on hard questions.
+
+## What the AI sees, and what it never sees
+
+| Sent to the AI provider | Never sent |
+|---|---|
+| Your question | The rows in your tables |
+| Health scores, findings and alerts | Passwords, API keys, tokens, connection strings |
+| Metrics and statistics: sizes, times, counts | Backup contents and your encryption passphrase |
+| SQL statements with every value removed (`WHERE email = ?`) | IP addresses and file paths on your servers |
+| Names of databases, tables, indexes and columns | |
+| Backup, Proof and Mark history | |
+
+The model gets this data through read-only lookups that run inside Rowsafe with your organization's permissions: it sees only your organization, and only what the dashboard shows. Rowsafe removes literals from SQL text (running queries included), and scrubs anything that looks like a credential before a lookup's result reaches the model.
+
+**Who handles a question**, with Rowsafe's built-in AI:
+
+1. **Rowsafe** runs the lookups and keeps the conversation for 30 days after its last message.
+2. **[OpenRouter](https://openrouter.ai/docs/guides/privacy/data-collection)** routes the request to a model provider. It doesn't store prompts or answers by default.
+3. **The model's provider**: Rowsafe asks OpenRouter to use only providers that don't store or train on your data (`data_collection: deny`, see [provider routing](https://openrouter.ai/docs/guides/routing/provider-selection)).
+
+With your own key, the chain is Rowsafe and the provider you chose; your provider account's own data settings apply. Answers can be wrong: check the linked data before you act on one.
+
+## Plans and your own AI key
+
+| | Free | Pro | Business |
+|---|---|---|---|
+| Built-in questions per month | none | 500 | 3,000 |
+| Your own AI provider key | yes, unlimited | yes, unlimited | yes, unlimited |
+| Your own AI assistant (MCP) | yes | yes | yes |
+
+Questions reset on the 1st of each month (UTC). A question that fails before it's answered doesn't count. **Settings → Ask Rowsafe** shows how many are left.
+
+To use **your own key** (OpenRouter, Anthropic or OpenAI), click **Use your own AI provider key** in Settings → Ask Rowsafe, paste the key and click **Check and save key**. Rowsafe checks it with the provider, stores it encrypted and never shows it again; you see only its first and last characters. Your provider bills you and Rowsafe doesn't limit the questions. Set a spending limit in your provider's console. **More options** lets you pick the models.
+
+## Use your own AI assistant instead
+
+Already use Claude, ChatGPT, Cursor, Codex or VS Code? Connect it to Rowsafe's MCP server and ask it directly: free on every plan, with the same read-only view (it can't restore, restart or apply fixes). The **Use your own AI** tab of the panel (the plug icon) shows the setup for each assistant, with a suggested prompt to copy. Today this uses a read-only API key; see the [MCP reference](/docs/reference/mcp).
+
+## Conversations and feedback
+
+The panel keeps your conversations: **History** reopens them, the trash icon deletes one. Admins can delete every conversation in Settings → Ask Rowsafe. Conversations are deleted automatically 30 days after their last message. Thumbs up or down on an answer helps us improve Ask Rowsafe; it records the rating, not your data.
+
+## Limits
+
+- Ask Rowsafe answers from what Rowsafe collects. It can't see your application code, your data, or servers without the agent.
+- Each question may look up at most 10 things (16 with Think deeper); very broad questions get a shorter answer. Ask about one database for the best results.
+- It reads the dashboard's data as of now: monitoring is at most a minute old, table statistics about 30 minutes.

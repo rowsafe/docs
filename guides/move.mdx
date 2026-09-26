@@ -1,0 +1,53 @@
+---
+title: Move a database to a new server
+description: Move a PostgreSQL database to another server with about a minute of downtime and nothing lost, at a time you pick, with a way back.
+---
+
+Moving a database, to a bigger server, another provider or a new region, uses the same machinery as a [standby](/docs/guides/standby):
+
+1. Rowsafe sets the **new server** up as a standby from your latest backup and keeps it in sync, while the database keeps running on the old one.
+2. At the **time you pick** (or when you click **Switch now**), it switches over: the old server stops briefly and cleanly, the new one replays every change and takes over. **Nothing is lost.** Apps are disconnected for about a minute.
+3. The **old server stays stopped** for the days you chose (7 by default), as a way back: **Switch back** moves the database back the same way, **Remove old server** lets it go.
+
+A move is always a planned switchover, never a failover: it needs both servers' agents reporting, and it waits rather than lose data. To take over from a server that is gone, [promote the standby](/docs/guides/standby#promote-the-standby) instead.
+
+## What you need
+
+The same as for a standby: the new server has the Rowsafe agent, an **empty PostgreSQL cluster of the same major version**, and Rowsafe may stop and start PostgreSQL on both servers. See [Standby: what you need](/docs/guides/standby#what-you-need).
+
+## Move
+
+In the dashboard: open the database, **Standby**, **Move to a new server**. Pick the server and its cluster, when to switch over, how long to keep the old server, and confirm the new server's key fingerprint (what `sudo -u postgres rowsafe-agent key` prints there). From a terminal:
+
+```sh
+rowsafe move app --to db-2 --at "2026-10-03 23:00" --keep-days 7
+```
+
+Without `--at`, it waits for you:
+
+```sh
+rowsafe move app --to db-2
+rowsafe move switch app
+```
+
+While the new server catches up, **Standby** shows the move's progress and how far behind the new server is. You can change the time (`rowsafe move schedule app --at TIME`) or cancel (`rowsafe move cancel app`): the database stays where it was and the new server's cluster gets its own data back.
+
+If the new server isn't in sync at the set time, the switchover waits until it is. If the old server's agent isn't reporting, it waits too.
+
+## At the switchover
+
+- The old server is **fenced**: `standby.signal` in its data directory, PostgreSQL stopped cleanly through the root helper, its last WAL pushed to your bucket. From now on its agent keeps it stopped.
+- The new server replays up to the old one's last checkpoint, then is promoted. If it can't get everything within 3 minutes, it doesn't switch and says why; the old server stays stopped until you switch over anyway or [start it again](/docs/guides/standby#fencing-the-old-primary-stays-stopped).
+- Backups continue on the new server, in the same bucket: Rowsafe takes a full backup right away.
+- **Rowsafe poolers** that send connections to this database are pointed at the new server. Apps whose connection string lists both servers (see [Connect your apps](/docs/guides/standby#connect-your-apps)) find it by themselves. **Standby** shows the new address for the others.
+
+## Switch back or remove the old server
+
+For the days you chose, the old server keeps its data, stopped:
+
+- **Switch back** (`rowsafe move back app`): the old server follows the new one again, on its own data (fast, no restore), and the switchover back runs by itself as soon as it is in sync. Nothing written on the new server is lost.
+- **Remove old server** (`rowsafe move finish app`, confirmed with the old server's name): Rowsafe stops keeping it stopped. PostgreSQL stays stopped there, and comes back read-only if someone starts it. Remove the server from Rowsafe on the **Servers** page when nothing else runs there, and delete its data when you no longer need it.
+
+When the days run out, switching back is no longer offered; the old server stays stopped until you rebuild it as a standby or forget it.
+
+Every step is in the audit log (`database.move`, `database.move_switch`, `database.move_back`, `database.move_finish`), and only owners and admins can move a database. AI assistants can see a move in progress but can't start or change one.

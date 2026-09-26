@@ -18,7 +18,7 @@ The four parts of Rowsafe:
 
 Never on its own. Settings that need a restart (`archive_mode`, and `wal_level` if it is `minimal`) are written with `ALTER SYSTEM`. The installer asks whether to restart now: usually a few seconds, and open connections are dropped. Say no, and restart when it suits you: Rowsafe notices by itself.
 
-If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. AI agents can't.
+If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. The same permission lets them [rewind the whole database](/docs/guides/restore#rewind-the-whole-database), which stops PostgreSQL while Rowsafe restores it. AI agents can do neither.
 
 </Accordion>
 <Accordion title="Which databases are supported?">
@@ -43,7 +43,9 @@ No. Backups are encrypted on your server before they are uploaded, to your bucke
 </Accordion>
 <Accordion title="How much data can I lose?">
 
-At most about 5 minutes of changes, usually less. PostgreSQL archives each WAL segment as it fills, and at least every 5 minutes (`archive_timeout = 300`). A nightly `pg_dump` can lose up to 24 hours.
+At most about a minute of changes, usually less. PostgreSQL archives each WAL segment as it fills, and at least every minute (`archive_timeout = 60`). A nightly `pg_dump` can lose up to 24 hours.
+
+Databases set up before this was the default archive at least every 5 minutes. **Health** shows "Backups can be up to 5 minutes behind" for them, and **Apply fix** changes it without a restart.
 
 </Accordion>
 <Accordion title="How far back can I restore?">
@@ -53,7 +55,12 @@ From the start of your oldest kept full backup to the last archived change. By d
 </Accordion>
 <Accordion title="Does Rowsafe restore for me?">
 
-Not yet. Restoring a production database is a documented pgBackRest procedure: see [Restore a database](/docs/guides/restore). Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
+Yes, in one click, on the database's own server. On the **Rewind** tab, pick a second or a Mark and:
+
+- **restore a copy** next to production, compare it with production, and **bring back** the rows you lost. Production keeps running;
+- or **rewind the whole database** to that moment, for the worst case. You can undo it for 7 days.
+
+See [Restore a database](/docs/guides/restore). Rewinding the whole database in Docker needs the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), and tables need a primary key to bring rows back. When the server itself is lost, you restore by hand onto a new one with pgBackRest, as the same guide describes. Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
 
 </Accordion>
 <Accordion title="What if I lose the encryption passphrase?">
@@ -78,7 +85,7 @@ Barely. Archiving copies WAL files PostgreSQL has already written. Backups and P
 </Accordion>
 <Accordion title="Can I keep my existing backups?">
 
-Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: four passing Proof runs and one manual restore, then retire it.
+Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: four passing Proof runs and one restore you did yourself, then retire it.
 
 </Accordion>
 <Accordion title="Does it do replicas and failover?">

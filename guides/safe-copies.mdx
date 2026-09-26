@@ -1,0 +1,90 @@
+---
+title: Safe copies
+description: A masked copy of your database, on its own server, that developers and AI agents connect to with a connection string. Personal data is replaced before it opens; nothing leaves your server.
+---
+
+Testing against production data finds the bugs that seed data hides, but it also hands real emails, names and secrets to whoever runs the tests, including AI agents. A **safe copy** gives you the real shape of the data without the real people in it.
+
+Rowsafe restores a copy of the database on its own server, from your backups, replaces personal data with realistic fakes, and only then opens it on a network port for the addresses you choose. It deletes itself after a day unless you keep it longer.
+
+## Make one
+
+<Tabs items={["Dashboard", "CLI", "AI agents (MCP)"]}>
+<Tab value="Dashboard">
+
+1. Open the database, then **Guard → Safe copies**.
+2. Click **Create a safe copy**. Check **Who can connect** (your address is filled in) and **Where it listens** on the server (its private address by default).
+3. Click **Create safe copy** and save the connection string it shows: the password is only shown there.
+
+The copy is ready a few minutes later, when the page says **Ready**.
+
+</Tab>
+<Tab value="CLI">
+
+```sh
+rowsafe copies create app
+```
+
+It waits until the copy is ready and prints the connection string once. By default only the address Rowsafe sees your computer connect from may use it; `--allow 10.8.0.0/24` allows another address or range (repeat it for more), `--listen public` or `--listen 203.0.113.41` picks where it listens, `--hours 72` keeps it longer, `--db NAME` picks the database in the connection string.
+
+`rowsafe copies app` lists them; `rowsafe copies extend app ID` and `rowsafe copies delete app ID` keep or delete one; `rowsafe copies password app ID` makes a new password.
+
+</Tab>
+<Tab value="AI agents (MCP)">
+
+`create_safe_copy` makes a masked copy. Agents can't make a copy without masking. `list_safe_copies` shows when it's ready and `delete_safe_copy` removes it. Pass `allow_from` with the address of the machine the agent runs on.
+
+- With the local MCP server (`rowsafe mcp`, on your machine), the tool makes the password there and returns the connection string with it, once.
+- With the remote endpoint, the tool runs inside Rowsafe, which never makes a password. The copy starts without one, and the agent gives you a dashboard link: click **Set password** there and give the agent the connection string it shows.
+- Apps signed in with Rowsafe (OAuth) don't get `create_safe_copy` or `delete_safe_copy`: those need an API key or the local `rowsafe mcp`.
+
+</Tab>
+</Tabs>
+
+## Connect
+
+```sh
+psql "postgresql://rowsafe_sc_5k2m9x7q4t1v:PASSWORD@10.0.4.12:55440/app?sslmode=require"
+```
+
+- **The password is made on your computer** (in your browser, by the CLI, or by a local `rowsafe mcp`) and never reaches Rowsafe: Rowsafe only passes on its SCRAM verifier, which PostgreSQL checks logins against. Rowsafe never makes a password: the API refuses a copy without a verifier, except from the remote MCP endpoint, whose copies start with no password (nobody can log in until one is set).
+- **Lost it, or the copy has none yet?** Click **Set password** (or **Reset password**) on the copy: your browser makes a new one and shows it once. It works within a few seconds; the old one stops working. From a terminal: `rowsafe copies password app ID`.
+- **TLS is required.** Each copy has its own self-signed certificate, so use `sslmode=require` (or save the certificate and use `sslmode=verify-ca`). Set `ROWSAFE_COPY_TLS_CERT` and `ROWSAFE_COPY_TLS_KEY` on the server to use your own.
+- **Only the allowed addresses get in.** Everything else is refused before a password is asked.
+- **You can write to it**: run migrations, tests, fixtures. The login role owns your tables but is not a superuser.
+
+### Reaching the port
+
+Copies listen on ports 55440 to 55539 of the server (`ROWSAFE_COPY_PORTS`). If a firewall or cloud security group sits in front of the server, allow that range from your addresses. When the server's address isn't the one you connect to (a public IP in front of a private one, or a DNS name), set **Host name to connect to** (`--connect-host` in the CLI) so the connection string uses it.
+
+## Masking
+
+Rowsafe suggests a choice for every column from its name and type, and applies it on the server before anyone can connect. Review and change them in **Guard → Masking**, or with `rowsafe masking app` and `rowsafe masking set app public.users.phone format`. Your choices are saved per database; a column added later gets a suggestion automatically.
+
+| Choice | What the value becomes |
+|---|---|
+| Email | A fake, unique email: `olivia.3f9a2c1b7e4d5a6b@example.com` |
+| First name, Last name, Full name | Common names |
+| Street address, City | Made-up addresses and cities |
+| Same format | Digits stay digits and letters stay letters: phone numbers, postcodes, IDs, card numbers, tokens keep their shape |
+| IP address | A private address (`10.x.x.x`, or `fd00::` for IPv6) |
+| Password hash | bcrypt hashes become the hash of `rowsafe-copy`, so you can sign in to your app as any user with that password; other hashes keep their format but match nothing |
+| Lorem ipsum | Placeholder text of about the same length |
+| Numbers ±10% | Each number moved by up to 10% |
+| Dates ±30 days | Each date moved by up to 30 days |
+| JSON strings | Every text value inside the JSON masked; keys, numbers and structure stay |
+| Empty (NULL) | No value |
+| Keep | The real value |
+
+The same value is always masked the same way (with a key that stays on your server), so joins between tables still match, and unique columns stay unique. After masking, Rowsafe rebuilds the table statistics (which would otherwise show real sample values) and refreshes materialized views.
+
+**No masking** is possible for people who may see production data: an admin chooses it explicitly and types the database's name, and it is recorded in the audit log. AI agents never get an unmasked copy.
+
+## Limits and costs
+
+- **Plans**: Free 1 live safe copy at a time, Pro 5, Business 20, across the organization. Each is deleted by itself after 24 hours by default, at most 7 days, even if Rowsafe is unreachable.
+- **It runs on the database server**, at low priority, and needs free disk: about 1.3 times the cluster's size plus 1 GB. Restoring takes about as long as a restore test. It runs inside the agent's service, so when the agent restarts (an update, a reboot) the copy restarts with it: open connections drop for a few seconds.
+- **The data is as fresh as your backups**: the latest backup and every change since, at most about a minute behind production.
+- **Masking covers the columns you mask.** Personal data inside other columns (free-text notes you keep, JSON you keep, logs) stays unless you mask those too, and large objects are not masked. Old versions of masked rows remain in the copy's files on your server, readable only by a superuser, which nobody connecting to the copy is.
+- **Docker sidecar agents can't make safe copies** (the copy would be unreachable from outside the container); previews work there.
+- **What reaches Rowsafe**: table and column names and types (for the masking review), counts and sizes. Never the data.

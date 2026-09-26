@@ -91,4 +91,6 @@ There is no "download your backups" button: they are encrypted with your passphr
 
 - If you remove a database but leave its WAL archiving on (the "keep archiving" option), PostgreSQL keeps writing to Rowsafe Storage until you turn archiving off; those files are deleted with the rest after 30 days.
 - Rowsafe Storage is offered by Rowsafe's hosted service. A self-hosted Rowsafe doesn't offer it unless its operator sets it up; the installer then asks for your bucket directly.
+- A [second copy](/docs/guides/second-copy) always goes to a bucket of your own; it works next to Rowsafe Storage.
+- A [standby](/docs/guides/standby) isn't available yet for a server on Rowsafe Storage: move it to your own bucket first.
 - Test the storage at any time: `sudo sh install.sh --check-storage`, or `rowsafe-agent storage test` as `postgres`.

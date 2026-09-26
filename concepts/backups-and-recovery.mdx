@@ -6,9 +6,9 @@ description: Full and differential backups plus a continuous change log let you 
 A nightly dump can only take you back to last night. Rowsafe combines two things so you can go back to any second:
 
 1. **Backups**: a copy of the whole database, taken on a schedule.
-2. **A continuous change log**: every change the database makes, archived to your bucket within minutes.
+2. **A continuous change log**: every change the database makes, archived to your bucket within about a minute.
 
-To restore, Rowsafe's tools start from a backup and replay the change log up to the moment you choose. Together, this is **Rewind**: every change saved, restore to any second.
+To restore, Rowsafe starts from a backup and replays the change log up to the moment you choose. Together, this is **Rewind**: every change saved, restore to any second.
 
 ## Backup types
 
@@ -32,19 +32,25 @@ You can restore to any moment from the **start of your oldest kept full backup**
 
 ## How much can you lose?
 
-At most about **5 minutes** of changes, and usually much less. Changes are archived as soon as a log segment fills up, and at least every 5 minutes on a quiet database.
+At most about **a minute** of changes, and usually less. Changes are archived as soon as a log segment fills up, and at least every minute on a quiet database.
+
+Databases set up before archiving every minute was the default archive at least every 5 minutes. **Health** shows "Backups can be up to 5 minutes behind" for them; **Apply fix** changes the setting with a reload, without a restart.
 
 If archiving stops working (for example the bucket's keys were rotated), Rowsafe raises a critical alert within about 10 minutes and the database stops counting as [protected](/docs/concepts/protection-status).
 
 ## Restoring
 
-Restoring a production database is a manual, documented procedure today. You run it on a new server or a scratch directory, never over the only copy. Read [Restore a database](/docs/guides/restore) before you need it.
+You restore in the dashboard, on the database's **Rewind** tab, to:
 
-You can restore to:
-
-- **the latest state**: everything that was archived;
-- **a point in time**: for example one second before a bad migration;
+- **a point in time**: any second in the window, for example one second before a bad migration;
 - **a [Mark](/docs/concepts/restore-points)**: a named restore point you set earlier.
+
+Two ways, both on your own server:
+
+- **Restore a copy** next to production, compare it with production and **bring back** the rows you lost. Production keeps running.
+- **Rewind the whole database** to that moment, for the worst case. PostgreSQL stops while Rowsafe restores it, and you can undo it for 7 days.
+
+When the server itself is lost, you restore the backups by hand onto a new server with pgBackRest. [Restore a database](/docs/guides/restore) describes all three.
 
 Rowsafe proves every week that restoring works, with [Proof](/docs/concepts/restore-drills), the weekly restore test.
 

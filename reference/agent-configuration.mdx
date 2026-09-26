@@ -27,6 +27,17 @@ The installer fills these in from the bucket URL and keys you paste. Set them yo
 
 Never change the passphrase, bucket or prefix of a repository that holds backups. See [Change the configuration](/docs/guides/agent-updates#change-the-configuration).
 
+## Second copy
+
+Optional: a second bucket that gets the backups and the change log too, set up with `--add-storage` (see [Keep a second copy of your backups](/docs/guides/second-copy)). Every setting of the bucket above exists with `ROWSAFE_REPO2_` instead of `ROWSAFE_REPO_`, with the same defaults: `ROWSAFE_REPO2_S3_ENDPOINT`, `_S3_BUCKET`, `_S3_KEY`, `_S3_KEY_SECRET` and `ROWSAFE_REPO2_CIPHER_PASS` are needed, `_S3_REGION`, `_S3_URI_STYLE`, `_PATH_PREFIX`, `_S3_PORT`, `_S3_CA_FILE` and `_S3_VERIFY_TLS` are optional.
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_REPO2_CIPHER_PASS` | | Its own passphrase, at least 20 characters. Not the first bucket's. |
+| `ROWSAFE_REPO2_QUEUE_DIR` | `/var/lib/rowsafe/copy2-queue` | Where change log files wait to be sent to the second bucket (at most 256 files per database). |
+
+If some are missing, the agent keeps working with the first bucket only and says what is missing in its log and on the Storage page. The agent writes the second copy's pgBackRest configuration to `/etc/rowsafe/pgbackrest/<name>.copy2.conf`.
+
 ## Connection to Rowsafe
 
 | Variable | Default | |
@@ -47,6 +58,10 @@ Never change the passphrase, bucket or prefix of a repository that holds backups
 | `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Scratch space for Proof, the weekly restore test (internally a drill). |
 | `ROWSAFE_DRILL_PORT` | `55432` | Names the Unix socket of Proof's scratch cluster. It never listens on TCP. |
 | `ROWSAFE_DRILL_PRELOAD` | `auto` | `auto`: start Proof's scratch cluster without production's `shared_preload_libraries`, and retry with them if needed. `production`: always load them. |
+| `ROWSAFE_COPIES_DIR` | `/var/lib/rowsafe/copies` | Where [migration previews](/docs/guides/preview-migrations) and [safe copies](/docs/guides/safe-copies) are restored, one directory each. |
+| `ROWSAFE_COPY_PORTS` | `55440-55539` | The TCP ports safe copies listen on. Allow them in your firewall for the addresses that connect. |
+| `ROWSAFE_COPY_TLS_CERT`, `ROWSAFE_COPY_TLS_KEY` | | A certificate and key for safe copies, readable by the agent's user. Without them each copy makes its own self-signed certificate. |
+| `ROWSAFE_PREVIEW_KEEP` | `1h` | How long a preview copy is kept so the next preview starts fast (`0` deletes it right away, at most `24h`). |
 | `ROWSAFE_RESTORE_POINT_TIMEOUT` | `90s` | How long to wait for a Mark (restore point) to be archived, up to `4m`. |
 | `ROWSAFE_MONITORING` | `true` | `false` turns metrics off. |
 | `ROWSAFE_COLLECT_QUERY_TEXT` | `true` | `false` sends long-running queries without their text. |
@@ -110,11 +125,19 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--protect NAME` | Set up the database without questions: register it as `NAME`, plan and apply. Never restarts PostgreSQL. The storage settings must then be in the environment (`ROWSAFE_REPO_*`). |
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
-| `--no-allow-restart` | Don't allow it, without asking. |
+| `--no-allow-restart` | Don't allow it, without asking. Also turns off the three options below. |
+| `--allow-updates` | Allow installing PostgreSQL minor updates and upgrading PostgreSQL from Rowsafe, without asking. Only when someone clicks **Update** or **Upgrade** and confirms. Needs `--allow-restart`. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
+| `--no-allow-updates` | Don't allow it, without asking. |
+| `--allow-security-updates` | Allow installing the server's security updates from Rowsafe, without asking. Needs `--allow-restart`. |
+| `--no-allow-security-updates` | Don't allow it, without asking. |
+| `--allow-reboot` | Allow rebooting the server from Rowsafe, without asking. Needs `--allow-restart`. |
+| `--no-allow-reboot` | Don't allow it, without asking. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
-| `--check-storage` | Test the backup storage in `agent.env`. Change nothing. |
+| `--check-storage` | Test the backup storage in `agent.env` (and the second copy's, if there is one). Change nothing. |
+| `--add-storage` | Add a second copy in another bucket, with questions like the first storage, or move it to another bucket. Without a terminal, takes `ROWSAFE_REPO2_*` from the environment and tests it before saving. |
+| `--remove-second-copy` | Stop sending backups to the second copy. Its bucket is left as it is. |
 | `--download-only DIR` | Download and verify the agent into `DIR`; install nothing. Needs no root. |
 | `--uninstall` | Stop and remove the service and `/opt/rowsafe`. Keep the configuration, state and logs. |
 | `--uninstall --purge` | Also delete `/etc/rowsafe`, `/var/lib/rowsafe`, `/var/log/rowsafe` and the logrotate file. Refused while PostgreSQL still archives with Rowsafe's configuration. |
@@ -127,7 +150,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `ROWSAFE_ALLOW_DOWNGRADE=1` | Allow `ROWSAFE_VERSION` to be older than the installed version. |
 | `ROWSAFE_ALLOW_UNSUPPORTED_OS=1` | Try an OS other than Debian 12/13 or Ubuntu 22.04/24.04. |
 
-The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, every `ROWSAFE_REPO_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
+The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, every `ROWSAFE_REPO_*` and `ROWSAFE_REPO2_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
 
 What the installer does:
 
@@ -151,6 +174,9 @@ On a terminal, a first install asks:
 | `Name it in Rowsafe [app]:` | After `Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)`. Enter accepts the suggestion. |
 | `Turn on backups for app now? [Y/n]` | After the plan, in plain words. Nothing changes until you say yes. |
 | `Allow restarting PostgreSQL from the Rowsafe dashboard? [Y/n]` | Only when someone clicks **Restart** and confirms. |
+| `Allow Rowsafe to install PostgreSQL updates when you click Update? [Y/n]` | Only when restarts are allowed. Minor updates and major upgrades, only when someone confirms; a Mark is saved first. |
+| `Allow Rowsafe to install this server's security updates when you click Install? [y/N]` | Only when restarts are allowed. |
+| `Allow Rowsafe to reboot this server when you click Reboot? [y/N]` | Only after a yes to security updates. |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.
@@ -169,6 +195,14 @@ Secrets are never printed, and nothing is saved until you have answered the stor
 /var/log/rowsafe/                      postgres 0700; pgBackRest logs, rotated daily, 14 kept
 /etc/systemd/system/rowsafe-agent.service
 /etc/logrotate.d/rowsafe
+
+Only when you allowed restarts, updates, security updates or reboots:
+/etc/rowsafe/restart-allowed           root 0644; "PORT UNIT" per cluster Rowsafe may restart or stop
+/etc/rowsafe/updates-allowed           root 0644; postgresql, security, reboot: what Rowsafe may do
+/usr/local/lib/rowsafe/rowsafe-pg-restart   root 0755; the root helper
+/etc/systemd/system/rowsafe-pg-restart.{service,path}   restarts, stops, starts
+/etc/systemd/system/rowsafe-pg-update.{service,path}    updates, upgrades, reboots
+/var/lib/rowsafe-pg-restart/           root 0700; what an upgrade keeps for undo
 ```
 
 **Logs:** `journalctl -u rowsafe-agent` (JSON lines), and `/var/log/rowsafe/<name>-<command>.log`. Each task's log, including pgBackRest's output, is also in `rowsafe task ID`.

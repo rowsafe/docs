@@ -2,14 +2,20 @@
   "title": "Guides",
   "pages": [
     "storage",
+    "second-copy",
     "adopt",
     "restore",
     "find-the-moment",
+    "move-in",
     "docker",
     "mysql",
     "ai-agents",
+    "connect-ai-apps",
     "deploys",
+    "preview-migrations",
+    "safe-copies",
     "monitoring",
+    "updates",
     "teams",
     "agent-updates"
   ]

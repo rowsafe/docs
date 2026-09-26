@@ -34,7 +34,7 @@ The report is printed when the preview ends. Add `--db NAME` when the server has
 - The command exits `0` once the preview ran, whatever the verdict, and `1` if it couldn't run. With `--fail-on dangerous` (or `careful`) it exits `3` at or above that verdict and `2` when the migration fails: use that to stop a CI job.
 - `-` reads the SQL from standard input.
 
-AI agents with the [Rowsafe MCP server](/docs/reference/mcp) use the `preview_migration` tool, which needs no write access. The [Guard skill](/docs/guides/ai-agents) tells them to preview every migration before running it.
+AI agents with the [Rowsafe MCP server](/docs/reference/mcp) use the `preview_migration` tool, which needs no write access (apps signed in with Rowsafe over OAuth don't get it; use an API key or the local `rowsafe mcp`). The [Guard skill](/docs/guides/ai-agents) tells them to preview every migration before running it.
 
 ## Get your migration's SQL
 

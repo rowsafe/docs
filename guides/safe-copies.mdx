@@ -36,6 +36,7 @@ It waits until the copy is ready and prints the connection string once. By defau
 
 - With the local MCP server (`rowsafe mcp`, on your machine), the tool makes the password there and returns the connection string with it, once.
 - With the remote endpoint, the tool runs inside Rowsafe, which never makes a password. The copy starts without one, and the agent gives you a dashboard link: click **Set password** there and give the agent the connection string it shows.
+- Apps signed in with Rowsafe (OAuth) don't get `create_safe_copy` or `delete_safe_copy`: those need an API key or the local `rowsafe mcp`.
 
 </Tab>
 </Tabs>

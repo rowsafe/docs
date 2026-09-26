@@ -141,6 +141,8 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 | `run_drill` | write | Queue a Proof run (restore test). |
 | `update_schedule` | write, destructive | Change the schedules (UTC cron) and `retention_full`. |
 
+Apps signed in with Rowsafe (OAuth) can only read and set Marks, so they don't get `preview_migration`, `create_safe_copy` or `delete_safe_copy`. Use the local `rowsafe mcp`, or the remote endpoint with an API key, for those.
+
 There is also one prompt, `incident_triage`: check the fleet, read the evidence behind each problem, and propose next steps without changing anything.
 
 <Accordions>

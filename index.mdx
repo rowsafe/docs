@@ -52,7 +52,7 @@ Your S3-compatible bucket
 ```
 
 1. A small open-source **agent** runs next to your database. It only makes outbound HTTPS requests. Nothing on your server listens for Rowsafe.
-2. The agent encrypts backups **on your server** and sends them to **your own bucket**. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
+2. The agent encrypts backups **on your server** and sends them to **your own bucket**, or to [Rowsafe Storage](/docs/guides/rowsafe-storage) if you'd rather not set one up. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
 3. The hosted **Rowsafe service** schedules backups and the weekly Proof, keeps the history, watches for problems and alerts you.
 
 Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.

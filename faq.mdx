@@ -33,12 +33,12 @@ One PostgreSQL cluster: one server instance, on one host and port. Every databas
 </Accordion>
 <Accordion title="Can Rowsafe read my data?">
 
-No. Backups are encrypted on your server before they are uploaded to your bucket, and the bucket keys and passphrase never leave your server. Rowsafe stores metadata only: names, sizes, settings, task logs and metrics. See the [security model](/docs/security).
+No. Backups are encrypted on your server before they are uploaded, to your bucket or to Rowsafe Storage, and the passphrase (and your bucket keys) never leave your server. Rowsafe stores metadata only: names, sizes, settings, task logs and metrics. See the [security model](/docs/security).
 
 </Accordion>
 <Accordion title="Which storage can I use?">
 
-Any S3-compatible bucket you own: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, or self-hosted storage such as MinIO. The installer walks you through it; see [Set up backup storage](/docs/guides/storage). Storage is billed by your provider, not by Rowsafe. With Cloudflare R2, the first 10 GB are free.
+[Rowsafe Storage](/docs/guides/rowsafe-storage), with nothing to set up (10 GB on the Free plan), or any S3-compatible bucket you own: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, or self-hosted storage such as MinIO. The installer walks you through it; see [Set up backup storage](/docs/guides/storage). Your own bucket is billed by your provider, not by Rowsafe. With Cloudflare R2, the first 10 GB are free.
 
 </Accordion>
 <Accordion title="How much data can I lose?">

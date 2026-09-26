@@ -15,7 +15,7 @@ Rowsafe is built so that the hosted service never needs your data or your secret
 The agent:
 
 - connects to PostgreSQL **only over the local Unix socket**, as the `postgres` role (a superuser is needed for `ALTER SYSTEM` and backups);
-- makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket. Nothing listens on your server;
+- makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket (or Rowsafe Storage). Nothing listens on your server;
 - runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart (only on a server where you allowed it), maintenance, a short list of fixes described below, and PostgreSQL updates and upgrades, security updates and reboots (only on a server where you allowed them), and Databases & users (create or remove databases, users and extensions, when a person asks), the [standby](/docs/guides/standby) tasks, and the Rewind tasks: restore a copy, compare, bring back rows, rewind in place, undo and clean up. It never runs commands or SQL sent over the network.
 
 Proof, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards. A Rewind copy is restored the same way and kept until it expires (24 hours by default, at most 7 days); the agent deletes it on time even when it can't reach Rowsafe.
@@ -46,12 +46,14 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 - run the maintenance actions above: vacuum or analyze tables (extra load while they run), rebuild or drop indexes (queries that used a dropped index get slower until you recreate it), cancel queries or end sessions (an open transaction is rolled back, so its uncommitted changes are lost), and drop an inactive replication slot (whatever read from it has to start over);
 - during a move you started, switch it over (the old database goes read-only until you make it writable again) or cancel it (deleting the partial copy on your server);
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
-- withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back.
+- withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back;
+- with [Rowsafe Storage](/docs/guides/rowsafe-storage) only: delete or withhold your backups, because Rowsafe runs that bucket. They still couldn't read them. If that matters to you, use your own bucket.
 
 They **could not**:
 
 - run arbitrary commands or SQL on your server;
-- read or write your backups, or reach your bucket at all: the keys and the passphrase never leave your server, except encrypted to another of your servers' agents when you set up a standby (see above);
+- read your backups: they are encrypted with a passphrase that never leaves your server, except encrypted to another of your servers' agents when you set up a standby (see above);
+- with your own bucket, reach it at all: its keys never leave your server, except in that same way;
 - make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
 - restart PostgreSQL on a server where you didn't allow it, or stop it, except to fence an old primary after a standby promotion (see above);
 - install or remove packages other than PostgreSQL's own and the security repository's upgrades, downgrade PostgreSQL, or do any of the updates on a server where you didn't allow them;
@@ -61,7 +63,7 @@ They **could not**:
 
 ## Encryption
 
-- Backups and WAL are compressed, then **encrypted on your server** with `aes-256-cbc`, using your passphrase, before they are uploaded. Your bucket holds only ciphertext.
+- Backups and WAL are compressed, then **encrypted on your server** with `aes-256-cbc`, using your passphrase, before they are uploaded. Your bucket, or Rowsafe Storage, holds only ciphertext.
 - The passphrase and the bucket keys live **only on your server**, in `/etc/rowsafe/agent.env` and the generated pgBackRest configuration, both mode 0600 and owned by `postgres`. Anyone who can become `postgres` can already read the database itself.
 - Rowsafe can't recover a lost passphrase. Keep it in your secret manager.
 - All traffic between the agent, the CLI and Rowsafe uses HTTPS.
@@ -74,6 +76,7 @@ They **could not**:
 | Enrollment token | `rse_` | The installer, once | Enrolling one host. Single use, 1 hour by default. |
 | Agent token | `rsa_` | `/var/lib/rowsafe/agent.json` (0600) | The agent API for one host: its own tasks and heartbeats. |
 | Bucket keys | | `agent.env` and pgBackRest configuration, on your server | Your bucket. |
+| Rowsafe Storage credentials | | `/var/lib/rowsafe/storage-credentials.json` and pgBackRest configuration (0600), on your server | Your organization's space in Rowsafe Storage only, for 7 days; renewed daily. |
 | Encryption passphrase | | The same files, and your secret manager | Decrypting every backup. |
 
 Rowsafe stores only SHA-256 hashes of API keys, enrollment tokens and agent tokens.

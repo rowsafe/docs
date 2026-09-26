@@ -101,6 +101,20 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe tasks [NAME]` | Recent tasks, for one database or all. `--status S`, `--type T`, `--limit N` (default 30). |
 | `rowsafe task ID` | One task with its full log. |
 
+## Files
+
+The folders that go with a database, like uploads. See [Back up and restore files](/docs/guides/files).
+
+| Command | What it does |
+|---|---|
+| `rowsafe files [NAME]` | The protected folders, their status and last snapshot. `--json` for JSON. |
+| `rowsafe files add [NAME] PATH` | Back up the folder `PATH` on the database server with the database. `--exclude cache,*.tmp` leaves files out. |
+| `rowsafe files remove [NAME] PATH` | Stop backing it up (its snapshots age out). `--yes` skips the question. |
+| `rowsafe files backup [NAME]` | Snapshot the folders now. `--no-wait` returns at once. |
+| `rowsafe files restore [NAME] (--at TIME \| --mark LABEL)` | Bring files back as they were: by default only missing files. `--path REL` (repeatable) for listed paths, `--column DB:schema.table.column` for the files a column points to, `--whole-folder` for the whole folder (kept for undo), `--overwrite` to also replace changed files, `--folder PATH` for one folder, `--preview` to only count. Asks you to type the database's name unless `--yes`. |
+| `rowsafe files undo [NAME]` | Undo the last whole-folder restore. |
+| `rowsafe files proof [NAME]` | Restore a few files and compare them with the live ones, now. |
+
 Commands that run something wait for it to finish, and exit `1` if it fails. Pass `--no-wait` to `backup`, `proof` and `mark` to return at once.
 
 With one argument, `rowsafe mark X` treats `X` as the database if it names one, and otherwise as the label for the inferred database. So in a project whose `.rowsafe.json` names `app`, `rowsafe mark before-drop` marks `app` as `before-drop`.

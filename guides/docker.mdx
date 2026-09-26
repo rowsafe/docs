@@ -162,6 +162,19 @@ Rowsafe notices the restart by itself and proves that WAL reaches the bucket, th
 
 The settings are written with `ALTER SYSTEM` into `postgresql.auto.conf` in the data volume, so they survive container restarts and re-creation.
 
+## Back up an uploads volume
+
+If your app keeps uploads in a Docker volume, back it up with the database so a restore brings back both. Mount it into the agent under `/rowsafe-files` (read-only is enough), recreate the agent container, and add `/rowsafe-files/uploads` in **Rewind**, then **Files**:
+
+```yaml title="compose.yml"
+services:
+  rowsafe-agent:
+    volumes:
+      - uploads:/rowsafe-files/uploads:ro
+```
+
+Restored files wait in the agent's state volume, in `/var/lib/rowsafe/files-restored/<id>`, unless the volume is mounted read-write and the agent's user may write there. See [Back up and restore files](/docs/guides/files).
+
 ## Rewind in Docker
 
 - **Restore a copy, compare and bring back rows work** as on a server: see [Restore a database](/docs/guides/restore). The copy runs in the agent container, like Proof, and lives in the `rowsafe-state` volume, so that volume needs free disk of about 1.3 × the database size + 1 GB. Rows are brought back into production over the shared socket.

@@ -1,0 +1,148 @@
+---
+title: Back up and restore files
+description: Protect the folders that go with a database, like uploads and CVs, and bring files back as they were at the same moment as the database.
+---
+
+A database is rarely the whole story. Your app stores uploads, CVs, invoices or photos in a folder or a Docker volume, and the database holds their paths. Restore the database alone and the rows point to files that are gone.
+
+**Files** backs up those folders with the database, into the same bucket, and brings files back as they were at any moment in the window: missing files only, the files a table column points to, a few paths, or the whole folder.
+
+## Protect a folder
+
+<Tabs items={["Installer", "Dashboard", "CLI", "Docker"]}>
+<Tab value="Installer">
+
+After the database setup, the installer looks for upload folders next to your app (for example Laravel's `storage/app`, WordPress's `wp-content/uploads`, `public/uploads`, `media`, and Docker volumes named like uploads) and asks:
+
+```text
+Does this app store uploads on this server? Rowsafe found /srv/app/storage/app
+(2.3 GiB, 19,596 files: Laravel storage (uploaded files)). Back it up with app,
+so a restore brings back both? [Y/n]
+```
+
+Without questions, name the folder:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --files /srv/app/storage/app
+```
+
+The agent runs as its own user. If that user can't read the folder, the installer gives it **read-only** access to that folder only, with a POSIX ACL (`setfacl`). Ownership and permissions stay as they are.
+
+</Tab>
+<Tab value="Dashboard">
+
+Open the database, then **Rewind**, then **Files**. Click **Add a folder** and type its full path on the server, or pick one Rowsafe found (**Find upload folders on the server**).
+
+If Rowsafe can't read the folder, the folder shows **Can't read it all** with a **Give Rowsafe read access** button. The button only works on servers where root allowed it at install (`--allow-files`); otherwise it shows the install command that does it.
+
+</Tab>
+<Tab value="CLI">
+
+```sh
+rowsafe files add app /srv/app/storage/app --exclude cache,tmp
+rowsafe files app              # the folders, their status and last snapshot
+```
+
+</Tab>
+<Tab value="Docker">
+
+Mount the volume into the agent container under `/rowsafe-files`. Read-only is enough to back it up:
+
+```yaml title="compose.yml"
+services:
+  rowsafe-agent:
+    volumes:
+      - uploads:/rowsafe-files/uploads:ro
+```
+
+Recreate the agent container (`docker compose up -d rowsafe-agent`), then add `/rowsafe-files/uploads` in the dashboard. **Find upload folders on the server** lists every volume mounted there.
+
+</Tab>
+</Tabs>
+
+## What Rowsafe does
+
+- **Snapshots every 15 minutes** (5 minutes to once a day, in **Settings**), and **one at every Mark**, so a Mark covers the database and its files.
+- **Only changes are stored.** The first snapshot of a large folder takes a while; after that each one reads what changed and stores only new data, deduplicated and compressed.
+- **The same bucket** as the database, under `<prefix>/<name>/files` (`/rowsafe/app/files` by default), with [restic](https://restic.net).
+- **Encrypted on the server** with a key derived from your backup encryption passphrase. There is no second secret to keep: the one passphrase restores both.
+- **Kept as long as the database's recovery window** (at least 7 days): every snapshot for two days, then one an hour for a week, then one a day. Snapshots taken for Marks are all kept for the window.
+- **Low priority.** Snapshots run at low CPU and disk priority, on at most two cores, and stay on one filesystem.
+- **Files Proof, weekly.** Rowsafe reads back part of the stored data (all of it over a year) and restores a few files that haven't changed, comparing them byte for byte with the live ones.
+- **Pulse** tells you when a folder falls behind, can't be read or is missing, with **Back up files now** and **Give Rowsafe read access** buttons.
+
+## Restore files
+
+In **Rewind**, then **Files**, click **Restore files**:
+
+1. **When.** A time (in your time zone), a Mark, or the latest snapshot. Rowsafe shows which snapshot that uses: "Files from 14:00, the nearest snapshot, 4 minutes before". Files can only come back as they were at a snapshot, so the database can be closer to the moment than the files.
+2. **Which files.**
+
+   | Choice | What comes back |
+   |---|---|
+   | **Only the files that are missing now** | Files deleted since. Nothing that exists is overwritten. |
+   | **The files a table column points to** | Rowsafe reads the distinct values of a column, such as `applications.cv_path`, and brings back those files. Paths like `cvs/a.pdf`, `/var/www/storage/app/cvs/a.pdf` or a URL all match. |
+   | **Specific files or folders** | Paths you list, or pick in **Browse**. |
+   | **The whole folder, exactly as it was** | Files added since are removed and changed files replaced. The folder as it is now is kept for 7 days: **Undo** puts it back. |
+
+   Under **More options**, **Also replace files that changed since** puts back the snapshot's version of files that exist but differ. Rowsafe saves the current versions in a snapshot first, so nothing is lost.
+3. **See what would come back.** Rowsafe compares the snapshot with the folder on the server and shows the numbers: "Would bring back 1,204 files (310 MB), 18,389 already there".
+4. **Bring back 1,204 files.** A whole-folder restore asks you to type the database's name.
+
+From a terminal:
+
+```sh
+rowsafe files restore app --at "14:04"                                         # missing files only
+rowsafe files restore app --at "14:04" --column app:public.applications.cv_path
+rowsafe files restore app --mark before-import --whole-folder
+rowsafe files undo app
+```
+
+### Where the files go
+
+The agent restores into a private staging folder first, then puts the files in place:
+
+- **Itself**, when its user may write into the folder.
+- **As the folder's owner**, through Rowsafe's root helper, on servers where root allowed it at install (`--allow-files`, or yes at the question). The helper doesn't trust what the agent staged: it takes its own copy and puts back only plain files and folders (no links, devices or FIFOs, no set-user-ID or set-group-ID bits), writes them as the folder's owner (never as root), never writes or deletes through a symbolic link in the folder, and refuses system and database folders, folders owned by root, and paths that go through a symbolic link.
+- **Otherwise the files wait next to it**, in `/var/lib/rowsafe/files-restored/<id>` (in Docker, the agent's state volume), and Rowsafe says so. Nothing in the folder changes.
+
+## Browse a snapshot
+
+**Browse** lists what a folder's latest snapshot holds, with files deleted since marked, and a search by name. Pick files and **Restore selected**.
+
+Only names, sizes and times reach Rowsafe, never file contents. To keep file names on your server too, turn off **Show file names in Rowsafe** in **Settings**. Restores still work; Rowsafe then only sees counts and sizes.
+
+## Permissions on the server
+
+| | How it is allowed |
+|---|---|
+| Read a folder you protect | `--files PATH` (or yes at the installer's question): root gives the agent's user read-only access to that folder with an ACL. |
+| Read folders you add later in the dashboard | `--allow-files`: the root helper may do the same for folders under the roots in `/etc/rowsafe/files-allowed` (by default `/srv`, `/var/www`, `/opt`, `/data`, `/app` and Docker's volumes, plus the folders you protected; home folders only if you protect one with `--files` or add `/home` to the file). |
+| Put restored files back | `--allow-files`: as the folder's owner, only when someone asks and confirms. |
+
+Turn it off with `--no-allow-files`. The dashboard shows what is allowed on each server under **On db-1**.
+
+## Limits
+
+- Files come back **as they were at a snapshot**, not at any second: at most one interval (15 minutes by default) before the moment you pick, or exactly at a Mark.
+- A snapshot is **not atomic** across a folder: a file written while it runs may be in its old or new version.
+- **Files Rowsafe can't read are left out** of the snapshot, and the folder shows it.
+- **Symbolic links aren't put back** through the root helper, and set-user-ID and set-group-ID bits are dropped: only plain files and folders come back that way.
+- **One filesystem per folder**: mounts inside the folder are not followed. Protect them as folders of their own.
+- **The column restore** matches paths by their end; with two files of the same name under different folders, both come back if missing.
+- In Docker, restored files **wait in the agent's state volume** unless the volume is mounted read-write and the agent's user may write there.
+- Removing a folder from Rowsafe stops its snapshots; the ones in the bucket age out with the window.
+
+## Restore by hand
+
+The files are a standard restic repository. With restic 0.17 or newer, on any machine with the bucket settings and your passphrase:
+
+```sh
+export AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=...
+export RESTIC_REPOSITORY=s3:https://<endpoint>/<bucket>/rowsafe/app/files
+export RESTIC_PASSWORD=$(printf 'rowsafe-files-v1:%s' app | openssl dgst -sha256 -hmac "$ROWSAFE_REPO_CIPHER_PASS" -r | cut -d' ' -f1)
+restic snapshots --tag rowsafe
+restic restore <snapshot>:/srv/app/storage/app --target /tmp/restored --include /cvs/a.pdf
+```
+
+Replace `app` with the database's name in Rowsafe (the stanza) and the path with the folder's. Add `-o s3.region=auto` for R2 and `-o s3.bucket-lookup=path` for path-style stores.

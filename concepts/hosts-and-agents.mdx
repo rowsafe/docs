@@ -16,7 +16,7 @@ db-1  host_9h8g7f6e5d4c3  0.4.2  linux/amd64  stable   -    confirmed    12s ago
 
 ## Enrollment
 
-A new host joins your organization with a one-time **enrollment token** (`rse_...`):
+A new host joins your organization with a one-time **enrollment token** (`rse_...`). In the dashboard, open **Servers**, then **Add a server**: it shows the install command with a fresh token. Or from a terminal:
 
 ```sh
 rowsafe hosts enroll-token            # valid for 1 hour
@@ -24,8 +24,6 @@ rowsafe hosts enroll-token --ttl 24h  # 1 minute to 7 days
 ```
 
 The token works **once**. On its first start, the agent trades it for its own identity, saved in `/var/lib/rowsafe/agent.json`. After that you can delete the token from the agent's configuration.
-
-The dashboard does the same under **Servers**, then **Add server**: it shows the install command with a fresh token.
 
 ## What the agent does
 
@@ -55,6 +53,8 @@ See [Agent offline](/docs/troubleshooting#agent-offline) to find out why.
 On servers, the agent **updates itself** with signed releases, tests the new version first and rolls back if it fails. In Docker, you update by changing the image tag. See [Updating and uninstalling the agent](/docs/guides/agent-updates).
 
 ## Removing a host
+
+Remove it on the **Servers** page, or from a terminal:
 
 ```sh
 rowsafe hosts remove db-1

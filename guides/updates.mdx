@@ -1,0 +1,164 @@
+---
+title: Update and upgrade PostgreSQL
+description: Install PostgreSQL's bug and security releases with one click, keep the server's security updates current, and upgrade to a new major version after a rehearsal, with undo.
+---
+
+Rowsafe keeps PostgreSQL current on your own server. Everything happens there, through the agent, and only when someone clicks and confirms (or opted in to automatic minor updates). Rowsafe saves a [Mark](/docs/concepts/restore-points) before each change.
+
+| What | How long PostgreSQL stops | Undo |
+|---|---|---|
+| **Minor update**, e.g. 16.9 to 16.10: bug and security fixes | A few seconds (a restart) | Minor releases don't change behavior; restore to the Mark if you must |
+| **Security updates** of the server (OpenSSL, the kernel, ...) | Not at all; some need a reboot | Not needed |
+| **Reboot** | A minute or two | Not needed |
+| **Major upgrade**, e.g. 16 to 18 | Measured by the rehearsal: seconds to minutes | 7 days, see [Safe and Fast](#safe-or-fast) |
+
+## Allow it on the server
+
+Rowsafe can only do what root allowed when installing the agent. The installer asks once, on a terminal:
+
+| Question | Option |
+|---|---|
+| `Allow Rowsafe to install PostgreSQL updates when you click Update? [Y/n]` | `--allow-updates` / `--no-allow-updates` |
+| `Allow Rowsafe to install this server's security updates when you click Install? [y/N]` | `--allow-security-updates` / `--no-allow-security-updates` |
+| `Allow Rowsafe to reboot this server when you click Reboot? [y/N]` | `--allow-reboot` / `--no-allow-reboot` |
+
+They need restarts allowed too (`--allow-restart`): updating PostgreSQL restarts it, and the same helper does both. To change your answers later, run the installer again:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart --allow-updates
+```
+
+The database's **Updates** tab shows what is allowed on its server, and why a button is off.
+
+## Minor updates
+
+When a newer release of your major is available (from apt.postgresql.org, or your distribution's repository), [Pulse](/docs/guides/monitoring) shows **PostgreSQL 16.10 is available (bug and security fixes)** with an **Update to 16.10** button. The **Updates** tab has the same button. After you confirm, Rowsafe:
+
+1. saves a Mark;
+2. installs only your major's own packages (`postgresql-16`, `postgresql-client-16`, `libpq5` and the `postgresql-16-*` extension packages you have), never another major;
+3. restarts PostgreSQL if the packages didn't, and waits until it answers;
+4. checks that changes still reach your backups.
+
+The result says what happened, for example "Updated PostgreSQL from 16.9 to 16.10 in 12 s; it didn't accept connections for 3 s."
+
+From a terminal:
+
+```sh
+rowsafe update app              # shows the versions, asks you to type the name, updates
+rowsafe update app --auto on --timezone Europe/Berlin
+```
+
+**Automatic minor updates.** Turn on **Install minor updates automatically** on the **Updates** tab (or `rowsafe update app --auto on`): Rowsafe then updates on Sundays at 03:00 in your time zone, with a Mark first, when a new release is available and the agent is online. If it isn't, it waits for the next Sunday. Every automatic update is in the audit log as `rowsafed`.
+
+<Callout type="warn">
+  Packages are per major, not per cluster: when you update PostgreSQL 16, the server's other PostgreSQL 16 clusters also run the new release after their next restart (the packages usually restart them right away). The confirmation lists them.
+</Callout>
+
+## Security updates and reboots
+
+Pulse shows **12 security updates are waiting; a reboot is needed** with **Install security updates** and, if a reboot is needed, **Reboot the server**. The agent counts the upgrades that come from your distribution's security repository about every hour.
+
+- **Install security updates** installs only upgrades from the security repository. PostgreSQL's own server packages are left for [Update PostgreSQL](#minor-updates), which restarts it in a controlled way. Services aren't restarted by the installation (`needrestart` only lists them); some updates, like a new kernel, only take effect after a reboot.
+- **Reboot the server** saves a Mark on the database, then reboots the whole server: everything on it stops for a minute or two, PostgreSQL included. You type the server's name to confirm. The agent reports back once the server is up and PostgreSQL answers.
+
+## Major upgrades
+
+Open the database's **Updates** tab, or use `rowsafe upgrade`. An upgrade has three steps.
+
+### 1. Check
+
+**Check** looks at the server and changes nothing:
+
+- the new major is available from the server's package sources (apt.postgresql.org has every supported version);
+- every extension package you use (`postgresql-16-*`) exists for the new major;
+- enough free disk for each mode;
+- the database isn't a read-only replica; replicas that stream from it are listed (they must be set up again afterwards);
+- pgBackRest supports the new major (PostgreSQL 17 needs 2.53, 18 needs 2.55);
+- the cluster is managed by Debian's PostgreSQL tools, and upgrades are allowed on the server.
+
+### 2. Rehearse
+
+**Rehearse** is required before the upgrade. Rowsafe restores the latest backup into a scratch copy on the server (like [Proof](/docs/concepts/restore-drills): no network listener, no archiving), installs the new major if needed, runs `pg_upgrade --check` and then `pg_upgrade` on the copy, starts the upgraded copy, checks every database opens with its tables, refreshes planner statistics, and makes sure pgBackRest accepts it. Then it deletes the copy.
+
+Your database isn't touched. The new major's packages stay installed for the upgrade (Debian creates an empty `main` cluster when it installs them; Rowsafe removes that one).
+
+The report says whether it passed, what `pg_upgrade` found if it didn't, how long each step took, and the **expected downtime** in each mode. A passed rehearsal allows the upgrade for 14 days.
+
+The rehearsal needs free disk in `/var/lib/rowsafe/drills` for the copy: about 1.3 × the database's size + 1 GiB, and as much again to measure the Safe mode's copy (without it, Rowsafe measures the Fast mode and estimates the other).
+
+```sh
+rowsafe upgrade app --to 18 --rehearse-only
+```
+
+### 3. Upgrade
+
+**Upgrade** asks for the mode and for the database's name, then:
+
+1. saves a Mark;
+2. stops PostgreSQL 16 and runs Debian's `pg_upgradecluster`, which moves the configuration from `/etc/postgresql/16/main`, the port and the systemd unit to PostgreSQL 18;
+3. starts PostgreSQL 18 on the same port;
+4. moves the backups to the new version (`pgbackrest stanza-upgrade`) and checks that changes reach your bucket;
+5. refreshes planner statistics in the background (`vacuumdb --analyze-in-stages`);
+6. takes a full backup and runs Proof on the new version.
+
+If anything fails before PostgreSQL 18 accepts connections, Rowsafe puts PostgreSQL 16 back and starts it (Fast mode: restores it from the backup at the Mark, see below).
+
+```sh
+rowsafe upgrade app --to 18 --mode safe
+```
+
+### Safe or Fast
+
+| | Safe | Fast |
+|---|---|---|
+| How | Copies the data files (or clones them, where the filesystem supports it) | Hard-links them |
+| Downtime | Grows with the database's size, unless cloned | Minutes at most, whatever the size |
+| Free disk | About the database's size | Little |
+| Undo | Switches back to PostgreSQL 16, which is kept stopped: seconds | Restores PostgreSQL 16 from the backup at the Mark saved just before the upgrade |
+| Lost by undo | Nothing is deleted: what was written to 18 stays in 18, kept aside | What was written after the upgrade is gone from the live database |
+
+Rowsafe recommends Safe mode when there is disk for it.
+
+### Undo, and remove the old version
+
+For 7 days, the **Updates** tab shows **Undo upgrade**, and Pulse shows **PostgreSQL 16 is kept so you can undo the upgrade** with **Remove PostgreSQL 16**.
+
+- **Undo** (Safe): stops PostgreSQL 18, switches the port back and starts PostgreSQL 16. PostgreSQL 18, with anything written to it since the upgrade, is kept aside, stopped.
+- **Undo** (Fast): stops PostgreSQL 18, restores PostgreSQL 16 from the backup at the Mark saved before the upgrade, replays it to that Mark and starts it. Anything written after the Mark is not in it.
+- Rowsafe saves a Mark first, so what was written to PostgreSQL 18 stays recoverable.
+- After either, Rowsafe moves the backups back to PostgreSQL 16, takes a full backup and runs Proof.
+- **Remove** deletes the version kept aside (`pg_dropcluster`), and its programs when no other cluster uses them. Rowsafe removes it by itself after 7 days.
+
+```sh
+rowsafe upgrade undo app
+rowsafe upgrade cleanup app
+```
+
+## Limits
+
+- **Debian and Ubuntu, PostgreSQL from packages.** Rowsafe installs packages with apt and upgrades clusters with Debian's `pg_upgradecluster`, so the cluster must be one `pg_lsclusters` lists, run by its `postgresql@16-main` unit. Elsewhere, Check and Rehearse still work where the new major's programs are installed.
+- **Docker.** Rowsafe can't change your container's image. Check shows the steps (a one-off `pg_upgrade` container, then the new image tag), and the rehearsal works if the agent's image has the new major's programs. For minor updates, pull the newest image of the same major and recreate the container.
+- **Extensions** must come as packages for the new major. Extensions you built yourself block the upgrade until you install them for the new major.
+- **Replicas** that stream from the upgraded server have to be set up again: a major upgrade changes the data files.
+- **Tablespaces** are upgraded, but Fast mode isn't offered with them (its undo couldn't restore them).
+- **Going back before the upgrade** (Rewind to a time before it) needs the old major's programs: keep the old version until you're sure. Removing it removes them too.
+- **Automatic updates** only install minor releases; never a major upgrade and never security updates of the server.
+
+## How it works
+
+The agent runs as `postgres` and can't install anything. Updates go through a small root helper, `/usr/local/lib/rowsafe/rowsafe-pg-restart`, run by `rowsafe-pg-update.service` when the agent writes a request to `/var/lib/rowsafe/restart/update-request`. The helper reads the request as the `postgres` user, accepts only a fixed list of requests (install PostgreSQL N's minor release, install major N for a cluster, upgrade, undo, remove the kept version, install security updates, reboot), checks each against root's `/etc/rowsafe/updates-allowed` and `/etc/rowsafe/restart-allowed`, and builds the package names itself: it never runs a command it was sent. See the [security model](/docs/security).
+
+<Accordions>
+<Accordion title="Do it yourself: upgrade by hand">
+  The same steps Rowsafe runs, on the server, as root. Take a Mark and wait for a backup first.
+
+  ```sh
+  sudo apt-get install postgresql-18 postgresql-client-18    # plus postgresql-18-<extension> for each extension
+  sudo pg_dropcluster --stop 18 main                          # the empty cluster the package created
+  sudo pg_upgradecluster -v 18 -m upgrade 16 main             # --link for Fast mode
+  sudo -u postgres pgbackrest --config=/etc/rowsafe/pgbackrest/app.conf --stanza=app \
+    --pg1-path=/var/lib/postgresql/18/main stanza-upgrade
+  rowsafe verify app && rowsafe backup app                  # from your workstation
+  ```
+</Accordion>
+</Accordions>

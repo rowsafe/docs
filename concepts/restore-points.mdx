@@ -3,7 +3,7 @@ title: Marks
 description: A Mark is a named restore point. Set one before a risky change, so you can rewind exactly to it later.
 ---
 
-A **Mark** is a named restore point: it gives a moment a name. `before-drop-legacy-orders` is much easier to find at 3 a.m. than a timestamp. If a change goes wrong, you can [rewind](/docs/guides/restore) to exactly that Mark: everything committed before it is there, nothing after it.
+A **Mark** is a named restore point: it gives a moment a name. `before-drop-legacy-orders` is much easier to find at 3 a.m. than a timestamp. If a change goes wrong, you can [rewind](/docs/guides/restore) to exactly that Mark: everything committed before it is there, nothing after it. On the **Marks** page, **Restore a copy at this Mark** restores a copy next to production, so you can compare it and bring back what you lost.
 
 Create one right before a migration, a backfill, a bulk delete, or anything an AI agent is about to run:
 
@@ -38,7 +38,7 @@ before-migration-42  archived  2026-09-24 14:05:12  20260921-010002F     0/5A000
 | `unconfirmed` | Written, but archiving didn't confirm it within the timeout (90 seconds by default). Usable only if the archive has since moved past it. You also get an alert. |
 | `pending` | Being created. |
 
-**Restore from backup** is the newest backup that finished before the Mark was set. You need it to rewind to the Mark: see [Restore to a restore point](/docs/guides/restore#to-a-restore-point).
+**Restore from backup** is the newest backup that finished before the Mark was set: the backup a restore to the Mark starts from. Rowsafe uses it by itself; you need it only when you [restore by hand](/docs/guides/restore#to-a-restore-point).
 
 ## Good to know
 
@@ -47,6 +47,7 @@ before-migration-42  archived  2026-09-24 14:05:12  20260921-010002F     0/5A000
 - They don't pause or wait behind a running backup or Proof.
 - Setting one is recorded in the [audit log](/docs/guides/teams#audit-log) with who set it.
 - A Mark doesn't restore anything by itself. It names a moment you can rewind to.
+- Rowsafe saves one by itself before it brings back rows, rewinds a whole database or removes an index.
 
 <Callout title="On PostgreSQL">
   Rowsafe calls `pg_create_restore_point(name)`, then `pg_switch_wal()`, and waits until the segment holding the point is archived.

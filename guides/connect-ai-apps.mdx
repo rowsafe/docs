@@ -1,0 +1,154 @@
+---
+title: Connect AI apps
+description: Add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf. Today you connect with an API key or the local rowsafe mcp; signing in with Rowsafe, with no key, is coming soon.
+---
+
+<Callout type="warn" title="Sign in with Rowsafe is coming soon">
+
+Signing in with Rowsafe from AI apps (the OAuth steps on this page) isn't available yet. Until it is, connect your app with an **API key**:
+
+- **Remote**, with the key in a header: `https://api.rowsafe.sh/mcp` with `Authorization: Bearer rsk_...`. Use a [read-only key](/docs/guides/teams#api-keys) for an assistant that should only look. See the **Remote endpoint** tab in the [MCP reference](/docs/reference/mcp#set-up).
+- **Local**, with `rowsafe mcp` on your own computer: it uses your CLI login, or `ROWSAFE_API_KEY`. See [Guard](/docs/guides/ai-agents#set-it-up) and the [MCP reference](/docs/reference/mcp#set-up).
+
+In the dashboard, the **Use your own AI** tab of the Ask panel shows the setup for each assistant; see [Ask Rowsafe](/docs/guides/ask#use-your-own-ai-assistant-instead). The rest of this page describes how signing in will work.
+
+</Callout>
+
+Ask your AI app "Are my databases backed up?", "Why is the orders database slow today?" or "What should I fix first?", and let coding agents save a [Mark](/docs/concepts/restore-points) before a risky change. Apps connect to Rowsafe's MCP server at:
+
+```text
+https://api.rowsafe.sh/mcp
+```
+
+Once signing in with Rowsafe is available: the first time, the app opens Rowsafe in your browser. You pick the organization, choose whether the app may save Marks, and click **Allow**. That's it: no API key to create or paste. The dashboard has the same steps, with one-click install links for Cursor and VS Code, under **Ask your AI**.
+
+## What a connected app can do
+
+| | Connected app |
+|---|---|
+| See databases, health scores and findings, backups, Proof results, Marks, slow-query trends | Yes |
+| Save a Mark (a named moment you can rewind to) | Only if you ticked **Save Marks** |
+| Restore, rewind, restart, apply fixes, change schedules or settings | Never |
+| Read the rows in your tables | Never: Rowsafe itself never sees them |
+
+Apps act for one organization, the one you picked. Everything they do is in the [audit log](/docs/guides/teams#audit-log), attributed to the app, and Marks they save show the app as their creator.
+
+## Set it up
+
+<Tabs items={["ChatGPT", "Claude", "Cursor", "VS Code", "Codex", "Windsurf"]}>
+<Tab value="ChatGPT">
+
+1. In ChatGPT, open **Settings**, **Apps & Connectors**, **Advanced settings**, and turn on **Developer mode**. It's available on paid plans; in a Business or Enterprise workspace an admin may need to allow it.
+2. Click **Create**. Name it **Rowsafe**, paste `https://api.rowsafe.sh/mcp`, and choose **OAuth**.
+3. Sign in with Rowsafe and click **Allow**.
+4. In a new chat, click **+**, pick Rowsafe, and ask away.
+
+Rowsafe isn't in ChatGPT's app directory yet; until it is, it's added this way.
+
+</Tab>
+<Tab value="Claude">
+
+**claude.ai, Claude Desktop and mobile:**
+
+1. Open **Settings**, **Connectors**, and click **Add custom connector**.
+2. Name it **Rowsafe** and paste `https://api.rowsafe.sh/mcp`. On a Team or Enterprise plan, an owner adds it once for the organization; then everyone connects it for themselves.
+3. Click **Connect**, sign in with Rowsafe and click **Allow**.
+
+**Claude Code:**
+
+```sh
+claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp
+```
+
+Then run `/mcp` in Claude Code and choose **Authenticate**. For Marks saved automatically before migrations, add the [Rowsafe plugin](/docs/guides/ai-agents) too.
+
+</Tab>
+<Tab value="Cursor">
+
+1. In the Rowsafe dashboard, open **Ask your AI**, **Cursor**, and click **Add to Cursor**. Or add it to `~/.cursor/mcp.json` yourself:
+
+   ```json title="~/.cursor/mcp.json"
+   {
+     "mcpServers": {
+       "rowsafe": { "url": "https://api.rowsafe.sh/mcp" }
+     }
+   }
+   ```
+
+2. In **Cursor Settings**, **MCP**, click **Needs login** next to Rowsafe.
+3. Sign in with Rowsafe and click **Allow**.
+
+</Tab>
+<Tab value="VS Code">
+
+1. In the Rowsafe dashboard, open **Ask your AI**, **VS Code**, and click **Add to VS Code**. Or add it to `.vscode/mcp.json` (or your user configuration):
+
+   ```json title=".vscode/mcp.json"
+   {
+     "servers": {
+       "rowsafe": { "type": "http", "url": "https://api.rowsafe.sh/mcp" }
+     }
+   }
+   ```
+
+2. When the server starts, VS Code asks whether Rowsafe may sign in. Click **Allow**.
+3. Sign in with Rowsafe and click **Allow**. Use it from Copilot Chat in agent mode.
+
+</Tab>
+<Tab value="Codex">
+
+```sh
+codex mcp add rowsafe --url https://api.rowsafe.sh/mcp
+codex mcp login rowsafe
+```
+
+Your browser opens Rowsafe: sign in and click **Allow**.
+
+</Tab>
+<Tab value="Windsurf">
+
+1. In the Cascade panel, open the **…** menu, then **MCP servers** and **View raw config**.
+2. Add Rowsafe inside `mcpServers`, save and refresh:
+
+   ```json title="mcp_config.json"
+   {
+     "mcpServers": {
+       "rowsafe": { "serverUrl": "https://api.rowsafe.sh/mcp" }
+     }
+   }
+   ```
+
+3. Sign in with Rowsafe and click **Allow**.
+
+</Tab>
+</Tabs>
+
+Any other app that supports remote MCP servers with OAuth works the same way: give it the URL.
+
+## Who can connect an app
+
+Owners and admins of an organization. A member who tries sees the request, but **Allow** is off; an admin can connect the app, or make them an admin.
+
+## Disconnect an app
+
+In the dashboard, open **Settings**, **Connected apps**, and click **Disconnect**. The app loses access right away; Marks it saved stay. Rowsafe also disconnects an app by itself when:
+
+- the person who allowed it is removed from the organization;
+- a sign-in token is used twice, which means it may have leaked. Connect the app again if it was yours.
+
+## How it stays safe
+
+- **You approve every app**, on a Rowsafe page, in the browser where you're signed in. The page shows the app's name, and whether Rowsafe could verify it: ChatGPT and Claude Code publish their identity on their own domain (shown as **Verified: chatgpt.com**); other apps only give a name, marked **not verified**. It also shows where you'll return to, and warns when an app runs on your own computer.
+- **Only known apps and apps on your own computer can receive a sign-in.** Rowsafe sends approvals only to the published callback addresses of ChatGPT, Claude, VS Code and Cursor, and to `localhost`. A link someone sends you can't send your approval to their website, and only the browser that started a sign-in can finish it.
+- **Short-lived tokens, only for MCP.** An app gets a one-hour access token that works on `https://api.rowsafe.sh/mcp` and nowhere else, and a refresh token that works once. Rowsafe stores only their hashes.
+- **No write tools beyond Marks.** Connected apps never see the tools that queue backups, change settings or adopt databases, and the API refuses those actions for them too.
+
+This follows the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (OAuth 2.1 with PKCE, protected resource metadata, client ID metadata documents and dynamic client registration). Details are in the [MCP server reference](/docs/reference/mcp#sign-in-with-rowsafe-oauth).
+
+## Troubleshooting
+
+- **"We don't know this app" or "Rowsafe only sends sign-ins back to known AI apps":** the app asked Rowsafe to return somewhere other than a known AI app or `localhost`. Tell us which app it is at hello@rowsafe.sh, or use an [API key](/docs/reference/mcp#set-up) with it instead.
+- **"Finish in the browser you started in":** the sign-in was opened in another browser (or the link was forwarded). Start again from the app, in one browser.
+- **"This sign-in expired":** sign-ins last 10 minutes. Start again from the app.
+- **The app keeps asking you to sign in:** it was disconnected (see above), or it didn't keep its refresh token. Connect it again.
+- **Allow is greyed out:** you're a member of that organization; ask an admin.

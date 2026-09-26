@@ -10,7 +10,7 @@ An organization has members with one of three roles:
 | Role | Can |
 |---|---|
 | **Member** | View databases, backups, Proof results and activity. |
-| **Admin** | Everything a member can, plus adopt databases, run tasks, restart PostgreSQL (on servers that allow it), manage hosts, alert rules, API keys and members. |
+| **Admin** | Everything a member can, plus adopt databases, run tasks, restart PostgreSQL (on servers that allow it), [Rewind](/docs/guides/restore) (restore copies, bring back rows, rewind a database), manage hosts, alert rules, API keys and members. |
 | **Owner** | Everything, including billing. |
 
 Invite people in the dashboard under **Settings**, then **Members**. Invitations expire after 7 days. Admins and owners can invite; only owners can make someone an owner or change another owner. Whoever creates the organization is its first owner.
@@ -21,7 +21,7 @@ The CLI, scripts, CI and AI agents use **API keys** (`rsk_...`).
 
 On your own machine you don't need to create one: `rowsafe login` opens the dashboard, you approve it, and a key is created for you. Only admins and owners can approve a CLI login.
 
-For CI and headless machines, create a key and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key` (to save a Mark before each deploy, see [Save a Mark before every deploy](/docs/guides/deploys)):
+For CI and headless machines, create a key in the dashboard under **Settings**, then **API keys**, and pass it with `ROWSAFE_API_KEY` or `rowsafe login --key` (to save a Mark before each deploy, see [Save a Mark before every deploy](/docs/guides/deploys)). Or from a terminal:
 
 ```sh
 rowsafe api-keys create deploy-ci
@@ -38,7 +38,7 @@ rowsafe api-keys revoke key_...
 
 ## Audit log
 
-Every change is recorded: who did it, what, and to which database or host.
+Every change is recorded: who did it, what, and to which database or host. See it in the dashboard under **Settings**, then **Audit log**, or from a terminal:
 
 ```sh
 rowsafe audit              # newest first
@@ -50,8 +50,6 @@ WHEN                 ACTOR                                      ACTION          
 2026-09-24 14:05:12  key:key_... (CLI · rowsafe CLI on laptop)  restore_point.create  app     before-migration-42
 ```
 
-It records, among others: databases added, changed and removed; hosts changed and removed; enrollment tokens created; tasks queued (backups, Proof runs, plans, restarts); forks (`database.fork`); Marks; API keys created and revoked; alerts acknowledged; alert rules and notification channels changed; plan changes; and CLI logins approved or denied.
+It records, among others: databases added, changed and removed; hosts changed and removed; enrollment tokens created; tasks queued (backups, Proof runs, plans, restarts); Marks; forks (`database.fork`); Rewind (`rewind.copy`, `rewind.copy_extend`, `rewind.copy_delete`, `rewind.compare`, `rewind.rows`, `rewind.in_place`, `rewind.undo`, `rewind.cleanup`); API keys created and revoked; alerts acknowledged; alert rules and notification channels changed; plan changes; and CLI logins approved or denied.
 
 Changes the installer makes, such as adding a database, show an actor like `installer on db-1`.
-
-The audit log is also in the dashboard under **Settings**, then **Audit log**.

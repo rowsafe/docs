@@ -69,6 +69,19 @@ If some are missing, the agent keeps working with the first bucket only and says
 
 The installer, the systemd unit and the update guard assume the default directories (`ROWSAFE_STATE_DIR`, `ROWSAFE_CONFIG_DIR`, `ROWSAFE_LOG_DIR`, `ROWSAFE_INSTALL_DIR`). Don't change them on a server.
 
+## MySQL and MariaDB
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_MYSQL_USER`, `ROWSAFE_MYSQL_PASSWORD_FILE` | not set | An account to use instead of the one Rowsafe creates (`rowsafe@localhost`). It needs the [privileges Rowsafe's account has](/docs/concepts/mysql#rowsafes-account). |
+| `ROWSAFE_MYSQL_ADMIN_USER`, `ROWSAFE_MYSQL_ADMIN_PASSWORD_FILE` | `root`, not set | Docker: an administrator the agent logs in as once, to create its own account. |
+| `ROWSAFE_MYSQL_BIN_DIR` | not set | Where to look first for the tools (`xtrabackup`, `mariadb-backup`, `mysqlbinlog`, `mysqld`...); then `PATH`, `/usr/sbin`, `/usr/bin`. |
+| `ROWSAFE_MYSQL_CONF_FILE` | `/etc/rowsafe/mysql/server.cnf` | Rowsafe's option file for the binary log settings (`none`: Rowsafe can't change the configuration). Not used in Docker. |
+| `ROWSAFE_MYSQL_SCRATCH_MEMORY` | `256M` | InnoDB buffer pool of Proof's and Rewind's private servers. |
+| `ROWSAFE_MYSQL_PART_SIZE_MB` | `64` | Upload part size: backups up to about 600 GiB; raise it for larger ones (16 to 2048). |
+
+See [Protect MySQL or MariaDB](/docs/guides/mysql).
+
 ## Docker
 
 The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set these defaults:

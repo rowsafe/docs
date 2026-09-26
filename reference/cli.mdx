@@ -139,7 +139,7 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 | `--mode transaction\|session` | `transaction` | How PgBouncer shares connections. See [Transaction or session mode](/docs/guides/connection-pooling#transaction-or-session-mode). |
 | `--pool-size N` | From `max_connections` and CPUs | PostgreSQL connections per database and user. |
 | `--max-client-conn N` | `1000` | Client connections PgBouncer accepts. |
-| `--listen local\|private\|public` | `private` | This server only; also its private network; or every address. |
+| `--listen local\|private\|public` | `local` | This server only; also its private network; or every address (only where root allowed it: `--allow-pooler-public`). |
 | `--port N` | `6432` | PgBouncer's port. |
 
 Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. AI agents (MCP) and read-only API keys can't change it.

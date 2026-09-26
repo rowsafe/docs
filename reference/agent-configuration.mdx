@@ -116,6 +116,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--no-allow-restart` | Don't allow it, without asking. |
 | `--allow-pooler` | Allow Rowsafe to install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)), without asking. Nothing is installed until someone turns pooling on and confirms. |
 | `--no-allow-pooler` | Don't allow it, without asking. A PgBouncer Rowsafe already set up keeps running, but Rowsafe can no longer change it. |
+| `--allow-pooler-public` | With `--allow-pooler`: also let PgBouncer listen on every address when someone chooses "public" for it. Without it, PgBouncer listens only on this server and its private network. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the provider question: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |

@@ -28,16 +28,17 @@ Rowsafe installs nothing for pooling unless root on the server allows it. When y
 Allow Rowsafe to install and manage PgBouncer? Nothing is installed now: only when someone turns connection pooling on in the dashboard and confirms. [Y/n]
 ```
 
-Answering yes installs nothing yet. It only lets Rowsafe install and manage PgBouncer later, when someone turns pooling on. It writes the ports of the PostgreSQL clusters found on the server to `/etc/rowsafe/pooler-allowed`, and installs a small root helper that runs only when the agent asks for a pooling change.
+Answering yes installs nothing yet. It only lets Rowsafe install and manage PgBouncer later, when someone turns pooling on. The installer (as root, with `pg_lsclusters`) writes the ports of the server's PostgreSQL clusters to `/etc/rowsafe/pooler-allowed`, and installs a small root helper that runs only when the agent asks for a pooling change. PgBouncer can only be put in front of those clusters.
 
 To answer without the question, or to change your answer later, run the install command again with an option:
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-pooler      # allow it
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-allow-pooler   # don't allow it
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-pooler --allow-pooler-public   # also allow listening on public addresses
 ```
 
-Running the installer again keeps your earlier answer and refreshes the list of PostgreSQL clusters. If you add a cluster later, run it again so the new one is on the list.
+Running the installer again keeps your earlier answer and the list as it is. If you add a cluster later, run it again from a terminal: it asks before adding the new one (`--allow-pooler` adds it without asking).
 
 With `--no-allow-pooler`, a PgBouncer that Rowsafe already set up **keeps running** for your apps, but Rowsafe can no longer change it or turn it off. Turn pooling off first if you want it gone.
 
@@ -84,7 +85,7 @@ Leave the settings empty and Rowsafe picks them. You can change each one when yo
 | Mode | `--mode` | `transaction` | `transaction` or `session`. See [Transaction or session mode](#transaction-or-session-mode). |
 | Pool size | `--pool-size` | From the server | PostgreSQL connections per pool. A pool is one database and one user. |
 | Client connections | `--max-client-conn` | `1000` | How many app connections PgBouncer accepts, 10 to 100000. |
-| Where it listens | `--listen` | `private` | `local`, `private` or `public`. See below. |
+| Where it listens | `--listen` | `local` | `local`, `private` or `public`. See below. |
 | Port | `--port` | `6432` | 1024 to 65535. |
 
 **Pool size.** Rowsafe starts from twice the server's CPUs, at least 10 and at most 50. It never picks more than half of what PostgreSQL has room for: `max_connections`, less the reserved connections, less 10 kept free for Rowsafe, admins and replication. You can set a larger pool size, up to that room. PgBouncer's total connections to PostgreSQL are also capped at three quarters of the room, so many pools together can't use up `max_connections`. A small reserve pool (a quarter of the pool size) helps with short bursts.
@@ -93,11 +94,11 @@ Leave the settings empty and Rowsafe picks them. You can change each one when yo
 
 | `--listen` | PgBouncer accepts connections on |
 |---|---|
-| `local` | This server only (`127.0.0.1`). For apps on the same server. |
-| `private` | This server and its private network addresses (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, fc00::/7). The default. |
-| `public` | Every address, public ones included. Only if you choose it. Put a firewall in front of it. |
+| `local` | This server only (`127.0.0.1`). For apps on the same server. The default. |
+| `private` | This server and its private network addresses (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 100.64.0.0/10, fc00::/7). |
+| `public` | Every address, public ones included. Only if you choose it, and only on a server where root also allowed it (`--allow-pooler-public`). Put a firewall in front of it. |
 
-Rowsafe never makes PgBouncer listen on a public address unless you choose `public`.
+Rowsafe never makes PgBouncer listen on a public address unless you choose `public` and root allowed it.
 
 <Accordions>
 <Accordion title="How passwords work">
@@ -203,7 +204,9 @@ When the pool already uses every connection PostgreSQL allows, the finding says 
 
 ## Failover
 
-When Rowsafe promotes a standby to primary (a failover or a switchover), it points PgBouncer at the new primary by itself, so your apps keep the same pooled address:
+PgBouncer managed by Rowsafe only sends connections to PostgreSQL **on its own server**, to a cluster on root's list (`127.0.0.1`, an allowed port): the root helper refuses any other target. So Rowsafe can move it from one cluster to another on the same server, for example to a standby promoted there, but not to a new primary on another server. Then point your apps at the new primary directly.
+
+When it does switch clusters:
 
 1. It waits until the new primary accepts PgBouncer's login and is out of recovery (up to 45 seconds).
 2. It writes the new target into PgBouncer's configuration.
@@ -214,8 +217,8 @@ The task reports how long clients waited, for example "Clients waited 850 ms; no
 
 For this to work:
 
-- **The new primary must accept password logins from PgBouncer's server.** In its `pg_hba.conf`, add a line for that server's address, such as `host all all 10.0.0.5/32 scram-sha-256`, and make sure its `listen_addresses` includes an address PgBouncer can reach.
-- **The roles must exist on the new primary.** Physical replication copies them, including `rowsafe_pgbouncer` and its lookup function, so a streaming standby has them already.
+- **The new cluster must accept password logins from `127.0.0.1`** in its `pg_hba.conf` (Debian's default does).
+- **The roles must exist on the new cluster.** Physical replication copies them, including `rowsafe_pgbouncer` and its lookup function, so a streaming standby has them already.
 
 ## Turn it off
 
@@ -302,7 +305,8 @@ The same two settings work on a server where you run PgBouncer yourself: Rowsafe
 
 ## Limits
 
-- **PgBouncer runs on the database's server.** After a failover it keeps working as long as that server is up (PostgreSQL alone failed, or a planned switchover). If the whole server goes down, PgBouncer goes with it: point your apps at the new primary directly, or run PgBouncer on a server of its own.
+- **PgBouncer runs on the database's server and only reaches clusters on that server** (ports root allowed). After a failover to another server, point your apps at the new primary directly, or run PgBouncer on a server of its own.
+- **At most one install or removal of the pgbouncer package every 10 minutes.**
 - **One Rowsafe-managed PgBouncer per server**, in front of one PostgreSQL cluster. To pool a second cluster on the same server, run PgBouncer for it yourself.
 - **Debian and Ubuntu servers only.** In Docker, Rowsafe only monitors a PgBouncer you run (see [Docker](#docker)).
 - **Not on a standby.** Turn pooling on for the primary. The lookup role is created there and replicated.
@@ -338,7 +342,8 @@ The task log (`rowsafe task ID`, or the task on the Connections tab) says what f
 /etc/pgbouncer/userlist.txt                  root:postgres 0640; the password of rowsafe_pgbouncer
 /etc/systemd/system/pgbouncer.service.d/rowsafe.conf   the open-file limit
 /etc/systemd/system/rowsafe-pooler.path      starts the root helper when the agent asks
-/etc/systemd/system/rowsafe-pooler.service   the root helper, in PgBouncer mode
+/etc/systemd/system/rowsafe-pooler.service   the root helper, in PgBouncer mode: no network, writes only /etc/pgbouncer and its drop-in
+/etc/systemd/system/rowsafe-pooler-apt@.service   installs or removes the pgbouncer package, nothing else
 /var/lib/rowsafe/pooler/                     the agent's requests to the helper
 /var/lib/rowsafe/pooling.json                what the agent set up: database, settings, target
 /var/lib/rowsafe-pooler/                     root 0700; PgBouncer's original files, and whether Rowsafe installed it

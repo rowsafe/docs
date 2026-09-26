@@ -121,7 +121,7 @@ For another server, the CLI shows its key fingerprint and asks you to type it. C
 
 On Debian or Ubuntu, Rowsafe can create a new PostgreSQL cluster for the fork, next to the ones already there. It uses `pg_createcluster`, named after the fork with underscores (for `app-staging` on PostgreSQL 18: `postgresql@18-app_staging`), on a free port between 5440 and 5499, or the one you pick in that range. It starts at boot like your other clusters.
 
-Creating a cluster needs root, so the agent can't do it on its own. It works only where root allowed it when installing the agent. The installer asks:
+Creating a cluster needs root, so the agent can't do it on its own. It works only where root allowed it when installing the agent. Where restarts are allowed, the installer asks:
 
 ```text
 Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? Only when someone confirms a fork; ports 5440-5499. [Y/n]

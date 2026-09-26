@@ -220,7 +220,7 @@ On a terminal, a first install asks:
 | `Allow Rowsafe to install this server's security updates when you click Install? [y/N]` | Only when restarts are allowed. |
 | `Allow Rowsafe to reboot this server when you click Reboot? [y/N]` | Only after a yes to security updates. |
 | `Allow Rowsafe to limit who can reach PostgreSQL's port with the firewall? [y/N]` | Only when nftables is installed. Only PostgreSQL's port, never SSH; only when someone picks the addresses in the dashboard and confirms. See [the firewall](/docs/guides/security#the-firewall). |
-| `Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? [Y/n]` | For [forks](/docs/guides/fork): only when someone confirms a fork, on ports 5440-5499. Asked once, on Debian and Ubuntu. |
+| `Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? [Y/n]` | For [forks](/docs/guides/fork): only when someone confirms a fork, on ports 5440-5499. Asked once, on Debian and Ubuntu, only when restarts are allowed. |
 | `Restart PostgreSQL now? [y/N]` | Only if a setting needs a restart. Yes: it restarts, checks that changes reach the bucket, and the first full backup starts. No: restart when it suits you; Rowsafe notices by itself. |
 
 Secrets are never printed, and nothing is saved until you have answered the storage questions. Without a terminal, or with `--no-prompt`, it asks nothing: set the storage settings in the environment, and use `--protect NAME` to protect the database. Changes the installer makes show up in the [audit log](/docs/guides/teams#audit-log) as `installer on <hostname>`.

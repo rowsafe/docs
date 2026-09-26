@@ -81,12 +81,12 @@ Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
 | Database | Status | Where |
 |---|---|---|
 | PostgreSQL 13 to 18 | **Supported** | Linux servers (Debian 12/13, Ubuntu 22.04/24.04) and Docker (official `postgres` images, 14 to 18) |
-| MySQL 8.0, 8.4 | **Beta** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
-| MariaDB 10.6, 10.11, 11.4 | **Beta** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
+| MySQL 8.0, 8.4 | **Supported** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
+| MariaDB 10.6, 10.11, 11.4 | **Supported** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
 | MongoDB 6.0, 7.0, 8.0 | **Beta** | Replica sets (one member is enough) on Debian 12/13, Ubuntu 22.04/24.04, and Docker (official `mongo` images); not sharded clusters. See [Protect MongoDB](/docs/guides/mongodb) |
 | Redis / Valkey | Planned | |
 
-PostgreSQL is the fully supported engine, and most of these docs describe it. **Beta** means it works end to end in our tests so far, and may still change; the MySQL and MariaDB guide lists its [limits](/docs/guides/mysql#honest-limits), the MongoDB guide [its own](/docs/guides/mongodb#limits). [Tell us](/contact) about any problem. Planned engines are not available yet, and we don't give dates.
+Most of these docs describe PostgreSQL. MySQL and MariaDB get backups, restore to any second, Proof, Rewind copies, Marks and Pulse; their guide lists the [limits](/docs/guides/mysql#honest-limits). **Beta** means it works end to end in our tests so far, and may still change; the MongoDB guide lists [its limits](/docs/guides/mongodb#limits). [Tell us](/contact) about any problem. Planned engines are not available yet, and we don't give dates.
 
 ## Safety first
 

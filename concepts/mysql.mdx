@@ -3,12 +3,6 @@ title: How MySQL and MariaDB backups work
 description: Physical backups with Percona XtraBackup or mariadb-backup, continuous binary log shipping, client-side encryption, the account and settings Rowsafe uses, and where everything lives.
 ---
 
-<Callout title="Beta">
-
-MySQL and MariaDB support is in **Beta**. It works end to end in our tests so far, and it may still change. PostgreSQL is the fully supported engine. If something doesn't work as this page says, [tell us](/contact). The [honest limits](/docs/guides/mysql#honest-limits) list what it doesn't do yet.
-
-</Callout>
-
 For MySQL and MariaDB, the Rowsafe agent does the work itself: it streams physical backups and the binary log from your server to your bucket, encrypting everything on the way. Nothing passes through Rowsafe's service.
 
 ## Backups

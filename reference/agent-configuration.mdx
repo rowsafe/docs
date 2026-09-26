@@ -56,7 +56,8 @@ If some are missing, the agent keeps working with the first bucket only and says
 | `ROWSAFE_PG_BIN_DIR` | `/usr/lib/postgresql/%d/bin` | PostgreSQL server binaries, used by Proof. `%d` is the major version. |
 | `ROWSAFE_PGBACKREST_BIN` | `/usr/bin/pgbackrest` | pgBackRest, also used in `archive_command`. |
 | `ROWSAFE_DRILL_DIR` | `/var/lib/rowsafe/drills` | Scratch space for Proof, the weekly restore test (internally a drill). |
-| `ROWSAFE_DRILL_PORT` | `55432` | Names the Unix socket of Proof's scratch cluster. It never listens on TCP. |
+| `ROWSAFE_DRILL_PORT` | `55432` | Names the Unix socket of Proof's scratch cluster, and of Rewind copies. They never listen on TCP. |
+| `ROWSAFE_REWIND_DIR` | `/var/lib/rowsafe/rewind` | Where [Rewind](/docs/guides/restore) restores copies: about 1.3 × the database size + 1 GiB free per copy. A short absolute path. |
 | `ROWSAFE_DRILL_PRELOAD` | `auto` | `auto`: start Proof's scratch cluster without production's `shared_preload_libraries`, and retry with them if needed. `production`: always load them. |
 | `ROWSAFE_COPIES_DIR` | `/var/lib/rowsafe/copies` | Where [migration previews](/docs/guides/preview-migrations) and [safe copies](/docs/guides/safe-copies) are restored, one directory each. |
 | `ROWSAFE_COPY_PORTS` | `55440-55539` | The TCP ports safe copies listen on. Allow them in your firewall for the addresses that connect. |
@@ -127,8 +128,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `rse_...` | The enrollment token. `ROWSAFE_ENROLL_TOKEN=rse_...` in the environment works too. |
 | `--protect NAME` | Set up the database without questions: register it as `NAME`, plan and apply. Never restarts PostgreSQL. The storage settings must then be in the environment (`ROWSAFE_REPO_*`). |
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
-| `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |
-| `--no-allow-restart` | Don't allow it, without asking. Also turns off the three options below. |
+| `--allow-restart` | Allow Rowsafe to restart or stop PostgreSQL when you ask, without asking at install: **Restart**, and **Rewind the whole database**, in the dashboard. Only when someone clicks and confirms. Installs the root helper `rowsafe-pg-restart`. |
+| `--no-allow-restart` | Don't allow it, without asking, and remove the helper. Also turns off the three options below. |
 | `--allow-updates` | Allow installing PostgreSQL minor updates and upgrading PostgreSQL from Rowsafe, without asking. Only when someone clicks **Update** or **Upgrade** and confirms. Needs `--allow-restart`. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
 | `--no-allow-updates` | Don't allow it, without asking. |
 | `--allow-security-updates` | Allow installing the server's security updates from Rowsafe, without asking. Needs `--allow-restart`. |

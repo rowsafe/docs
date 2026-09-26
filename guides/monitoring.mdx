@@ -102,6 +102,7 @@ What Rowsafe can fix:
 | A query got slower | **Refresh statistics** | `ANALYZE` on the tables it reads, so PostgreSQL can pick a better plan. |
 | An index with a lot of wasted space | **Rebuild index** | `REINDEX INDEX CONCURRENTLY` (PostgreSQL 12 and later). |
 | An unused or duplicate index | **Remove** | `DROP INDEX CONCURRENTLY`, after saving a Mark. |
+| An index would make slow queries faster ([tested on a copy](/docs/guides/recommendations#indexes)) | **Create index** | `CREATE INDEX CONCURRENTLY`; a failed build leaves nothing behind. |
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
 | Some changes didn't reach the second copy, or it has no full backup | **Back up to the second copy** | A full backup into the [second copy](/docs/guides/second-copy). |
@@ -118,7 +119,7 @@ What Rowsafe can fix:
 
 Pulse also tells you when your PostgreSQL major version no longer gets security fixes (or will within six months). Upgrading is not a one-click fix: it starts with a check and a rehearsal, on the database's **Updates** tab ([how](/docs/guides/updates#major-upgrades)).
 
-Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call; the index a foreign key needs is a [recommendation](/docs/guides/recommendations) Rowsafe can create), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
+Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **an index Rowsafe hasn't tested** (the index a foreign key needs, and indexes [proven on a copy](/docs/guides/recommendations#indexes) of your database, are recommendations Rowsafe can create), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 
 ### What keeps it safe
 
@@ -152,7 +153,7 @@ About every 30 minutes, the agent looks at each database's tables and indexes (c
 - **unused indexes** that cost disk and slow down writes, and **duplicate indexes**;
 - **estimated wasted space** (bloat) in tables and indexes;
 - tables with many **dead rows** that vacuum hasn't cleaned up;
-- tables read by **full scans** that may need an index;
+- tables read by **full scans** that may need an index ([index recommendations](/docs/guides/recommendations#indexes) test which one);
 - **transaction ID age** per database and table.
 
 Next to each suggestion Rowsafe can act on, a button does it: **Remove** an unused or duplicate index, **Rebuild index**, **Clean up** a table. See [Apply fix](#apply-fix).

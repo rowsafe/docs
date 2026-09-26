@@ -127,7 +127,7 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 | `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
 | `database_settings` | read | PostgreSQL's settings that matter, explained, with the server's memory, CPUs and disk, what Rowsafe recommends for it, and recent changes. No tool changes settings: people do, in [Tuning](/docs/guides/tuning). |
 | `get_logs` | read | PostgreSQL's log (values removed on the server): errors, slow queries, lock waits, failed logins, or repeated messages with counts. |
-| `recommendations` | read | [Recommendations](/docs/guides/recommendations): schema, query and capacity suggestions with why, what they cost and a plan. Without a database, each database's top one. |
+| `recommendations` | read | [Recommendations](/docs/guides/recommendations): schema, query and capacity suggestions with why, what they cost and a plan, and indexes proven on a copy of the database with how much faster each query got. Without a database, each database's top one. |
 | `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
 | `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
 | `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |

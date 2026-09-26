@@ -1,0 +1,66 @@
+---
+title: "Ask Rowsafe API"
+description: The Ask Rowsafe endpoints (a streamed answer as server-sent events, settings, keys, conversations, feedback), their events, errors and limits.
+---
+
+The dashboard's Ask panel uses these endpoints; you can call them with a read-write API key (`Authorization: Bearer rsk_...`). Read-only keys can read settings and conversations but can't ask (asking is a `POST`). See [Ask Rowsafe](/docs/guides/ask) for what the model sees.
+
+## Ask a question
+
+`POST /v1/ask`
+
+```json
+{
+  "question": "Why is app-prod slow today?",
+  "database": "app-prod",
+  "conversation_id": "conv_…",
+  "deep": false,
+  "about": { "kind": "finding", "id": "query_regression" }
+}
+```
+
+Only `question` (1 to 2,000 characters) is required. `database` scopes the question to one database; `conversation_id` continues a conversation (it keeps its database); `deep` uses the stronger model; `about` is the item an **Explain** button was pressed on (`finding` with the finding id and a `database`, `alert` with the alert id, or `query` with the query id and a `database`).
+
+The answer streams as server-sent events. Each event's name is its `type` and its data is one JSON object:
+
+| Type | Data |
+|---|---|
+| `start` | `conversation_id`, `message_id` |
+| `tool` | `tool`: `{id, name, label, status}`, a step such as "Checking health findings of app-prod", `running` then `done` or `error` |
+| `text` | `text`: the next piece of the answer (Markdown) |
+| `source` | `source`: `{label, href}`, data the answer is based on, with its dashboard path |
+| `action` | `action`: a button: `{kind: "fix", database, finding_id, fix_id, label, …}` (apply it with `POST /v1/databases/{ref}/fixes`) or `{kind: "link", href, label}` |
+| `done` | `done`: `{model, remaining}`, the built-in questions left this month (`-1` with your own key) |
+| `error` | `error`: `{code, message}`; no more events follow |
+
+Before the stream starts, a refusal is a JSON error with a `code`:
+
+| Status | Code | Meaning |
+|---|---|---|
+| 403 | `not_enabled` | An admin hasn't turned Ask Rowsafe on |
+| 402 | `no_model` | No built-in questions on this plan and no own key |
+| 402 | `limit_reached` | This month's built-in questions are used |
+| 429 | `rate_limited` | More than 10 questions a minute, or 3 at once, per organization |
+| 409 | `key_invalid` | The stored key can't be used anymore; add it again |
+
+## Settings and keys
+
+| Method and path | |
+|---|---|
+| `GET /v1/ask/settings` | On or off, where answers come from (`builtin`, `own_key` or `none`), models, this month's usage, who handles a question |
+| `PUT /v1/ask/settings` | `{"enabled": true}` turns it on (audited as `ask.enabled` / `ask.disabled`) |
+| `PUT /v1/ask/key` | `{"provider": "openrouter" \| "anthropic" \| "openai", "api_key": "…", "fast_model": "", "deep_model": ""}`: checks the key with the provider, stores it encrypted (audited as `ask.key_set`, without the key) |
+| `DELETE /v1/ask/key` | Removes the key (audited as `ask.key_removed`) |
+| `GET /v1/ask/suggestions?database=` | Up to four questions worth asking now, from current findings and alerts |
+
+## Conversations
+
+| Method and path | |
+|---|---|
+| `GET /v1/ask/conversations` | The organization's conversations, newest first |
+| `GET /v1/ask/conversations/{id}` | One conversation with its messages, sources and actions |
+| `DELETE /v1/ask/conversations/{id}` | Deletes one conversation |
+| `DELETE /v1/ask/conversations` | Deletes every conversation (audited) |
+| `POST /v1/ask/messages/{id}/feedback` | `{"rating": "up" \| "down" \| ""}` |
+
+Conversations are deleted automatically 30 days after their last message.

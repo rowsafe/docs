@@ -11,7 +11,7 @@ You keep your database where it is. You don't move it to a hosted service.
 
 <Cards>
   <Card title="Rewind" href="/docs/guides/restore">
-    Every change saved. Restore to any second, or to a Mark you set before a risky change.
+    Every change saved. Restore to any second, or to a Mark you set before a risky change: bring back deleted rows, or rewind the whole database, in one click.
   </Card>
   <Card title="Proof" href="/docs/concepts/restore-drills">
     Every week Rowsafe restores a copy of your database and checks it, so you know restores work before you need one.
@@ -52,7 +52,7 @@ Your S3-compatible bucket
 ```
 
 1. A small open-source **agent** runs next to your database. It only makes outbound HTTPS requests. Nothing on your server listens for Rowsafe.
-2. The agent encrypts backups **on your server** and sends them to **your own bucket**. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
+2. The agent encrypts backups **on your server** and sends them to **your own bucket**, or to [Rowsafe Storage](/docs/guides/rowsafe-storage) if you'd rather not set one up. Rowsafe never sees your data, your bucket keys or your encryption passphrase.
 3. The hosted **Rowsafe service** schedules backups and the weekly Proof, keeps the history, watches for problems and alerts you.
 
 Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
@@ -89,7 +89,7 @@ Rowsafe works on production databases, so it is careful by design:
     The careful, step-by-step version for a server that matters, and automation.
   </Card>
   <Card title="Restore a database" href="/docs/guides/restore">
-    Rewind: get your data back to a point in time or to a Mark.
+    Rewind: restore a copy, bring back deleted rows, or rewind the whole database to a point in time or a Mark.
   </Card>
   <Card title="Use Rowsafe with AI agents" href="/docs/guides/ai-agents">
     Guard: a Mark before every migration an agent runs.

@@ -88,6 +88,8 @@ Apps that log in as that user need the new password right away.
 With **Use the firewall too**, the server's own firewall drops connections to PostgreSQL's port from every address but the ones you choose, before they reach PostgreSQL. This needs your permission on the server: run the installer with `--allow-firewall` (or answer yes to its question). The dashboard shows **Allowed on this server** or **Not allowed on this server**.
 
 - It uses **nftables**, in a table of its own (`inet rowsafe`) that matches **only PostgreSQL's port**. SSH and every other port are never touched, and connections from the server itself always work.
+- The installer finds the ports itself, as root (from `pg_lsclusters` and the `postgres` user's listening sockets), shows them, and keeps the list on a re-run; a new port is added only after you say yes again. Whatever the list says, the helper refuses ports below 1024, any port SSH uses, and a port PostgreSQL doesn't listen on.
+- A port Docker publishes isn't covered: its traffic is forwarded past the server's own firewall. Rowsafe refuses it; limit it in your compose file instead.
 - After a change, the agent must confirm within a minute that it still reaches Rowsafe and PostgreSQL. If it can't, the server puts the previous rules back by itself.
 - The rules come back after a reboot. If you reload your own firewall with a full flush (`flush ruleset`), Rowsafe's table goes too; the check from the internet then shows the port reachable again, and you can apply it again.
 - **Remove the firewall rule** takes Rowsafe's rule away; `--no-allow-firewall` or uninstalling removes the helper and its rules.

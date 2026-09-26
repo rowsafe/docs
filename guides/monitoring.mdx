@@ -100,10 +100,19 @@ What Rowsafe can fix:
 | An unused or duplicate index | **Remove** | `DROP INDEX CONCURRENTLY`, after saving a Mark. |
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
+| Some changes didn't reach the second copy, or it has no full backup | **Back up to the second copy** | A full backup into the [second copy](/docs/guides/second-copy). |
+| Keeping one full backup fewer would save money, safely | **Keep 1 full backup** | Changes the setting; the oldest full backup goes away at the next backup (after you confirm). |
 | The disk is filling up | The fixes above that free space | Removing an inactive slot or unused indexes, cleaning up tables. |
 | PostgreSQL uses default memory settings on a bigger server | **Tune for this server** | Applies the recommended settings, after saving a Mark. See [Tuning](/docs/guides/tuning). |
 | Query statistics are off (`pg_stat_statements` isn't loaded) | **Turn on query statistics** | Adds it to `shared_preload_libraries`; it starts after the next restart. |
 | Changed settings wait for a restart | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts during install. |
+| A newer PostgreSQL minor release is available | **Update to 16.10** | Saves a Mark, installs the release and restarts PostgreSQL, on servers where you allowed updates. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
+| A newer release is installed but not running yet | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts. |
+| Security updates are waiting | **Install security updates** | Saves a Mark, installs the server's security updates (not PostgreSQL's own packages), on servers where you allowed them. |
+| The server needs a reboot | **Reboot the server** | Saves a Mark and reboots the server (you type the name), on servers where you allowed reboots. |
+| An upgrade keeps the old PostgreSQL version | **Remove PostgreSQL 16** | Deletes the version kept for undo, and frees its disk. |
+
+Pulse also tells you when your PostgreSQL major version no longer gets security fixes (or will within six months). Upgrading is not a one-click fix: it starts with a check and a rehearsal, on the database's **Updates** tab ([how](/docs/guides/updates#major-upgrades)).
 
 Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 
@@ -165,7 +174,7 @@ Each minute the agent reports whether it could query PostgreSQL. Rowsafe shows u
 
 ## Your weekly Pulse
 
-Every Monday morning, "Your weekly Pulse" arrives by email: each database's health score and how it changed, the week's backups and Proof results, size and growth, the disk forecast, the top things to fix, the slowest queries, and any open alerts.
+Every Monday morning, "Your weekly Pulse" arrives by email: each database's health score and how it changed, the week's backups and Proof results, size and growth, what the backups take in your storage and cost, how the second copy is doing, the disk forecast, the top things to fix, the slowest queries, and any open alerts.
 
 It's on for new organizations. It goes to the addresses you choose, or else to your email alert channels. Every email has a one-click unsubscribe link.
 
@@ -207,6 +216,7 @@ Rowsafe checks every rule every 30 seconds. A condition must hold for the rule's
 | `replication_lag` | warning | 5 minutes | 5m | A replica is further behind than the threshold. |
 | `deadlocks` | warning | 5 | | More deadlocks than the threshold in 10 minutes. |
 | `cache_hit_low` | info | 90% | 30m | Cache hit ratio below the threshold with real read traffic. |
+| `second_copy_failing` | warning | 30 minutes | 5m | Changes haven't reached the [second copy](/docs/guides/second-copy) for longer than the threshold, or some were left out of it. PostgreSQL and the first storage aren't affected. |
 
 Backup and archiving rules (`backup_stale`, `wal_archiving_failing`, `postgres_unreachable`, the Proof rules, `restore_point_unconfirmed`) wait until backups are switched on for the database, so a database you just added doesn't page you. Disk, connection, wraparound, lock and replication rules apply from the start.
 

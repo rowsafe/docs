@@ -1,0 +1,101 @@
+---
+title: Create databases and users
+description: Create databases, users and extensions inside your PostgreSQL server from the dashboard or the CLI, with passwords only you ever see.
+---
+
+In Rowsafe, a "database" is a whole PostgreSQL server. The **Databases & users** tab of that server shows what's inside it, the databases, the users and the extensions, and lets you create and remove them without logging in to the server.
+
+Every database you create is **backed up from the first second**: Rowsafe backs up the whole server, so a new database is part of the next backup and of continuous archiving as soon as it exists.
+
+## Create a database
+
+1. Open the server in the dashboard, then **Databases & users**.
+2. Click **Create database** and type a name, such as `shop`.
+3. Click **Create database**.
+
+Rowsafe creates:
+
+- the database, in UTF-8 and the server's locale;
+- a new user with the same name that owns it, with a random 32-character password;
+- the rights: only that user (and superusers) can connect to the new database, and only the owner can create tables in its `public` schema.
+
+When it's done, you see the password **once**, with the connection string for the address your apps use and ready-made snippets for `.env`, `psql`, Prisma, Django, Rails and Laravel. Copy it now: Rowsafe doesn't keep it. If you lose it, set a new one (below).
+
+Under **More options** you can:
+
+- give the database to an **existing user** instead of creating one;
+- turn on **extensions** right away (for example `pg_trgm`, `uuid-ossp`, `vector`);
+- choose another **locale** (how text sorts), or start from the empty template (`template0`).
+
+If something fails half-way, Rowsafe removes what it created, so nothing is left behind.
+
+## Add a user
+
+Click **Add user**, give it a name, choose the databases it can use and what it can do:
+
+| Access | Can |
+|---|---|
+| **Read only** | Read every table, including tables the database's owner creates later. Change nothing. |
+| **Read and write** | Also add, change and delete rows, and use sequences. Can't create or change tables. |
+| **Full access** | Everything the owner can do, including creating and changing tables. |
+
+The password is shown once, like above.
+
+## New password, remove a user
+
+In the users list, open a user's menu:
+
+- **New password** makes a new random password and shows it once. Apps already connected stay connected; they need the new password the next time they connect. Passwords are stored the modern way (SCRAM); users with an old MD5 password are marked so you can move them.
+- **Remove user** ends its connections and removes it. Anything it owns (tables, databases) goes to the user you choose.
+
+Rowsafe never changes superusers, the user its agent connects as, or its own users.
+
+## Extensions
+
+Click a database's extensions (or **Extensions** in its menu) to turn extensions on and off. Only extensions installed on the server are listed; some, like PostGIS, come in a separate package that has to be installed on the server first. Turning one off is refused while something still uses it, with the reason.
+
+Extensions that let database users run programs or read files on the server as PostgreSQL's system user (the untrusted languages such as `plpython3u`, and `file_fdw`) are marked, and need you to type their name to confirm.
+
+## Remove a database
+
+Open the database's menu and click **Remove database**, then type its name. Rowsafe first saves a **Mark**, so you can get the data back with [Rewind](/docs/guides/restore), then ends its connections and removes it. PostgreSQL's own databases (`postgres`, `template0`, `template1`) can't be removed.
+
+## From the CLI
+
+```sh
+rowsafe db                                  # databases, users and extensions
+rowsafe db create shop                      # a new database and its own user; the password is shown once
+rowsafe db create shop --owner app --extension pg_trgm
+rowsafe db user add reporting --db shop --access read_only
+rowsafe db user password reporting
+rowsafe db user remove old_app --reassign-to app
+rowsafe db ext on shop vector
+rowsafe db drop shop                        # asks you to type the name; a Mark first
+```
+
+Add `--on NAME` to choose the server when your organization has several. See the [CLI reference](/docs/reference/cli#databases-and-users).
+
+## How passwords stay private
+
+Rowsafe never sees the passwords it creates:
+
+1. Your browser (or the CLI) makes a one-time key pair. The private key never leaves its memory and can't be exported.
+2. The agent on your server generates the password and encrypts it to that key (ECDH P-256, HKDF-SHA256 and AES-256-GCM).
+3. Rowsafe relays only the encrypted password, once, to the person who asked, and deletes it; after 10 minutes it is deleted anyway.
+4. Your browser decrypts it and shows it to you.
+
+PostgreSQL stores only a SCRAM verifier the agent computes, so the password isn't in any SQL statement or server log either.
+
+## Who can do it
+
+- Owners and admins, in the dashboard; read-write API keys, with the CLI. Members and read-only keys can only see the list.
+- AI agents (MCP) can only read the list (`list_databases_on_server`); they can't create or remove anything or get a password.
+- Every change is in the [audit log](/docs/guides/teams#audit-log), without passwords.
+
+## Limits
+
+- PostgreSQL only for now.
+- A new user can connect to the databases it was given, and also to databases every user may connect to (on most servers, `postgres`, where it can't read anything it wasn't given). Rowsafe doesn't change your other databases' rights or `pg_hba.conf`.
+- "Tables created later" covers tables created by the database's owner and by users that already own tables in it.
+- Connection strings use the server's direct port. `sslmode=require` when TLS is on for the server, otherwise `prefer`.
+- The agent must be online: changes wait for it and are refused when it isn't reporting.

@@ -4,6 +4,7 @@
     "how-it-works",
     "backups-and-recovery",
     "postgresql",
+    "mysql",
     "restore-drills",
     "restore-points",
     "protection-status",

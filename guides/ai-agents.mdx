@@ -22,6 +22,13 @@ Agents can't restore a copy, bring rows back, rewind a database or restart Postg
 
 **Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
 
+## Preview migrations and test on safe copies
+
+Two more Guard tools never touch production, so agents get them without write access:
+
+- **`preview_migration`** runs a migration's SQL on a fresh copy of the database and answers *safe*, *careful*, *dangerous* or *fails*, with what to change. The skill tells agents to preview every migration before running it. See [Preview a migration](/docs/guides/preview-migrations).
+- **`create_safe_copy`** gives an agent a masked copy to test against, with a connection string, instead of production's. See [Safe copies](/docs/guides/safe-copies).
+
 ## Set it up
 
 Pick one or combine them. First, name the project's database once, in the project directory:

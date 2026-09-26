@@ -178,6 +178,30 @@ On the server, `sudo -u postgres rowsafe-agent key` prints the agent's key finge
 | `rowsafe move back [NAME]` | Move it back to the old server (its data is reused). |
 | `rowsafe move finish [NAME]` | Remove the old server: Rowsafe stops keeping it stopped. |
 
+## Fork
+
+A [fork](/docs/guides/fork) is a new, independent database cloned from another as it was now, at any second of its recovery window, or at a Mark, with its own backups.
+
+| Command | What it does |
+|---|---|
+| `rowsafe fork [SOURCE] --to SERVER` | Restore `SOURCE` on `SERVER` as a new database, and wait until its first backup is done. `--to` can be the source's own server (a new port there). Without `--at` or `--mark`, it forks now: Rowsafe saves a Mark named `fork-<id>` first. |
+| `rowsafe forks [SOURCE]` | The forks made from `SOURCE`, their status, and what `SOURCE` was forked from. `--json` prints JSON, with each fork's masked columns. |
+
+**`fork` flags:**
+
+| Flag | |
+|---|---|
+| `--to SERVER` | The server's hostname or ID. Without it, the CLI lists the servers and why any can't take the fork. |
+| `--name NAME` | The fork's name in Rowsafe. Default `SOURCE-fork`. |
+| `--at TIME` | A moment in the recovery window: `"2026-09-24 14:04"` (your time zone), `"14:04"`, `"10m ago"` or RFC 3339. |
+| `--mark MARK` | A Mark instead of a time. |
+| `--mask` | Mask personal data before anyone can connect. |
+| `--port N` | The port of the new PostgreSQL cluster, in 5440-5499. Default: a free one. |
+| `--into-port N` | Use this existing, empty cluster instead of creating one. |
+| `--fingerprint F` | Another server's key fingerprint, confirmed without asking (needed without a terminal). |
+| `--no-wait` | Return once queued. |
+| `--json` | Print the fork as JSON. |
+
 ## Database settings
 
 ```sh

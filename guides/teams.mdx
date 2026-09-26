@@ -50,6 +50,6 @@ WHEN                 ACTOR                                      ACTION          
 2026-09-24 14:05:12  key:key_... (CLI · rowsafe CLI on laptop)  restore_point.create  app     before-migration-42
 ```
 
-It records, among others: databases added, changed and removed; hosts changed and removed; enrollment tokens created; tasks queued (backups, Proof runs, plans, restarts); Marks; Rewind (`rewind.copy`, `rewind.copy_extend`, `rewind.copy_delete`, `rewind.compare`, `rewind.rows`, `rewind.in_place`, `rewind.undo`, `rewind.cleanup`); API keys created and revoked; alerts acknowledged; alert rules and notification channels changed; plan changes; and CLI logins approved or denied.
+It records, among others: databases added, changed and removed; hosts changed and removed; enrollment tokens created; tasks queued (backups, Proof runs, plans, restarts); Marks; forks (`database.fork`); Rewind (`rewind.copy`, `rewind.copy_extend`, `rewind.copy_delete`, `rewind.compare`, `rewind.rows`, `rewind.in_place`, `rewind.undo`, `rewind.cleanup`); API keys created and revoked; alerts acknowledged; alert rules and notification channels changed; plan changes; and CLI logins approved or denied.
 
 Changes the installer makes, such as adding a database, show an actor like `installer on db-1`.

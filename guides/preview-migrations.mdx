@@ -1,0 +1,106 @@
+---
+title: Preview a migration
+description: Run a migration on a fresh copy of your database, on its own server, and see what it would do to production (locks, table rewrites, rows, time) before you run it.
+---
+
+A migration that is instant on your laptop can lock a busy production table for minutes: a column type change rewrites the whole table, a new index blocks writes while it builds, `SET NOT NULL` scans every row. **Preview a migration** shows you that before production does.
+
+Rowsafe restores a copy of the database on its own server, from your backups and every change since, runs the migration there, and tells you what happened. Production is never touched.
+
+## What you get
+
+- **A verdict**: *Safe*, *Careful*, *Dangerous*, or *Fails* (the migration errors on production's data).
+- **What to change**, in plain words: use `CREATE INDEX CONCURRENTLY`, add a constraint `NOT VALID` then `VALIDATE` it, add a column instead of changing its type, set `lock_timeout`, batch a large `UPDATE`.
+- **Each statement**: how long it took, the rows it changed, the locks it took on existing tables and what they block (reads and writes, or writes), tables it rewrote, indexes it built, tables it dropped. The line of the SQL where it starts.
+
+## Preview from the dashboard
+
+1. Open the database, then **Guard → Migration previews**.
+2. Click **Preview a migration**, and paste the migration's SQL or upload its file.
+3. Watch it run: waiting for the agent, getting a fresh copy, running the migration. Then read the report.
+
+The first preview of a database restores a copy, which takes about as long as a restore test (Proof). Rowsafe keeps that copy for an hour, so the next previews start in seconds. Each runs on its own clone of the database, so one preview never sees another's changes.
+
+## Preview from a terminal or CI
+
+```sh
+rowsafe preview app migrations/0042_add_reference.sql
+```
+
+The report is printed when the preview ends. Add `--db NAME` when the server has several PostgreSQL databases and the migration isn't for the one named like `app`.
+
+- `--json` prints one object with `verdict`, `summary` and `error` (empty when the preview ran), plus `markdown` (a ready-made pull request comment) and `result` (every statement).
+- `--format markdown` prints the pull request comment.
+- The command exits `0` once the preview ran, whatever the verdict, and `1` if it couldn't run. With `--fail-on dangerous` (or `careful`) it exits `3` at or above that verdict and `2` when the migration fails: use that to stop a CI job.
+- `-` reads the SQL from standard input.
+
+AI agents with the [Rowsafe MCP server](/docs/reference/mcp) use the `preview_migration` tool, which needs no write access. The [Guard skill](/docs/guides/ai-agents) tells them to preview every migration before running it.
+
+## Get your migration's SQL
+
+Preview the SQL your tool would run, not its source file.
+
+<Tabs items={["Prisma", "Django", "Alembic", "Rails", "Drizzle", "Flyway, Liquibase, goose"]}>
+<Tab value="Prisma">
+
+Create the migration without applying it, then preview its file:
+
+```sh
+npx prisma migrate dev --create-only --name add_reference
+rowsafe preview app prisma/migrations/*_add_reference/migration.sql
+```
+
+</Tab>
+<Tab value="Django">
+
+```sh
+python manage.py sqlmigrate shop 0042 > /tmp/0042.sql
+rowsafe preview app /tmp/0042.sql
+```
+
+</Tab>
+<Tab value="Alembic">
+
+Offline mode prints the SQL between two revisions:
+
+```sh
+alembic upgrade 3f2a1b:head --sql > /tmp/upgrade.sql
+rowsafe preview app /tmp/upgrade.sql
+```
+
+Alembic's offline output wraps the migration in `BEGIN` and `COMMIT`; Rowsafe runs it as written.
+
+</Tab>
+<Tab value="Rails">
+
+Rails has no built-in way to print a migration's SQL without running it. Run it once on your development database and copy the statements it logged (between `BEGIN` and `COMMIT` in `log/development.log`), or write the migration with `execute` and preview that SQL.
+
+</Tab>
+<Tab value="Drizzle">
+
+`drizzle-kit generate` writes the SQL file; preview it before `drizzle-kit migrate`:
+
+```sh
+npx drizzle-kit generate
+rowsafe preview app drizzle/0007_add_reference.sql
+```
+
+</Tab>
+<Tab value="Flyway, Liquibase, goose">
+
+- **Flyway**: preview the `V42__add_reference.sql` file itself.
+- **Liquibase**: `liquibase update-sql > /tmp/update.sql`, then preview that file.
+- **goose**: preview only the `-- +goose Up` part of the file (Rowsafe would run the `Down` part too).
+
+</Tab>
+</Tabs>
+
+## How it works, and its limits
+
+- **Where it runs.** On the database's server, next to production, at low CPU and IO priority, listening on no network port, with no background jobs (pg_cron and friends don't run). It needs free disk for a copy: about 1.3 times the cluster's size plus 1 GB, and room for a clone of the database when a copy is reused. Previews need the Rowsafe agent to be running and at least one backup.
+- **How fresh the data is.** The copy has everything that reached your bucket: at most about a minute behind production. A copy is reused for up to an hour (`fresh_minutes` in the API, `--fresh` in the CLI).
+- **One transaction or as written.** A migration without its own `BEGIN`/`COMMIT` runs in one transaction, committed at the end, like most migration tools; locks then last until the end, and the report says so. SQL with its own transactions, or with statements that can't run in one (`CREATE INDEX CONCURRENTLY`, `VACUUM`), runs statement by statement as written. psql commands (`\set`, `\c`) are skipped.
+- **Never as a superuser.** The migration runs as a regular role that owns your tables, so it can't run programs or read files on the server. `CREATE EXTENSION` statements are run first, by Rowsafe, as a superuser. Statements that need a superuser on your server too (`ALTER SYSTEM`, untrusted languages, `COPY` to a file) fail in the preview and say why.
+- **Times are estimates.** The copy has a small cache and low priority, so production is usually faster, but production is also busy: a lock that takes a second on the copy waits behind running queries on production, and every query behind it waits too. That's why Rowsafe suggests `lock_timeout`.
+- **What reaches Rowsafe.** Your SQL passes through Rowsafe to your server, and is removed from Rowsafe as soon as the preview ends (only its size and a hash stay). The report holds table names, counts, sizes and timings. An error message that quotes a value from your data shows `(a value from your data)` instead; the full message stays in the agent's log on your server.
+- **Size.** Up to 960 kB of SQL and 5,000 statements per preview, at most 30 minutes of running time, and five previews waiting per database.

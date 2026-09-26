@@ -115,7 +115,7 @@ What Rowsafe can fix:
 
 Pulse also tells you when your PostgreSQL major version no longer gets security fixes (or will within six months). Upgrading is not a one-click fix: it starts with a check and a rehearsal, on the database's **Updates** tab ([how](/docs/guides/updates#major-upgrades)).
 
-Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
+Some things Rowsafe doesn't do for you, and the finding says so in plain words: an **offline agent** (Rowsafe can't reach that server until someone restarts the agent there), **storage keys** (they never leave your server), **adding an index** (which column to index is your call; the index a foreign key needs is a [recommendation](/docs/guides/recommendations) Rowsafe can create), a **full table rebuild** to give space back to the disk (`VACUUM FULL` or `pg_repack` belong in a quiet hour), connection pooling and replication lag. Where a command helps, it's under **Do it yourself**, folded away.
 
 ### What keeps it safe
 
@@ -175,7 +175,7 @@ Each minute the agent reports whether it could query PostgreSQL. Rowsafe shows u
 
 ## Your weekly Pulse
 
-Every Monday morning, "Your weekly Pulse" arrives by email: each database's health score and how it changed, the week's backups and Proof results, size and growth, what the backups take in your storage and cost, how the second copy is doing, the disk forecast, the top things to fix, the slowest queries, and any open alerts.
+Every Monday morning, "Your weekly Pulse" arrives by email: each database's health score and how it changed, the week's backups and Proof results, size and growth, what the backups take in your storage and cost, how the second copy is doing, the disk forecast, the top things to fix, the top [recommendation](/docs/guides/recommendations), the slowest queries, and any open alerts.
 
 It's on for new organizations. It goes to the addresses you choose, or else to your email alert channels. Every email has a one-click unsubscribe link.
 

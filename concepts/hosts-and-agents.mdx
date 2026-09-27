@@ -16,7 +16,11 @@ db-1  host_9h8g7f6e5d4c3  0.4.2  linux/amd64  stable   -    confirmed    12s ago
 
 ## Enrollment
 
-A new host joins your organization with a one-time **enrollment token** (`rse_...`). In the dashboard, open **Servers**, then **Add a server**: it shows the install command with a fresh token. Or from a terminal:
+A new host joins your organization with a one-time **enrollment token** (`rse_...`). There are two ways to get one.
+
+**Approve it in the browser.** Run `curl -fsSL https://rowsafe.sh | sudo sh` on the server. The installer prints a link that opens the approval page with its code filled in, next to the server's name, address and operating system. An admin or owner approves it, and the installer receives a single-use enrollment token for that server only (valid for a day, never an API key). Deny anything you didn't start: someone who sends you such a link wants their server in your organization.
+
+**Copy a token.** In the dashboard, open **Servers**, then **Add a server**: it shows the install command with a fresh token. This is also the way for automation, which has no one at the terminal. Or from a terminal:
 
 ```sh
 rowsafe hosts enroll-token            # valid for 1 hour

@@ -76,7 +76,15 @@ Store it, with the bucket keys, in your secret manager. Keep backup secrets in t
 
 ### Run the installer
 
-In the dashboard, open **Servers**, then **Add a server**, and copy the install command. It holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.) Run it on the server:
+On the server, run:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh
+```
+
+It prints a link that opens the approval page with its code filled in. Check that the code matches your terminal and approve the server; you need to be an admin or owner of the organization. Approving gives this server a single-use enrollment token, never an API key.
+
+To skip the approval (or without a terminal), use the command from **Servers**, then **Add a server**, in the dashboard: it holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.)
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...

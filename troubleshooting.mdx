@@ -87,7 +87,7 @@ sudo journalctl -u rowsafe-agent -n 50
 |---|---|
 | The service is stopped or crash-looping | Check the last errors in the journal. Run the self-test: `curl -fsSL https://rowsafe.sh \| sudo sh` runs it and names what's wrong. |
 | `repository not configured, missing: ...` | Add the missing settings to `/etc/rowsafe/agent.env`, then run the installer again. |
-| `not enrolled: set ROWSAFE_ENROLL_TOKEN` | Create a token with `rowsafe hosts enroll-token` and run the install command again. |
+| `not enrolled: set ROWSAFE_ENROLL_TOKEN` | Run the install command again from a terminal and approve the server in your browser, or create a token with `rowsafe hosts enroll-token` and pass it to the installer. |
 | `the control plane rejected this agent's token: the host was removed from Rowsafe` | The host was removed. Enroll it again with a new token, or uninstall the agent. |
 | Connection errors | The server must reach `https://api.rowsafe.sh` over outbound HTTPS (port 443). Check the firewall, proxy and DNS. |
 

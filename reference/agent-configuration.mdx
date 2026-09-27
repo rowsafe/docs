@@ -163,8 +163,9 @@ See [Run the agent in Docker](/docs/guides/docker).
 ## Installer
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh -s rse_...                   # install and set up, with questions
-curl -fsSL https://rowsafe.sh | sudo sh -s rse_... --protect app     # the same, without questions
+curl -fsSL https://rowsafe.sh | sudo sh                              # install: approve the server in your browser, then questions
+curl -fsSL https://rowsafe.sh | sudo sh -s rse_...                   # the same with an enrollment token: nothing to approve
+curl -fsSL https://rowsafe.sh | sudo sh -s rse_... --protect app     # without questions (automation)
 curl -fsSL https://rowsafe.sh | sudo sh                              # run again: update, re-test, start
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options alone go after `sh -s --`
 ```
@@ -173,7 +174,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 
 | Option | |
 |---|---|
-| `rse_...` | The enrollment token. `ROWSAFE_ENROLL_TOKEN=rse_...` in the environment works too. |
+| `rse_...` | The enrollment token. `ROWSAFE_ENROLL_TOKEN=rse_...` in the environment works too. Without one, on a terminal, the installer prints a link to approve the server in your browser instead. |
 | `--protect NAME` | Set up the database without questions: register it as `NAME`, plan and apply. Never restarts PostgreSQL. The storage settings must then be in the environment (`ROWSAFE_REPO_*`). |
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
 | `--allow-restart` | Allow restarting PostgreSQL from the Rowsafe dashboard, without asking. Only when someone clicks **Restart** and confirms. |

@@ -38,20 +38,19 @@ Create a **private**, empty bucket, for example `app-rowsafe`, and an access key
 </Step>
 <Step>
 
-### Copy the install command
-
-In the dashboard, open **Servers**, then **Add a server**. It shows the install command with a one-time enrollment token (`rse_...`), valid for one hour.
-
-</Step>
-<Step>
-
-### Run it on the database server
+### Run the installer on the database server
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
+curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
-It installs the agent (after checking its signature), then asks a few questions in your terminal:
+It installs the agent (after checking its signature) and prints a link. Open it: the page shows the server's name, address and a code. Check that the code matches your terminal, pick your organization and click **Approve**. The installer notices within seconds and goes on.
+
+<Callout title="From the dashboard">
+  **Servers**, then **Add a server**, shows the same command with a one-time enrollment token (`rse_...`) already in it. Run that one and there's nothing to approve.
+</Callout>
+
+Then it asks a few questions in your terminal:
 
 1. **Your bucket.** Paste the bucket URL. Rowsafe works out the provider, region and bucket from it. Then paste the access key ID and the secret. It tests the bucket: it writes, reads back and deletes a small file. If something is wrong, it tells you what and lets you fix it.
 2. **The encryption passphrase.** It generates a strong one and shows it once. Save it, then type its last 4 characters to confirm.

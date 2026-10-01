@@ -124,14 +124,16 @@ On Debian or Ubuntu, Rowsafe can create a new PostgreSQL cluster for the fork, n
 Creating a cluster needs root, so the agent can't do it on its own. It works only where root allowed it when installing the agent. Where restarts are allowed, the installer asks:
 
 ```text
-Allow Rowsafe to create a new PostgreSQL cluster here when you fork a database to this server? Only when someone confirms a fork; ports 5440-5499. [Y/n]
+Create a new PostgreSQL cluster here (ports 5440-5499), when someone forks a database to this server? [Y/n]
 ```
 
-`--allow-create-cluster` or `--no-allow-create-cluster` answers without asking. To allow it on a server where the agent is already installed, run the installer again:
+`--allow-create-cluster` or `--no-allow-create-cluster` answers without asking. To allow it on a server where the agent is already installed:
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-create-cluster
+sudo rowsafe-allow create-cluster
 ```
+
+(It needs restarts allowed: `sudo rowsafe-allow restart create-cluster` allows both. See [permissions](/docs/guides/permissions).)
 
 The installer writes the allowed ports to `/etc/rowsafe/create-cluster-allowed`. A separate, sandboxed unit (`rowsafe-pg-create-cluster@`) creates the cluster, and lists it in `/etc/rowsafe/created-clusters`, so Rowsafe may also stop and start it later, when someone asks (for example with **Restart**).
 
@@ -143,11 +145,11 @@ Rowsafe can use a cluster that already exists, if it is:
 - **empty**: no databases or tables of your own;
 - **running**, so Rowsafe can check that it is empty;
 - the **same major version** as the source, and not a standby;
-- one that **Rowsafe may stop and start**: you said yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?" when installing the agent (or passed `--allow-restart`) after the cluster existed.
+- one that **Rowsafe may stop and start**: restarts were allowed (`sudo rowsafe-allow restart`) after the cluster existed.
 
 Rowsafe stops it, sets its own empty data aside for 7 days, restores the fork in its place and starts it. The cluster keeps its own configuration files. If the fork fails, the cluster gets its own data back.
 
-On Debian or Ubuntu, you create one with `pg_createcluster 18 staging --port 5433 --start`, then run the installer again with `--allow-restart`.
+On Debian or Ubuntu, you create one with `pg_createcluster 18 staging --port 5433 --start`, then run `sudo rowsafe-allow restart` so Rowsafe may stop and start it too.
 
 </Tab>
 <Tab value="Docker">

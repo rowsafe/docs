@@ -186,15 +186,16 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--allow-pooler` | Allow Rowsafe to install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)), without asking. Nothing is installed until someone turns pooling on and confirms. |
 | `--no-allow-pooler` | Don't allow it, without asking. A PgBouncer Rowsafe already set up keeps running, but Rowsafe can no longer change it. |
 | `--allow-pooler-public` | With `--allow-pooler`: also let PgBouncer listen on every address when someone chooses "public" for it. Without it, PgBouncer listens only on this server and its private network. |
+| `--no-allow-pooler-public` | PgBouncer listens only on this server and its private network again. |
 
 | `--allow-restart` | Allow Rowsafe to restart or stop PostgreSQL when you ask, without asking at install: **Restart**, and **Rewind the whole database**, in the dashboard. Only when someone clicks and confirms. Installs the root helper `rowsafe-pg-restart`. |
-| `--no-allow-restart` | Don't allow it, without asking, and remove the helper. Also turns off the three options below. |
+| `--no-allow-restart` | Don't allow it, without asking, and remove the helper. Also turns off what needs it: updates, security updates, reboots and new clusters for forks. |
 | `--allow-updates` | Allow installing PostgreSQL minor updates and upgrading PostgreSQL from Rowsafe, without asking. Only when someone clicks **Update** or **Upgrade** and confirms. Needs `--allow-restart`. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
 | `--no-allow-updates` | Don't allow it, without asking. |
 | `--allow-security-updates` | Allow installing the server's security updates from Rowsafe, without asking. Needs `--allow-restart`. |
 | `--no-allow-security-updates` | Don't allow it, without asking. |
-| `--allow-reboot` | Allow rebooting the server from Rowsafe, without asking. Needs `--allow-restart`. |
-| `--no-allow-reboot` | Don't allow it, without asking. |
+| `--allow-reboot` | Allow rebooting the server from Rowsafe, without asking. Needs `--allow-security-updates`. |
+| `--no-allow-reboot` | Don't allow it, without asking. `--no-allow-security-updates` turns it off too. |
 | `--allow-firewall` | Allow Rowsafe to limit who can reach PostgreSQL's port with the server's firewall (nftables), without asking. Only PostgreSQL's port, never SSH; only when someone chooses the addresses under [Security](/docs/guides/security#the-firewall) and confirms. |
 | `--no-allow-firewall` | Don't allow it, without asking; removes Rowsafe's firewall rule and helper. |
 | `--mongodb-replica-set` | MongoDB: turn a standalone server into a replica set of one without asking (one MongoDB restart). Restoring to any second needs it. |
@@ -208,6 +209,9 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--add-storage` | Add a second copy in another bucket, with questions like the first storage, or move it to another bucket. Without a terminal, takes `ROWSAFE_REPO2_*` from the environment and tests it before saving. |
 | `--remove-second-copy` | Stop sending backups to the second copy. Its bucket is left as it is. |
 | `--download-only DIR` | Download and verify the agent into `DIR`; install nothing. Needs no root. |
+| `--permissions` | Where Rowsafe is installed: change only what it may do (`--allow-NAME`, `--no-allow-NAME`, `--no-allow-files`), nothing else, without the network, then print what it may do. What [`sudo rowsafe-allow`](/docs/guides/permissions) runs. Exits `0` when done, `2` when it refused and changed nothing (a needed permission is off, not possible on this server), `1` when a change failed. |
+
+A permission that needs another one is refused without it, and turning one off turns off what needs it: `create-cluster`, `updates` and `security-updates` need `restart`; `reboot` needs `security-updates`; `pooler-public` needs `pooler`. To change them later, use [`sudo rowsafe-allow`](/docs/guides/permissions) on the server.
 | `--uninstall` | Stop and remove the service and `/opt/rowsafe`. Keep the configuration, state and logs. |
 | `--uninstall --purge` | Also delete `/etc/rowsafe`, `/var/lib/rowsafe`, `/var/log/rowsafe` and the logrotate file. Refused while PostgreSQL still archives with Rowsafe's configuration. |
 | `-h`, `--help` | Help. |
@@ -277,6 +281,8 @@ Secrets are never printed, and nothing is saved until you have answered the stor
 /etc/rowsafe/files-allowed             root 0644; "PATH UID" per folder Rowsafe may read and restore into (--allow-files)
 /etc/systemd/system/rowsafe-agent.service
 /etc/logrotate.d/rowsafe
+/usr/local/sbin/rowsafe-allow          root 0755; see and change what Rowsafe may do (sudo rowsafe-allow)
+/usr/local/lib/rowsafe/install.sh      root 0755; root's copy of the installer, checked against the signed manifest
 
 Only when you allowed restarts, updates, security updates or reboots:
 /etc/rowsafe/restart-allowed           root 0644; "PORT UNIT" per cluster Rowsafe may restart or stop

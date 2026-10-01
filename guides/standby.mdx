@@ -15,7 +15,7 @@ Rowsafe sets it up from your backups and your bucket, keeps it in sync, watches 
 
 - **Another server** in the same organization, with the Rowsafe agent installed natively (not in Docker).
 - On it, an **empty PostgreSQL cluster** of the **same major version** as the primary. Rowsafe replaces its data (and keeps the old data aside, so removing the standby gives it back). On Debian or Ubuntu, a second cluster is one command: `pg_createcluster 18 standby --port 5433 --start`.
-- On both servers, **Rowsafe may stop and start PostgreSQL**: answer yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?" when installing the agent (or pass `--allow-restart`). The dashboard shows it as "allowed on this server".
+- On both servers, **Rowsafe may stop and start PostgreSQL**: answer yes to "Restart or stop PostgreSQL, when someone clicks Restart or Rewind?" when installing the agent, or run `sudo rowsafe-allow restart` there later ([permissions](/docs/guides/permissions)). The dashboard shows it as "allowed on this server".
 - Backups running for the database: the standby starts from the latest backup.
 - The same extensions installed on both servers. Settings in `/etc/postgresql/...` aren't copied; settings made with `ALTER SYSTEM` are.
 

@@ -1,0 +1,105 @@
+---
+title: Change what Rowsafe may do on a server
+description: Rowsafe restarts PostgreSQL, installs updates, reboots, manages PgBouncer or the firewall only where root allowed it, and only when someone clicks and confirms. See and change what is allowed with sudo rowsafe-allow.
+---
+
+Some of what Rowsafe does on your server needs root: restarting PostgreSQL, installing updates, rebooting, managing PgBouncer or the firewall. Rowsafe does these **only when someone clicks them in the dashboard and confirms**, and **only the ones root allowed on that server**. Nothing is allowed until root says so, and only root on the server can change it.
+
+The examples use a server named `db-1`.
+
+## When you install
+
+On a terminal, the installer asks once, under one heading, then shows what is allowed:
+
+```text
+==> What may Rowsafe do on this server?
+    Rowsafe only does these when someone clicks them in your dashboard and
+    confirms. You can change them any time with `sudo rowsafe-allow`.
+Restart or stop PostgreSQL, when someone clicks Restart or Rewind? [Y/n]
+Create a new PostgreSQL cluster here (ports 5440-5499), when someone forks a database to this server? [Y/n]
+Install PostgreSQL updates and upgrades, when someone clicks Update? A Mark is saved first. [Y/n]
+Install this server's security updates, when someone clicks Install? [y/N] y
+Reboot this server, when someone clicks Reboot? A Mark is saved first. [y/N]
+Install and manage PgBouncer (connection pooling), when someone turns pooling on? Nothing is installed now. [Y/n]
+Limit who can reach PostgreSQL (port 5432) with the firewall, when someone picks the addresses? SSH and other ports are never touched. [y/N]
+
+==> What Rowsafe may do on db-1, only when someone clicks it and confirms
+    allowed      restart           restart or stop PostgreSQL (Restart, Rewind)
+    allowed      create-cluster    create a PostgreSQL cluster for a fork
+    allowed      updates           install PostgreSQL updates and upgrades
+    allowed      security-updates  install this server's security updates
+    allowed      pooler            install and manage PgBouncer (pooling)
+    not allowed  reboot            reboot this server (after an update)
+    not allowed  pooler-public     let PgBouncer listen on public addresses
+    not allowed  firewall          limit who can reach PostgreSQL (firewall)
+    Allow one:          sudo rowsafe-allow reboot
+    Stop allowing one:  sudo rowsafe-allow --remove restart
+```
+
+The installer only asks what applies to the server: no firewall question without nftables, no reboot question unless you allowed security updates. Running it again keeps your answers and asks only about what is new. Without a terminal it asks nothing (pass the [options](#install-options) instead), and still shows what is allowed.
+
+## See and change it later
+
+On the server, as root:
+
+```sh
+sudo rowsafe-allow                            # what Rowsafe may do here
+sudo rowsafe-allow restart security-updates   # allow these
+sudo rowsafe-allow --remove reboot            # stop allowing this
+```
+
+Each change takes a few seconds, prints what Rowsafe may do now, and the agent reports it to Rowsafe within a minute. It changes nothing else: the agent, its settings, backups and your databases stay as they are, and nothing is downloaded.
+
+| Name | Rowsafe may | Needs |
+|---|---|---|
+| `restart` | restart, stop and start PostgreSQL: **Restart**, and **Rewind the whole database** in place | |
+| `create-cluster` | create a new PostgreSQL cluster (ports 5440-5499) when you [fork a database](/docs/guides/fork) to this server | `restart` |
+| `updates` | install PostgreSQL's minor updates and upgrade it to a new major ([Updates](/docs/guides/updates)) | `restart` |
+| `security-updates` | install the server's security updates | `restart` |
+| `reboot` | reboot the server, for example after a kernel update | `security-updates` |
+| `pooler` | install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)) | |
+| `pooler-public` | let PgBouncer listen on public addresses, when someone chooses that | `pooler` |
+| `firewall` | limit who can reach PostgreSQL's port with the firewall ([Security](/docs/guides/security#the-firewall)), never SSH or other ports | |
+
+**What one needs, you allow together.** `sudo rowsafe-allow reboot` on a server without security updates allowed changes nothing and tells you the command: `sudo rowsafe-allow security-updates reboot`. **Turning one off turns off what needs it:** `sudo rowsafe-allow --remove restart` also stops updates, security updates, reboots and new clusters.
+
+A permission the server can't have is listed as `unavailable`, with why: for example the firewall without nftables (`apt install nftables`, then `sudo rowsafe-allow firewall`), or new clusters without Debian's `pg_createcluster`.
+
+Folders with uploads are allowed one by one: `sudo rowsafe-allow --files /var/www/uploads` backs the folder up with its database and lets Rowsafe put restored files back there; `sudo rowsafe-allow --remove files` stops putting files back. See [Files](/docs/guides/files).
+
+<Callout type="info">
+Coming in the same release: change these with one click in the dashboard, signed with a passkey you pair once at the server with `sudo rowsafe-allow --add-owner`. The server checks the passkey's signature itself before it changes anything, so neither Rowsafe nor someone with your dashboard login can change what root allowed.
+</Callout>
+
+## Install options
+
+The installer's options answer the questions without asking:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart --allow-updates --no-allow-firewall
+```
+
+Each name has `--allow-NAME` and `--no-allow-NAME`. See the [installer reference](/docs/reference/agent-configuration#installer).
+
+For configuration management, the installer's permissions-only mode does exactly what `sudo rowsafe-allow` does, without a terminal and without the network:
+
+```sh
+sudo /usr/local/lib/rowsafe/install.sh --permissions --no-prompt --allow-restart --no-allow-reboot
+```
+
+It exits with `0` when done (or nothing to change), `2` when it refused and changed nothing (a needed permission missing, not possible on this server, Rowsafe not installed), and `1` when something failed while changing. Its last lines are what Rowsafe may do now, then the reason when it refused or failed.
+
+## Limits
+
+- **Root decides, on the server.** `rowsafe-allow` needs `sudo`. Rowsafe's API and AI agents can't change what is allowed, and the dashboard only will with a passkey root paired at the server (see above).
+- **Servers installed before `rowsafe-allow`** don't have it yet: a self-updated agent doesn't add it. Run the install command once more (`curl -fsSL https://rowsafe.sh | sudo sh`): it keeps your answers and adds `rowsafe-allow`. Until then, the [options](#install-options) work as before.
+- **PostgreSQL only.** On a server with only MySQL, MariaDB or MongoDB there is nothing to allow yet.
+- **Docker.** These permissions are for servers where Rowsafe runs as a service. In Docker, what the agent may do is set where its containers are defined: see [Docker](/docs/guides/docker#let-rowsafe-restart-the-container).
+
+## Files on the server
+
+| Path | |
+|---|---|
+| `/usr/local/sbin/rowsafe-allow` | The command (root 0755). |
+| `/usr/local/lib/rowsafe/install.sh` | Root's copy of the installer, which `rowsafe-allow` runs. The installer keeps it there on every install and update, only after checking it against the signed release manifest. |
+| `/etc/rowsafe/*-allowed` | What root allowed (root 0644): `restart-allowed`, `create-cluster-allowed`, `updates-allowed`, `pooler-allowed`, `firewall-allowed`, `files-allowed`. The agent only reads them. |

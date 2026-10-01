@@ -51,11 +51,13 @@ sudo systemctl restart postgresql@18-main     # your cluster's unit; in Docker: 
 
 **Rowsafe notices the restart by itself** and finishes. If the database still says it is awaiting a restart a few minutes later, click **Check now** on the database's page (or run `rowsafe verify app`).
 
-To get the Restart button on a server where you didn't allow it, run the installer again with `--allow-restart`:
+To get the Restart button on a server where you didn't allow it, allow it there:
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart
+sudo rowsafe-allow restart
 ```
+
+On a server installed before `rowsafe-allow`, run the install command once more instead: `curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart`. See [Change what Rowsafe may do on a server](/docs/guides/permissions).
 
 After 24 hours you get the `awaiting_restart` alert as a reminder.
 
@@ -217,7 +219,7 @@ The button is disabled, and says why:
 
 | It says | What to do |
 |---|---|
-| Rowsafe isn't allowed to stop PostgreSQL on this server | Run the install command again on the server, and answer yes to "Allow Rowsafe to restart or stop PostgreSQL when you ask?". Or run it with `--allow-restart`: `curl -fsSL https://rowsafe.sh \| sudo sh -s -- --allow-restart` |
+| Rowsafe isn't allowed to stop PostgreSQL on this server | Allow it on the server: `sudo rowsafe-allow restart` (see [permissions](/docs/guides/permissions)). On a server installed before `rowsafe-allow`: `curl -fsSL https://rowsafe.sh \| sudo sh -s -- --allow-restart` |
 | The helper that restarts PostgreSQL is from an older Rowsafe | The server was installed before Rewind could stop PostgreSQL. Run the install command again there: it keeps your earlier answer and updates the helper. |
 | PostgreSQL runs in Docker | Rowsafe stops the container only through the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), with the data volume writable for the agent. Add it, or restore a copy and bring back rows. |
 | This PostgreSQL is a read-only replica | Rewind the primary. |

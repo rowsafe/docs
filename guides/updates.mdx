@@ -14,19 +14,22 @@ Rowsafe keeps PostgreSQL current on your own server. Everything happens there, t
 
 ## Allow it on the server
 
-Rowsafe can only do what root allowed when installing the agent. The installer asks once, on a terminal:
+Rowsafe can only do what root allowed on the server. The installer asks once, on a terminal:
 
-| Question | Option |
+| Question | Name |
 |---|---|
-| `Allow Rowsafe to install PostgreSQL updates when you click Update? [Y/n]` | `--allow-updates` / `--no-allow-updates` |
-| `Allow Rowsafe to install this server's security updates when you click Install? [y/N]` | `--allow-security-updates` / `--no-allow-security-updates` |
-| `Allow Rowsafe to reboot this server when you click Reboot? [y/N]` | `--allow-reboot` / `--no-allow-reboot` |
+| `Install PostgreSQL updates and upgrades, when someone clicks Update? [Y/n]` | `updates` |
+| `Install this server's security updates, when someone clicks Install? [y/N]` | `security-updates` |
+| `Reboot this server, when someone clicks Reboot? [y/N]` | `reboot` (asked after a yes to security updates) |
 
-They need restarts allowed too (`--allow-restart`): updating PostgreSQL restarts it, and the same helper does both. To change your answers later, run the installer again:
+They need restarts allowed too: updating PostgreSQL restarts it, and the same helper does both. To change your answers later, on the server:
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh -s -- --allow-restart --allow-updates
+sudo rowsafe-allow restart updates        # allow PostgreSQL updates (and restarts)
+sudo rowsafe-allow --remove reboot        # stop allowing reboots
 ```
+
+See [Change what Rowsafe may do on a server](/docs/guides/permissions). The installer's options (`--allow-updates`, `--allow-security-updates`, `--allow-reboot` and their `--no-` forms) answer without asking.
 
 The database's **Updates** tab shows what is allowed on its server, and why a button is off.
 

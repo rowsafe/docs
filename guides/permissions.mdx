@@ -65,7 +65,7 @@ Each change takes a few seconds, prints what Rowsafe may do now, and the agent r
 
 A permission the server can't have is listed as `unavailable`, with why: for example the firewall without nftables (`apt install nftables`, then `sudo rowsafe-allow firewall`), or new clusters without Debian's `pg_createcluster`.
 
-Folders with uploads are allowed one by one: `sudo rowsafe-allow --files /var/www/uploads` backs the folder up with its database and lets Rowsafe put restored files back there; `sudo rowsafe-allow --remove files` stops putting files back. See [Files](/docs/guides/files).
+Folders with uploads are allowed one by one: `sudo rowsafe-allow --files /var/www/uploads` backs the folder up with its database and lets Rowsafe put restored files back there (this runs the whole installer again, on the installed version); `sudo rowsafe-allow --remove files` stops putting files back. See [Files](/docs/guides/files).
 
 <Callout type="info">
 Coming in the same release: change these with one click in the dashboard, signed with a passkey you pair once at the server with `sudo rowsafe-allow --add-owner`. The server checks the passkey's signature itself before it changes anything, so neither Rowsafe nor someone with your dashboard login can change what root allowed.

@@ -3,7 +3,7 @@ title: One-click permissions with a passkey
 description: Change what Rowsafe may do on a server from the dashboard, each change signed with a passkey that root paired at the server, and checked by the server itself.
 ---
 
-Root on each server decides what Rowsafe may do there when someone clicks it in the dashboard: restart PostgreSQL, install updates and security updates, reboot, change the firewall, run PgBouncer, create clusters. The [permissions guide](https://rowsafe.sh/docs/guides/permissions) explains each one and how root changes them with `sudo rowsafe-allow`.
+Root on each server decides what Rowsafe may do there when someone clicks it in the dashboard: restart PostgreSQL, install updates and security updates, reboot, change the firewall, run PgBouncer, create clusters. The [permissions guide](/docs/guides/permissions) explains each one and how root changes them with `sudo rowsafe-allow`.
 
 With a passkey paired once, an owner or admin can change them with one click on the server's page instead. The server checks the passkey's signature itself before it changes anything, so neither Rowsafe nor someone who stole a dashboard login can change what root allowed.
 

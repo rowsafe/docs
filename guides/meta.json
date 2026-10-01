@@ -29,6 +29,7 @@
     "ask",
     "---Run your database---",
     "permissions",
+    "one-click-permissions",
     "updates",
     "standby",
     "fork",
@@ -36,7 +37,6 @@
     "move",
     "databases-and-users",
     "teams",
-    "agent-updates",
-    "one-click-permissions"
+    "agent-updates"
   ]
 }

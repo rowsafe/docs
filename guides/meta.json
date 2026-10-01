@@ -35,6 +35,7 @@
     "move",
     "databases-and-users",
     "teams",
-    "agent-updates"
+    "agent-updates",
+    "one-click-permissions"
   ]
 }

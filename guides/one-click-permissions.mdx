@@ -1,0 +1,82 @@
+---
+title: One-click permissions with a passkey
+description: Change what Rowsafe may do on a server from the dashboard, each change signed with a passkey that root paired at the server, and checked by the server itself.
+---
+
+Root on each server decides what Rowsafe may do there when someone clicks it in the dashboard: restart PostgreSQL, install updates and security updates, reboot, change the firewall, run PgBouncer, create clusters. The [permissions guide](https://rowsafe.sh/docs/guides/permissions) explains each one and how root changes them with `sudo rowsafe-allow`.
+
+With a passkey paired once, an owner or admin can change them with one click on the server's page instead. The server checks the passkey's signature itself before it changes anything, so neither Rowsafe nor someone who stole a dashboard login can change what root allowed.
+
+## Set it up
+
+Once per person and server:
+
+<Steps>
+<Step>
+
+### Start the pairing on the server
+
+On the server, as root:
+
+```sh
+sudo rowsafe-allow --add-owner
+```
+
+It prints a code like `KQ7M-2XRD` and a link to the dashboard, then waits (up to 10 minutes).
+
+</Step>
+<Step>
+
+### Create the passkey in the dashboard
+
+Open the link signed in to Rowsafe as an owner or admin of the server's organization. Check that the page shows the same code as your terminal, and the server's name and address. Only continue if you started this on your server just now: if someone sent you the link, click **Deny**.
+
+Click **Create passkey**. Your device (a phone, Touch ID, Windows Hello or a security key) creates a passkey for Rowsafe. The page then shows the passkey's fingerprint, like `3F2A-91C3-0B7E-55D4`.
+
+</Step>
+<Step>
+
+### Compare the codes on the server
+
+The terminal shows the fingerprint of the passkey it received and asks whether your browser shows the same one. Answer `y` only if they match. If they differ, answer `n`: the passkey the server got isn't the one your browser made.
+
+</Step>
+</Steps>
+
+The server keeps the passkey's public key in `/etc/rowsafe/owners` (root's). The dashboard shows who paired a passkey on the server's page, under **What Rowsafe may do on this server**.
+
+## Change a permission
+
+On the server's page, under **What Rowsafe may do on this server**, turn a permission on or off. Rowsafe asks you to confirm, says what else changes with it (a reboot needs security updates, which need restarts), and asks your device for the passkey. The server checks the signature and applies the change; the page shows its answer, or why it refused, in plain words.
+
+Where something isn't allowed, the dashboard says so with a button such as **Allow restarts on this server**, which opens that permission.
+
+Each change is for one server, expires after a few minutes and works once: a replay is refused. The request and the server's answer are in the [audit log](/docs/guides/teams#audit-log).
+
+To see or remove paired passkeys, on the server:
+
+```sh
+sudo /usr/local/lib/rowsafe/rowsafe-permissions owners
+sudo /usr/local/lib/rowsafe/rowsafe-permissions remove-owner 3F2A-91C3-0B7E-55D4
+```
+
+## Ask your AI assistant
+
+Every **Do it yourself** in the dashboard has **Copy for your AI assistant**. It copies a short prompt for Claude Code, Codex or Cursor running where it can reach the server, for example:
+
+```text
+On my server db-1 (203.0.113.24), run `sudo rowsafe-allow security-updates`. It lets Rowsafe install the system's security updates when someone clicks it in the Rowsafe dashboard; nothing changes until then. Show me the command and ask me before you run it, then show me its output.
+```
+
+Rowsafe's own MCP server has no tool that changes permissions: AI apps connected to Rowsafe can't change what root allowed.
+
+## Limits
+
+- **The pairing trusts the page you see while pairing.** Whoever controls the dashboard's code at that moment could show you a different passkey. That's why the server shows the fingerprint and asks you to compare it at the terminal: the codes only match for the passkey your browser made. Attestation statements from authenticators aren't used; the comparison is the check.
+- **After pairing, Rowsafe can't change permissions without your passkey.** The control plane only relays the signed request; it can't make or alter one.
+- **The passkey prompt doesn't show the change.** Your device signs what the dashboard page asks it to sign. Someone who controls the dashboard's code at the moment you click could ask for a different change; the server still checks the signature, the server and the expiry, and logs who asked.
+- **The agent can delay or block a change, not forge one.** The agent's user hands the signed request to root's helper and can't change it.
+- **Once a change is verified, root's installer applies it** with write access to the server's files (its sandbox blocks the network and new privileges only).
+- **Synced passkeys are accepted,** such as ones in iCloud Keychain or Google Password Manager, and a copied passkey can't be told apart from the original. Remove a passkey you no longer trust with `remove-owner`.
+- **Owners and admins only.** Members see the permissions but can't pair a passkey or change them. API keys and AI apps can't either.
+- **Not for Rowsafe in Docker.** There, what the agent may do is set where its containers are defined.

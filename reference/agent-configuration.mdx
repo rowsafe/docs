@@ -132,7 +132,7 @@ See [Protect MySQL or MariaDB](/docs/guides/mysql).
 
 ## Docker
 
-The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set these defaults:
+The agent images (`ghcr.io/rowsafe/agent:pg<major>[-alpine]`, the newest release; `:<version>-pg<major>[-alpine]` pins one) set these defaults:
 
 | Variable | Image default | |
 |---|---|---|
@@ -148,7 +148,7 @@ The agent images (`ghcr.io/rowsafe/agent:<version>-pg<major>[-alpine]`) set thes
 | `ROWSAFE_FORK_TARGET_DIR` | | Makes this sidecar a [fork target](/docs/guides/fork): the absolute path of the empty data directory (the `postgres` container's `PGDATA`) that a fork is restored into. |
 | `ROWSAFE_DOCKER_CONTROL_SOCKET` | `/run/rowsafe-control/control.sock` | Where the optional container control service listens (the `rowsafe-control` volume). |
 
-The container control service (`ghcr.io/rowsafe/docker-control:<version>`) reads:
+The container control service (`ghcr.io/rowsafe/docker-control:latest`, or `:<version>`) reads:
 
 | Variable | Default | |
 |---|---|---|

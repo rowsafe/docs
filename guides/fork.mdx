@@ -310,7 +310,15 @@ ClickHouse databases can be forked from the same **Fork** page, into an **empty*
 - Databases or tables that use **ClickHouse Keeper** (`Replicated*`) can't be forked yet.
 - No masking for ClickHouse yet.
 
-MongoDB databases can't be forked yet.
+## MongoDB
+
+MongoDB databases can be forked from the same **Fork** page, at any second of their recovery window or at a Mark, into an **empty** MongoDB server on the fork server (the same version or newer).
+
+- The fork server's agent restores the backup and the copied changes (the oplog) up to the moment into an **isolated** temporary server (Unix socket only), then copies the databases, with their indexes, into the empty server. That server keeps running.
+- Rowsafe's MongoDB user there needs the `restore` role: when the installer finds a MongoDB server with no databases, it asks whether to keep it ready to receive clones; say yes (or install with `--mongodb-clones`).
+- **Users and roles** stay out (they belong to the server, and the source's include Rowsafe's own login): create the fork's users on it.
+- To protect the fork with restores to any second, that server must be a replica set (one member is enough): Rowsafe's plan for the fork's backups says so.
+- No masking for MongoDB yet.
 
 ## If it fails
 

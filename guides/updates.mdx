@@ -68,6 +68,14 @@ Pulse shows **12 security updates are waiting; a reboot is needed** with **Insta
 
 **Update** works the same way for them: Rowsafe saves a Mark, the helper installs only that server's own packages (for example `mysql-community-server` and its client, `mariadb-server`, `mongodb-org-*`, `clickhouse-*`) at the newest release of the series you run (8.0, 10.11, 7.0, 25.8), from the server's own package sources (the vendor's repository or your distribution's), and restarts the server if the packages didn't. Rowsafe then waits until it answers. Tools versioned on their own (Percona XtraBackup, the MongoDB Database Tools and `mongosh`) are brought up to date with it. Automatic minor updates on Sundays work too.
 
+**Major upgrades** (MySQL 8.0 to 8.4, MariaDB 10.11 to 11.4, MongoDB 7.0 to 8.0, ClickHouse 25.3 to 25.8) follow the same three steps as PostgreSQL's, in Safe mode:
+
+1. **Check** lists the newer versions this server's package sources offer (add the vendor's repository for the version first: Rowsafe installs only from the server's own sources) and what blocks the upgrade. MongoDB goes one major version at a time, and only when its featureCompatibilityVersion matches the running version; MySQL 8.4 warns about accounts that log in with `mysql_native_password`, which 8.4 turns off by default.
+2. **Rehearse** downloads the new version's server package as the agent's user (checked by apt like any package, never installed), restores your latest backup into a private copy with the version you run, then starts the new version on that copy: MySQL upgrades its data by itself, MariaDB runs `mariadb-upgrade`, MongoDB sets its featureCompatibilityVersion, ClickHouse reads every table back. Nothing on the server changes.
+3. **Upgrade** saves a Mark, then the helper keeps your installed packages and a copy of the data directory, stops the server, installs the new version and starts it (running `mariadb-upgrade` for MariaDB, setting the featureCompatibilityVersion for MongoDB). If it fails, the old version and data are put back.
+
+**Undo** (for 7 days) puts the kept data and packages back; what was written since is kept aside on the server. Removing the kept version (or 7 days) frees the disk. It needs free disk about the data's size. In Docker, the check lists the image change to make in your compose file.
+
 On the server, root allows it with `sudo rowsafe-allow updates` (with restarts: the installer asks *Install MySQL updates and upgrades, when someone clicks Update?*); the allow list then holds `database`. In Docker, pull the newest image of the same version and recreate the container; Rowsafe notices the new version.
 
 ## Major upgrades

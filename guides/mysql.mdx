@@ -159,7 +159,7 @@ Leave out `--at` for the latest change in the bucket, or use `--mark NAME`. It d
 ## Honest limits
 
 - **Restart and rewinding the whole server need root's permission** on the server (`sudo rowsafe-allow restart`). In Docker, Restart works through the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container) (with `ROWSAFE_CONTROL_SERVICE: mysql`); rewinding the whole server isn't available there yet.
-- **Updates**: Rowsafe installs new releases of the version you run (8.0.x, 10.11.x) with one click ([how](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse)); upgrading to a new major version (8.0 to 8.4) from Rowsafe isn't available yet.
+- **Updates**: Rowsafe installs new releases of the version you run (8.0.x, 10.11.x) with one click ([how](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse)); major upgrades (MySQL 8.0 to 8.4, MariaDB 10.11 to 11.4) are [rehearsed on a restored copy first](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse), with undo for 7 days.
 - **Triggers run** when rows are brought back: MySQL can't turn them off for one session. The result says which tables have triggers.
 - **Tables without a primary key** can be restored with the database but not compared or brought back row by row.
 - **Non-InnoDB tables** (MyISAM, Aria) are locked briefly during backups and can't be restored to an exact second.

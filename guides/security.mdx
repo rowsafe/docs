@@ -108,7 +108,7 @@ The same check runs for the other engines, every 15 minutes, with the check from
 - **Who can connect:** where the server listens; MongoDB without access control; users without a password that may log in from other servers; MySQL's anonymous accounts and administrators that may log in from anywhere (`root@'%'`); ClickHouse users open to every network.
 - **Encryption**, **old password formats** (MySQL's `mysql_native_password`, MongoDB's SCRAM-SHA-1, ClickHouse's plaintext passwords), MySQL's sample `test` database and **versions out of support**.
 
-**Remove anonymous accounts** and **Remove the test database** (when it is empty) take one click on MySQL and MariaDB. Users without a password get one in [Databases & users](/docs/guides/databases-and-users). Everything that needs the server's configuration file and a restart (MongoDB's access control and `bindIp`, ClickHouse's `default` user, TLS) comes with the exact steps under **Do it yourself**. The firewall and access-rule actions are PostgreSQL's.
+**Remove anonymous accounts** and **Remove the test database** (when it is empty) take one click on MySQL and MariaDB. Users without a password get one in [Databases & users](/docs/guides/databases-and-users). Everything that needs the server's configuration file and a restart (MongoDB's access control and `bindIp`, ClickHouse's `default` user, TLS) comes with the exact steps under **Do it yourself**. Where root allowed the firewall (`sudo rowsafe-allow firewall`), **Only allow your app servers** limits who can reach their port too, exactly like PostgreSQL's. The access-rule actions (`pg_hba.conf`) are PostgreSQL's.
 
 ## Limits
 

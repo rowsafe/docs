@@ -117,7 +117,14 @@ Tuning works for MySQL and MariaDB too: the buffer pool, the redo log, connectio
 - Rowsafe never changes the binary log settings its restores rely on, and never lets a commit wait less for the disk (`innodb_flush_log_at_trx_commit`, `sync_binlog`).
 - Rowsafe doesn't restart MySQL or MariaDB: settings that need a restart say so and wait.
 
-MongoDB and ClickHouse keep their important settings in configuration files Rowsafe can't change yet, so Tuning doesn't cover them.
+## MongoDB and ClickHouse
+
+MongoDB and ClickHouse keep their settings in configuration files that only root may change. Where root allowed it (`sudo rowsafe-allow tuning`, or yes at the installer's question), Tuning works for them too: root's copy of the agent writes the settings you change, from a fixed list with plain values, into Rowsafe's own file and nowhere else. A Mark is saved first, and undo puts back what was there before.
+
+- **ClickHouse:** the memory per query and for the whole server, spilling big GROUP BY and ORDER BY to disk, queries and connections at once, threads, merges and the longest query, in `config.d/rowsafe-tuning.xml` and `users.d/rowsafe-tuning.xml`. ClickHouse picks them up by itself within seconds; the few it can't change while running say so and wait for a restart.
+- **MongoDB:** the WiredTiger cache, connections, the longest transaction, the slow operation threshold and the profiler, as keys of its configuration file (edited as YAML; a copy is kept). The cache size, the transaction limit and the slow threshold also change on the running server at once; the rest waits for MongoDB's next restart.
+
+Rowsafe doesn't restart MongoDB or ClickHouse. In Docker, set these in the container's configuration instead.
 
 ## Limits
 

@@ -265,7 +265,9 @@ It needs free space in the data volume for a second copy of the database (its si
 
 Whoever can talk to the Docker socket controls the host: they can start a privileged container that mounts `/`. Mounting the socket read-only (`:ro`) changes nothing; requests still go through. That is why the agent never gets it, and why this is opt-in.
 
-**What the control service allows.** It exposes a Unix socket on the `rowsafe-control` volume, which only the agent mounts. A request has two fields, an action and an ID for the log; anything else is refused. The actions are `inspect`, `stop`, `start` and `restart`. The container is fixed by the service's own configuration: the compose service named in `ROWSAFE_CONTROL_SERVICE` in the control service's own compose project (or one container named in `ROWSAFE_CONTROL_CONTAINER`). It is resolved to a container ID at start and its labels are checked again before every action; it can never be the control service itself, and a service scaled to two containers is refused. The only Docker API calls in its code are listing containers by label, inspecting one, and stop, start and restart. It can't exec, create, remove, pull, read logs or touch networks, volumes or images.
+**What the control service allows.** It exposes a Unix socket on the `rowsafe-control` volume, which only the agent mounts. A request has two fields, an action and an ID for the log (plus, for an agent update, the version and the signed images list); anything else is refused. The actions are `inspect`, `stop`, `start` and `restart`. The container is fixed by the service's own configuration: the compose service named in `ROWSAFE_CONTROL_SERVICE` in the control service's own compose project (or one container named in `ROWSAFE_CONTROL_CONTAINER`). It is resolved to a container ID at start and its labels are checked again before every action; it can never be the control service itself, and a service scaled to two containers is refused. The Docker API calls for it are listing containers by label, inspecting one, and stop, start and restart. It can't exec, attach, read logs or touch networks or volumes.
+
+**Agent updates (only with `ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE=1`).** Two more actions, `update_agent` and `agent_ready`, and a few more Docker API calls, used by that path only: inspecting an image, pulling `ghcr.io/rowsafe/agent` (a constant in the code) at a digest from a list signed with Rowsafe's release key, creating the new agent container, renaming the old and new ones, and removing the replaced one. It acts only on the agent's compose service (`ROWSAFE_CONTROL_AGENT_SERVICE`, default `rowsafe-agent`), never on PostgreSQL's container or its own, and only on a container that already runs `ghcr.io/rowsafe/agent`. The control plane only relays the signed list: a compromised control plane can withhold an update, not choose the image. At most four updates an hour, one at a time. Without the setting, none of this runs.
 
 **Who may ask.** Only processes running as uid 999 or 70 (the `postgres` user of the Debian and Alpine images; `ROWSAFE_CONTROL_ALLOW_UIDS` changes it), checked with the kernel's peer credentials, not anything the caller says. Requests must be small and arrive within 10 seconds.
 
@@ -275,7 +277,7 @@ Whoever can talk to the Docker socket controls the host: they can start a privil
 
 **If the agent container is compromised,** the attacker can stop, start or restart your PostgreSQL container (a few rate-limited outages), which is less than what the agent's access to the database already allows. They can't reach any other container or the host.
 
-**If the control service is compromised,** the attacker has the Docker socket, that is, root on the host. The service is built to make that hard: one static Go binary, under a thousand lines with its comments, on an empty image (no shell, no package manager), no network at all (`network_mode: none`), no Linux capabilities, a read-only filesystem, `no-new-privileges`. The image is signed with cosign and has SLSA build provenance; see [Verifying releases](/docs/security/verifying-releases). It runs as root inside its container only to open the socket, which root owns.
+**If the control service is compromised,** the attacker has the Docker socket, that is, root on the host. The service is built to make that hard: one static Go binary, about 2,300 lines with its comments (half of them the optional agent update), on an empty image (no shell, no package manager), no network at all (`network_mode: none`), no Linux capabilities, a read-only filesystem, `no-new-privileges`. The image is signed with cosign and has SLSA build provenance; see [Verifying releases](/docs/security/verifying-releases). It runs as root inside its container only to open the socket, which root owns.
 
 **Why not a Docker socket proxy?** Generic proxies such as `tecnativa/docker-socket-proxy` filter by API section ("containers", "POST"), not by container: allowing restarts would let the agent stop, start, create or remove any container on the host.
 
@@ -290,6 +292,35 @@ docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 ```
 
 Name the service: a plain `docker compose pull` also downloads a newer `postgres` image if there is one, and `docker compose up -d` then restarts PostgreSQL to use it. With an exact tag (`0.5.0-pg17`), change the version in the tag first. The dashboard's **Agent updates** card on the server's page says when a new version is out.
+
+### Update the agent from the dashboard
+
+Optional, with the [container control service](#let-rowsafe-restart-the-container). Add one line to its environment and pull its newest image:
+
+```yaml title="compose.yml"
+  rowsafe-docker-control:
+    image: ghcr.io/rowsafe/docker-control:latest
+    environment:
+      ROWSAFE_CONTROL_SERVICE: postgres
+      ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE: "1"      # added
+      # ROWSAFE_CONTROL_AGENT_SERVICE: rowsafe-agent  # if your agent's service has another name
+```
+
+```sh
+docker compose pull rowsafe-docker-control && docker compose up -d rowsafe-docker-control
+```
+
+The server's page then shows **Update now** when a new version is out. When an owner or admin clicks it and confirms, the control service:
+
+1. checks the new release's list of agent images against Rowsafe's release signature, with the key built into the control service, and picks the digest for your image (`pg17`, `pg17-alpine`...);
+2. downloads `ghcr.io/rowsafe/agent` at that digest (Docker checks the download against it);
+3. creates a new agent container with exactly the old one's settings (environment, volumes, network, labels, restart policy, user), only the image changed;
+4. stops the old container, starts the new one and waits until it is healthy and the new agent reports in (up to five minutes);
+5. removes the old container. Volumes are never removed.
+
+If the new container doesn't come up, the old one is started again and the dashboard says why. PostgreSQL keeps running throughout; WAL waits in the spool for the few seconds no agent runs. The request is in the audit log and in `docker compose logs rowsafe-docker-control`.
+
+Limits: it only replaces a container running an image of `ghcr.io/rowsafe/agent` (not one you built yourself) of the agent's compose service, exactly one. The new container runs the image by digest; if your compose file pins an exact older tag, `docker compose up -d --force-recreate` later goes back to that tag, so use the floating `pg<major>` tag. Updates start with the release after 0.5.0, for agents and control services from that release on.
 
 If a backup or Proof run is interrupted, the new container reports it as failed and the schedule runs it again. WAL waiting in the spool is pushed by the new container.
 
@@ -319,6 +350,9 @@ The agent checks its environment at startup and names the fix:
 | `found no container for the compose service "postgres"` | Set `ROWSAFE_CONTROL_SERVICE` to your PostgreSQL service's name, then `docker compose up -d`. |
 | `the PostgreSQL data volume is mounted read-only in the agent container` | Remove `:ro` from the agent's data volume to allow Rewind the whole database. |
 | `uid N may not use this service` | The agent runs as another user: set `ROWSAFE_CONTROL_ALLOW_UIDS` on the control service. |
+| `updating the agent's container isn't allowed` | Set `ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE: "1"` on the control service ([Update the agent from the dashboard](#update-the-agent-from-the-dashboard)), or update it yourself. |
+| `the agent container runs "...", not an image of ghcr.io/rowsafe/agent` | Rowsafe only replaces its own published image: update a custom image yourself. |
+| `found no container for the agent's compose service` | Set `ROWSAFE_CONTROL_AGENT_SERVICE` to your agent's service name. |
 
 If WAL piles up in the spool, `docker compose logs rowsafe-agent` shows the pgBackRest error. The spool drains by itself once the cause is fixed.
 

@@ -61,8 +61,12 @@ rowsafe update app --auto on --timezone Europe/Berlin
 
 Pulse shows **12 security updates are waiting; a reboot is needed** with **Install security updates** and, if a reboot is needed, **Reboot the server**. The agent counts the upgrades that come from your distribution's security repository about every hour.
 
-- **Install security updates** installs only upgrades from the security repository. PostgreSQL's own server packages are left for [Update PostgreSQL](#minor-updates), which restarts it in a controlled way. Services aren't restarted by the installation (`needrestart` only lists them); some updates, like a new kernel, only take effect after a reboot.
+- **Install security updates** installs only upgrades from the security repository. The database servers' own packages are left alone: PostgreSQL's go through [Update PostgreSQL](#minor-updates), which restarts it in a controlled way; MySQL's, MariaDB's, MongoDB's and ClickHouse's aren't installed from Rowsafe yet (their upgrade would restart them). Services aren't restarted by the installation (`needrestart` only lists them); some updates, like a new kernel, only take effect after a reboot.
 - **Reboot the server** saves a Mark on the database, then reboots the whole server: everything on it stops for a minute or two, PostgreSQL included. You type the server's name to confirm. The agent reports back once the server is up and PostgreSQL answers.
+
+### MySQL, MariaDB, MongoDB and ClickHouse
+
+Security updates and reboots of the server work the same for every engine (the `security-updates` and `reboot` permissions; the installer asks on servers without PostgreSQL too). Updating or upgrading MySQL, MariaDB, MongoDB or ClickHouse itself from Rowsafe isn't available yet: update it the way you usually do, and Rowsafe notices the new version. The database's **Updates** tab says so.
 
 ## Major upgrades
 

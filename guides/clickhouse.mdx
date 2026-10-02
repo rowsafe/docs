@@ -168,4 +168,5 @@ RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_2026
 - ClickHouse 24.8 or newer.
 - Rewinding the whole database needs room on ClickHouse's disk for the backup, and Rowsafe's user to create, alter and drop tables (installs before this version: run the installer again). Replicated tables, and tables whose columns changed since the backup, can't be rewound in place yet; tables that read from another system are left as they are.
 - Restarts from the dashboard need root's permission on a server where ClickHouse runs as a systemd service; in Docker, restart the container yourself.
-- Standbys, pooling, updating ClickHouse itself from Rowsafe and [Logs](/docs/guides/logs) are PostgreSQL-only for now (the server's [security updates and reboots](/docs/guides/updates#security-updates-and-reboots) work).
+- [Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse) install new releases of the version you run (25.8.x); moving to a newer version (25.8 to 26.3) from Rowsafe isn't available yet.
+- Standbys and pooling are PostgreSQL-only for now.

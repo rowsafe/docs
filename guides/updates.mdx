@@ -66,7 +66,9 @@ Pulse shows **12 security updates are waiting; a reboot is needed** with **Insta
 
 ### MySQL, MariaDB, MongoDB and ClickHouse
 
-Security updates and reboots of the server work the same for every engine (the `security-updates` and `reboot` permissions; the installer asks on servers without PostgreSQL too). Updating or upgrading MySQL, MariaDB, MongoDB or ClickHouse itself from Rowsafe isn't available yet: update it the way you usually do, and Rowsafe notices the new version. The database's **Updates** tab says so.
+**Update** works the same way for them: Rowsafe saves a Mark, the helper installs only that server's own packages (for example `mysql-community-server` and its client, `mariadb-server`, `mongodb-org-*`, `clickhouse-*`) at the newest release of the series you run (8.0, 10.11, 7.0, 25.8), from the server's own package sources (the vendor's repository or your distribution's), and restarts the server if the packages didn't. Rowsafe then waits until it answers. Tools versioned on their own (Percona XtraBackup, the MongoDB Database Tools and `mongosh`) are brought up to date with it. Automatic minor updates on Sundays work too.
+
+On the server, root allows it with `sudo rowsafe-allow updates` (with restarts: the installer asks *Install MySQL updates and upgrades, when someone clicks Update?*); the allow list then holds `database`. In Docker, pull the newest image of the same version and recreate the container; Rowsafe notices the new version.
 
 ## Major upgrades
 

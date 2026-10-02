@@ -1,6 +1,6 @@
 ---
 title: Move in from a managed database
-description: Move a PostgreSQL or MySQL database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
+description: Move a PostgreSQL, MySQL or MongoDB database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
 ---
 
 Leave your managed database, keep the safety net. **Move in** copies a PostgreSQL database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
@@ -175,6 +175,18 @@ Move in works for MySQL and MariaDB databases too, from RDS, Aurora MySQL, Cloud
 - **The new login** (`app`, or the source's user name) gets every right on the moved database only. Its connection string is sealed to your browser, like for PostgreSQL.
 - What moves: tables, views, routines, triggers and events (events when the user may read them). Logins and their rights at the source don't move.
 - The copy and the sync are written to your server's own binary log, so its restores to any second include the moved data.
+
+## MongoDB
+
+MongoDB databases move in from MongoDB Atlas, DigitalOcean or any MongoDB your server can reach, into a MongoDB server Rowsafe protects, as a **one-time copy**:
+
+- **The connection string** is Atlas's `mongodb+srv://user:password@cluster.example.net/database` (Connect > Drivers, with your database's name after the host), or `mongodb://user:password@host:27017/database?authSource=admin`.
+- **Live sync isn't available for MongoDB yet**: stop your app's writes, then copy. The check says how long the copy should take; that is the downtime.
+- The copy is `mongodump` of that database piped into `mongorestore` on your server, into a new database of the same name (or the one you pick); then Rowsafe compares document counts per collection and makes a login for apps (`readWrite` and `dbAdmin` on that database only), whose connection string is sealed to your browser.
+- Rowsafe's MongoDB user on your server needs the `restore` role: install Rowsafe there with `--mongodb-clones` (an empty server's installer asks).
+- Users and roles at the source don't move. Indexes do.
+
+ClickHouse databases can't be moved in yet.
 
 ## How your password is handled
 

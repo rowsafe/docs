@@ -51,6 +51,7 @@ Without a terminal, `--protect NAME` works for MongoDB too. It never restarts Mo
 | Proof | Weekly: restore the newest backup and every change since into a scratch `mongod` that listens on a private Unix socket only (no network), check every database and collection, the indexes, document counts, and run `validate` on a few collections. Then delete it. |
 | Rewind | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back. Changed ones only when you ask. A collection dropped since is created again, with its indexes. |
 | Fork | A new, independent database as it was at any second or Mark, copied into an empty MongoDB server on a server you pick ([Fork a database](/docs/guides/fork#mongodb)). |
+| Move in | A one-time copy of a database from MongoDB Atlas or any MongoDB onto this server ([Move in](/docs/guides/move-in#mongodb)). |
 | Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
 
 Everything in your bucket is encrypted before it leaves the server: backups, oplog chunks and Marks. Object names only say *when* (timestamps), never *what*. Rowsafe's servers never see your data or your passphrase.

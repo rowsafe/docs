@@ -59,7 +59,7 @@ Everything in your bucket is encrypted before it leaves the server. Rowsafe's se
 
 ## Docker
 
-Use the ClickHouse agent image next to the official `clickhouse/clickhouse-server` image. It is built on the same image, so the `clickhouse` program that Proof and Rewind copies run is ClickHouse's own, of your version. There is one tag per version: `<version>-clickhouse25.8`, `-clickhouse26.3` and `-clickhouse26.8`.
+Use the ClickHouse agent image next to the official `clickhouse/clickhouse-server` image. It is built on the same image, so the `clickhouse` program that Proof and Rewind copies run is ClickHouse's own, of your version. There is one image per version: `ghcr.io/rowsafe/agent:clickhouse26.8`, `clickhouse26.3` and `clickhouse25.8`. These tags follow the newest Rowsafe release. To pin one, use the exact tag instead, like `<version>-clickhouse26.8`.
 
 ```yaml
 services:
@@ -73,7 +73,7 @@ services:
       - chdata:/var/lib/clickhouse
 
   rowsafe-agent:
-    image: ghcr.io/rowsafe/agent:<version>-clickhouse26.8
+    image: ghcr.io/rowsafe/agent:clickhouse26.8
     hostname: db-1
     environment:
       ROWSAFE_CLICKHOUSE_URL: http://clickhouse:8123
@@ -92,6 +92,49 @@ rowsafe apply events
 ```
 
 `clickhouse login` reads the administrator's password from what you type (one line). It is used once and never saved. The full example is [`deploy/docker/compose.clickhouse.example.yml`](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.clickhouse.example.yml).
+
+### Update the agent
+
+The agent never updates itself in Docker. To update it, download the newest image and recreate only the agent's container. ClickHouse keeps running:
+
+```bash
+docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
+```
+
+Name the service: a plain `docker compose pull` also downloads a newer `clickhouse-server` image if there is one, and `docker compose up -d` then restarts ClickHouse to use it. The server's page in the dashboard says when a new version is out.
+
+To get **Update now** in the dashboard instead, add the container control service. It holds the Docker socket, so the agent never gets it:
+
+```yaml
+services:
+  rowsafe-docker-control:
+    image: ghcr.io/rowsafe/docker-control:latest
+    restart: unless-stopped
+    depends_on: [clickhouse]
+    environment:
+      ROWSAFE_CONTROL_SERVICE: clickhouse          # your ClickHouse service's name
+      ROWSAFE_CONTROL_ALLOW_UIDS: "101"            # the agent image's clickhouse user
+      ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - rowsafe-control:/run/rowsafe-control
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  rowsafe-agent:
+    volumes:
+      - rowsafe-state:/var/lib/rowsafe
+      - rowsafe-control:/run/rowsafe-control       # added
+
+volumes:
+  rowsafe-control:
+```
+
+When an owner or admin clicks **Update now** and confirms, the control service checks the new release's list of agent images against Rowsafe's release signature, downloads `ghcr.io/rowsafe/agent` for `clickhouse26.8` at the digest in that list, and recreates only the agent's container with the same settings. If the new agent doesn't report in within five minutes, the old container is started again and the dashboard says why. ClickHouse keeps running throughout. A backup or Proof that was running is reported as failed and runs again.
+
+The ClickHouse agent only asks the control service to update itself, never to stop or restart ClickHouse. How it works and what it can and can't do: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
 
 ## Restore without Rowsafe
 

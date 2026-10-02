@@ -157,6 +157,7 @@ The agent images (`ghcr.io/rowsafe/agent:pg<major>[-alpine]`, the newest release
 | `ROWSAFE_FILES_MOUNT_DIR` | `/rowsafe-files` | Mount the volumes to back up with the database here (read-only is enough). |
 | `ROWSAFE_FORK_TARGET_DIR` | | Makes this sidecar a [fork target](/docs/guides/fork): the absolute path of the empty data directory (the `postgres` container's `PGDATA`) that a fork is restored into. |
 | `ROWSAFE_DOCKER_CONTROL_SOCKET` | `/run/rowsafe-control/control.sock` | Where the optional container control service listens (the `rowsafe-control` volume). |
+| `ROWSAFE_IMAGE_VARIANT` | the image's tag, e.g. `pg17` | Which agent image this is. Update now in the dashboard picks the same one from the new release. The ClickHouse images (`clickhouse26.8`...) run with `ROWSAFE_MODE=native`; this setting tells the agent it runs in Docker, so it never updates itself. |
 
 The container control service (`ghcr.io/rowsafe/docker-control:latest`, or `:<version>`) reads:
 

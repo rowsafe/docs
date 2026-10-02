@@ -271,7 +271,7 @@ Whoever can talk to the Docker socket controls the host: they can start a privil
 
 **Agent updates (only with `ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE=1`).** Two more actions, `update_agent` and `agent_ready`, and a few more Docker API calls, used by that path only: inspecting an image, pulling `ghcr.io/rowsafe/agent` (a constant in the code) at a digest from a list signed with Rowsafe's release key, creating the new agent container, renaming the old and new ones, and removing the replaced one. It acts only on the agent's compose service (`ROWSAFE_CONTROL_AGENT_SERVICE`, default `rowsafe-agent`), never on PostgreSQL's container or its own, and only on a container that already runs `ghcr.io/rowsafe/agent`. The control plane only relays the signed list: a compromised control plane can withhold an update, not choose the image. At most four updates an hour, one at a time. Without the setting, none of this runs.
 
-**Who may ask.** Only processes running as uid 999 or 70 (the `postgres` user of the Debian and Alpine images; `ROWSAFE_CONTROL_ALLOW_UIDS` changes it), checked with the kernel's peer credentials, not anything the caller says. Requests must be small and arrive within 10 seconds.
+**Who may ask.** Only processes running as uid 999 or 70 (the `postgres` user of the Debian and Alpine images; `ROWSAFE_CONTROL_ALLOW_UIDS` changes it, e.g. to 101 for the [ClickHouse agent image](/docs/guides/clickhouse#update-the-agent)), checked with the kernel's peer credentials, not anything the caller says. Requests must be small and arrive within 10 seconds.
 
 **Limits and log.** At most one restart a minute, and 20 stops and restarts an hour; starting is never limited, so a rollback can always start PostgreSQL again. Every request is logged with the caller's uid, the action, the container and the outcome: `docker compose logs rowsafe-docker-control`.
 
@@ -314,7 +314,7 @@ docker compose pull rowsafe-docker-control && docker compose up -d rowsafe-docke
 
 The server's page then shows **Update now** when a new version is out. When an owner or admin clicks it and confirms, the control service:
 
-1. checks the new release's list of agent images against Rowsafe's release signature, with the key built into the control service, and picks the digest for your image (`pg17`, `pg17-alpine`...);
+1. checks the new release's list of agent images against Rowsafe's release signature, with the key built into the control service, and picks the digest for your image (`pg17`, `pg17-alpine`, `clickhouse26.8`...);
 2. downloads `ghcr.io/rowsafe/agent` at that digest (Docker checks the download against it);
 3. creates a new agent container with exactly the old one's settings (environment, volumes, network, labels, restart policy, user), only the image changed;
 4. stops the old container, starts the new one and waits until it is healthy and the new agent reports in (up to five minutes);
@@ -322,7 +322,7 @@ The server's page then shows **Update now** when a new version is out. When an o
 
 If the new container doesn't come up, the old one is started again and the dashboard says why. PostgreSQL keeps running throughout; WAL waits in the spool for the few seconds no agent runs. The request is in the audit log and in `docker compose logs rowsafe-docker-control`.
 
-Limits: it only replaces a container running an image of `ghcr.io/rowsafe/agent` (not one you built yourself) of the agent's compose service, exactly one. The new container runs the image by digest; if your compose file pins an exact older tag, `docker compose up -d --force-recreate` later goes back to that tag, so use the floating `pg<major>` tag. Updates start with the release after 0.5.0, for agents and control services from that release on.
+Limits: it only replaces a container running an image of `ghcr.io/rowsafe/agent` (not one you built yourself) of the agent's compose service, exactly one. The new container runs the image by digest; if your compose file pins an exact older tag, `docker compose up -d --force-recreate` later goes back to that tag, so use the floating `pg<major>` tag (`clickhouse26.8` for ClickHouse). Updates start with the release after 0.5.0, for agents and control services from that release on.
 
 If a backup or Proof run is interrupted, the new container reports it as failed and the schedule runs it again. WAL waiting in the spool is pushed by the new container.
 

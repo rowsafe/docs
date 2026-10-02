@@ -129,6 +129,7 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 - **Proof**: every week Rowsafe restores the latest backup and every change since into a private copy on your server, checks every database and the largest tables (`CHECK TABLE`, row counts), then deletes it.
 - **Rewind**: restore a copy as it was at any second (or a Mark), compare it with production table by table, and bring deleted or changed rows back with one click.
 - **Marks**: named points (`rowsafe mark`, AI agents through MCP) you can restore to exactly.
+- **Standby servers**: a second, empty MySQL or MariaDB server kept in sync from your backups and the binary log, readable, and promoted with one click; the old primary is made read-only first. See [Standby servers](/docs/guides/standby#mysql-and-mariadb).
 - **Pulse**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, and rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`).
 
 ## If the server is lost

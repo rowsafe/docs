@@ -169,6 +169,7 @@ The container control service (`ghcr.io/rowsafe/docker-control:latest`, or `:<ve
 | `ROWSAFE_CONTROL_STOP_TIMEOUT` | `2m` | How long PostgreSQL may take to shut down before Docker kills it (at most `10m`). |
 | `ROWSAFE_CONTROL_SOCKET` | `/run/rowsafe-control/control.sock` | Where it listens. |
 | `ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE` | `0` | `1`: also let Rowsafe replace the agent's container with a newer signed image when someone clicks Update now ([how](/docs/guides/docker#update-the-agent-from-the-dashboard)). |
+| `ROWSAFE_CONTROL_UPDATE_ONLY` | `0` | `1`: only update the agent's container (Update now), nothing else: stopping, starting or restarting the database container is refused. Turns agent updates on by itself. Used for ClickHouse ([Protect ClickHouse](/docs/guides/clickhouse#update-the-agent)). |
 | `ROWSAFE_CONTROL_AGENT_SERVICE` | `rowsafe-agent` | The agent's compose service, for agent updates. |
 | `ROWSAFE_CONTROL_AGENT_CONTAINER` | | Instead: the agent container's name (without compose). |
 

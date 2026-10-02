@@ -114,7 +114,7 @@ services:
     environment:
       ROWSAFE_CONTROL_SERVICE: clickhouse          # your ClickHouse service's name
       ROWSAFE_CONTROL_ALLOW_UIDS: "101"            # the agent image's clickhouse user
-      ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE: "1"
+      ROWSAFE_CONTROL_UPDATE_ONLY: "1"             # only update the agent: never stop or restart ClickHouse
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - rowsafe-control:/run/rowsafe-control
@@ -134,7 +134,7 @@ volumes:
 
 When an owner or admin clicks **Update now** and confirms, the control service checks the new release's list of agent images against Rowsafe's release signature, downloads `ghcr.io/rowsafe/agent` for `clickhouse26.8` at the digest in that list, and recreates only the agent's container with the same settings. If the new agent doesn't report in within five minutes, the old container is started again and the dashboard says why. ClickHouse keeps running throughout. A backup or Proof that was running is reported as failed and runs again.
 
-The ClickHouse agent only asks the control service to update itself, never to stop or restart ClickHouse. How it works and what it can and can't do: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
+With `ROWSAFE_CONTROL_UPDATE_ONLY`, the control service can only update the agent's container: it refuses to stop, start or restart ClickHouse, whoever asks. How it works and what it can and can't do: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
 
 ## Restore without Rowsafe
 

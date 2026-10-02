@@ -51,6 +51,15 @@ Rewind to just before the biggest one (a copy next to production; it never touch
 
 The MCP tool `find_moment` does the same search, and it is read-only, so it is available to every key, including read-only ones. An assistant can answer "when were rows deleted from applications?" and give you the exact point, but it never rewinds anything itself: that stays with you. See [Guard](/docs/guides/ai-agents).
 
+## MySQL, MariaDB and MongoDB
+
+Find the moment works the same for MySQL and MariaDB (from the binary logs in your bucket, read with the server's own `mysqlbinlog`) and MongoDB (from the oplog in your bucket). Rows are only counted on your server: their contents never leave it. Two differences:
+
+- **To the second.** These engines restore to a second, so **Rewind to just before this** goes back to the second before the change: other changes earlier in that same second aren't in the copy.
+- **MongoDB groups operations.** Outside a multi-document transaction, MongoDB writes one entry per document, so deletes and updates are grouped by collection and second.
+
+ClickHouse keeps no log of its changes, so it has no Find the moment: restore a backup or a Mark and compare instead.
+
 ## What it shows, and what it can't
 
 - **Times are commit times.** A change becomes visible when its transaction commits, so that is the moment shown, with microseconds. Rewinding to one microsecond before it, or to just before its transaction ID, leaves it out and keeps everything before.

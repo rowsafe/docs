@@ -123,6 +123,16 @@ The copy is restored exactly like a [Proof run](/docs/guides/restore): its own d
 </Accordion>
 </Accordions>
 
+## MySQL, MariaDB, MongoDB and ClickHouse
+
+The query and capacity checks work for every engine, from each one's statement statistics: MySQL's and MariaDB's `performance_schema`, MongoDB's profiler, ClickHouse's query log. Values are left out of every statement before it leaves your server. Each engine also gets its own checks:
+
+| Engine | Checks |
+|---|---|
+| MySQL, MariaDB | Queries that read far more rows than they return, queries that sort or group on disk, tables without a primary key, indexes nothing uses and indexes another index covers (with **Drop**, online, a Mark first). Index suggestions tested on a copy on MySQL 8.0+. |
+| MongoDB | Operations that read far more documents than they return, the profiler being off (with **Turn on query statistics**), indexes nothing used for a week and redundant indexes. |
+| ClickHouse | Large tables without a sorting key, tables split into too many partitions. |
+
 ## Limits
 
 - Estimates are estimates: index sizes, rewrite times and the date an id runs out come from sizes and rates, not measurements of your disks.

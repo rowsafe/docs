@@ -50,7 +50,11 @@ Without a terminal, `--protect NAME` works for MongoDB too. It never restarts Mo
 | Marks | A note written into the oplog (`appendOplogNote`); the Mark is confirmed once the chunk holding it is in your bucket. Restoring to a Mark stops exactly there. |
 | Proof | Weekly: restore the newest backup and every change since into a scratch `mongod` that listens on a private Unix socket only (no network), check every database and collection, the indexes, document counts, and run `validate` on a few collections. Then delete it. |
 | Rewind | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back. Changed ones only when you ask. A collection dropped since is created again, with its indexes. |
-| Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
+| Pulse | Connections, operations, queues, WiredTiger cache, write conflicts, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
+| Queries | The slow operations MongoDB's profiler records, grouped by shape with every value replaced by `?`. The profiler is off by default: **Turn on query statistics** turns it on for operations over 100 ms (no restart). |
+| [Recommendations](/docs/guides/recommendations) | Operations that read far more documents than they return (often a missing index), indexes nothing has used for a week, and indexes another index already covers. |
+| [Logs](/docs/guides/logs) | MongoDB's own log (the structured log of MongoDB 4.4+), with values removed on your server. |
+| [Find the moment](/docs/guides/find-the-moment) | When documents were deleted or changed, or collections and databases dropped, read from the oplog in your bucket. |
 
 Everything in your bucket is encrypted before it leaves the server: backups, oplog chunks and Marks. Object names only say *when* (timestamps), never *what*. Rowsafe's servers never see your data or your passphrase.
 
@@ -108,4 +112,7 @@ Oplog chunks (`oplog/*.bson.gz`) decrypt the same way into gzipped BSON oplog en
 - If the agent or the bucket is down for longer than MongoDB's oplog reaches back (Pulse shows the **oplog window**), changes from that gap can't be restored. Rowsafe reports the gap and carries on; the next full backup starts a new unbroken chain. A bigger oplog (`replSetResizeOplog`) widens the window.
 - Bringing documents back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
 - Compare skips views and time series collections, and collections over 10 million documents.
+- **Queries only see slow operations**: the profiler records operations over its threshold (100 ms by default), so fast ones aren't counted. Turning it on from the dashboard lasts until MongoDB restarts; set `operationProfiling.mode: slowOp` in `mongod.conf` to keep it. On a server set up with an older Rowsafe, run the install command again once so Rowsafe may read and turn on the profiler.
+- **Unused and redundant indexes** are pointed out, but Rowsafe doesn't drop them for you yet. Index suggestions tested on a copy are PostgreSQL and MySQL only for now.
+- **Find the moment** groups deletes and updates outside a transaction by collection and second, and works to the second: rewinding to just before a change restores up to the second before it.
 - Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling and updates are PostgreSQL-only for now.

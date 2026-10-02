@@ -169,7 +169,7 @@ services:
       - staging-spool:/rowsafe-spool
 
   rowsafe-agent-staging:
-    image: ghcr.io/rowsafe/agent:<version>-pg17
+    image: ghcr.io/rowsafe/agent:pg17
     hostname: staging-1                           # the server name Rowsafe shows
     user: "999:999"
     restart: unless-stopped

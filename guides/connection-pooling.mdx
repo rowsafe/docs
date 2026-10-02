@@ -305,6 +305,10 @@ ROWSAFE_POOLER_STATS_URL=postgres://stats:PASSWORD@pgbouncer:6432/pgbouncer
 
 The same two settings work on a server where you run PgBouncer yourself: Rowsafe then monitors it and leaves it alone.
 
+## Other engines
+
+Connection pooling is PostgreSQL's. MongoDB's drivers keep their own pool in every app, and ClickHouse handles many connections itself, so neither needs a pooler. For MySQL and MariaDB a pooler (ProxySQL) isn't available from Rowsafe yet: use your app's own connection pool.
+
 ## Limits
 
 - **PgBouncer runs on the database's server and only reaches clusters on that server** (ports root allowed). After a failover to another server, point your apps at the new primary directly, or run PgBouncer on a server of its own.

@@ -101,6 +101,15 @@ With **Use the firewall too**, the server's own firewall drops connections to Po
 - **A new certificate is self-signed**, valid for 3 years, in the data directory. Apps that connect with `sslmode=require` get encryption right away. Apps that verify the server (`verify-full`) need a certificate from a certificate authority you trust: Rowsafe uses the one PostgreSQL already has, and never replaces one it didn't make.
 - **Owners and admins only**, confirmed with the database's name, and every change is in the [audit log](/docs/guides/teams#audit-log) (without any password or verifier). Read-only API keys can look but not change. AI agents on the [MCP server](/docs/reference/mcp) can see the findings but have no tool that changes security settings.
 
+## MySQL, MariaDB, MongoDB and ClickHouse
+
+The same check runs for the other engines, every 15 minutes, with the check from the internet (it reads the server's greeting, or for ClickHouse tries one query without a password; it never logs in). It looks at:
+
+- **Who can connect:** where the server listens; MongoDB without access control; users without a password that may log in from other servers; MySQL's anonymous accounts and administrators that may log in from anywhere (`root@'%'`); ClickHouse users open to every network.
+- **Encryption**, **old password formats** (MySQL's `mysql_native_password`, MongoDB's SCRAM-SHA-1, ClickHouse's plaintext passwords), MySQL's sample `test` database and **versions out of support**.
+
+**Remove anonymous accounts** and **Remove the test database** (when it is empty) take one click on MySQL and MariaDB. Users without a password get one in [Databases & users](/docs/guides/databases-and-users). Everything that needs the server's configuration file and a restart (MongoDB's access control and `bindIp`, ClickHouse's `default` user, TLS) comes with the exact steps under **Do it yourself**. The firewall and access-rule actions are PostgreSQL's.
+
 ## Limits
 
 - Rowsafe edits `pg_hba.conf` on PostgreSQL 10 and newer, and not when it includes other files (`include`, `include_dir`) or continues rules over several lines. The agent needs its PostgreSQL user to be a superuser (it is, by default) to read the rules and the kinds of passwords.

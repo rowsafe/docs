@@ -51,6 +51,10 @@ Without a terminal, `--protect NAME` works for MongoDB too. It never restarts Mo
 | Proof | Weekly: restore the newest backup and every change since into a scratch `mongod` that listens on a private Unix socket only (no network), check every database and collection, the indexes, document counts, and run `validate` on a few collections. Then delete it. |
 | Rewind | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back. Changed ones only when you ask. A collection dropped since is created again, with its indexes. |
 | Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
+| Databases & users | Create a database with its own user, add users with read-only (`read`), read-and-write (`readWrite`) or full (`dbOwner`) access to chosen databases, new passwords, remove users and databases (a Mark first). Users are created in `admin` (`authSource=admin`). New passwords are made on your server and encrypted to your browser. A new database shows up in MongoDB once something is written to it. |
+| Security | Access control, where MongoDB listens (also checked from the internet), TLS, users with old SCRAM-SHA-1 passwords and versions out of support. Turning on access control or changing `bindIp` needs MongoDB's configuration file and a restart, so those come with the exact steps. |
+| Folders | Back up the folders that go with the database (uploads), restored to the same moment. |
+| Second copy | With a second bucket (`--add-storage`), full backups and the oplog also go there, encrypted with that bucket's own passphrase; Proof alternates between the two. |
 
 Everything in your bucket is encrypted before it leaves the server: backups, oplog chunks and Marks. Object names only say *when* (timestamps), never *what*. Rowsafe's servers never see your data or your passphrase.
 
@@ -108,4 +112,5 @@ Oplog chunks (`oplog/*.bson.gz`) decrypt the same way into gzipped BSON oplog en
 - If the agent or the bucket is down for longer than MongoDB's oplog reaches back (Pulse shows the **oplog window**), changes from that gap can't be restored. Rowsafe reports the gap and carries on; the next full backup starts a new unbroken chain. A bigger oplog (`replSetResizeOplog`) widens the window.
 - Bringing documents back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
 - Compare skips views and time series collections, and collections over 10 million documents.
-- Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling and updates are PostgreSQL-only for now.
+- Rewinding the **whole** database in place, restarts from the dashboard, standbys, Tuning and updates are PostgreSQL-only for now. A connection pooler isn't needed: MongoDB's drivers keep their own pool.
+- Rowsafe's MongoDB user gets `userAdminAnyDatabase` and `dbAdminAnyDatabase` for Databases & users. A user created before that can list but not change: the dashboard shows the one `mongosh` command that adds them.

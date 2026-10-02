@@ -108,6 +108,17 @@ rowsafe settings undo app                 # undo the latest change
 
 See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI assistants can read the settings and recommendations (`database_settings` on the [MCP server](/docs/reference/mcp)) but never change them.
 
+## MySQL and MariaDB
+
+Tuning works for MySQL and MariaDB too: the buffer pool, the redo log, connections, temporary tables, disk speed, timeouts and the slow query log, explained, with **Tune for this server** from the server's memory and disk (about 70% of memory for the buffer pool on a server with 8 GB or more, a bigger redo log, SSD-sized disk speed). A Mark is saved first and every change can be undone.
+
+- **MySQL** keeps changes with `SET PERSIST`; settings read only at start use `SET PERSIST_ONLY` and wait for your next restart.
+- **MariaDB** keeps them in Rowsafe's own option file (`/etc/rowsafe/mysql/server.cnf`) and applies them to the running server (`SET GLOBAL`). In Docker the agent can't change MariaDB's configuration: set them in the container's command.
+- Rowsafe never changes the binary log settings its restores rely on, and never lets a commit wait less for the disk (`innodb_flush_log_at_trx_commit`, `sync_binlog`).
+- Rowsafe doesn't restart MySQL or MariaDB: settings that need a restart say so and wait.
+
+MongoDB and ClickHouse keep their important settings in configuration files Rowsafe can't change yet, so Tuning doesn't cover them.
+
 ## Limits
 
 - Settings are changed for the whole server (`ALTER SYSTEM`, in `postgresql.auto.conf`). Settings made with `ALTER DATABASE` or `ALTER ROLE` override them for that database or role, and Rowsafe doesn't show those.

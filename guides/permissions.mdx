@@ -59,7 +59,8 @@ Each change takes a few seconds, prints what Rowsafe may do now, and the agent r
 | `reboot` | reboot the server, for example after a kernel update | `security-updates` |
 | `pooler` | install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)) | |
 | `pooler-public` | let PgBouncer listen on public addresses, when someone chooses that | `pooler` |
-| `firewall` | limit who can reach PostgreSQL's port with the firewall ([Security](/docs/guides/security#the-firewall)), never SSH or other ports | |
+| `firewall` | limit who can reach the database's port (any engine) with the firewall ([Security](/docs/guides/security#the-firewall)), never SSH or other ports | |
+| `tuning` | MongoDB and ClickHouse: write the settings you change under [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) into Rowsafe's own settings file | |
 
 **What one needs, you allow together.** `sudo rowsafe-allow reboot` on a server without security updates allowed changes nothing and tells you the command: `sudo rowsafe-allow security-updates reboot`. **Turning one off turns off what needs it:** `sudo rowsafe-allow --remove restart` also stops updates, security updates, reboots and new clusters.
 

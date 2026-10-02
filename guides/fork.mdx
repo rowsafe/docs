@@ -290,6 +290,17 @@ Only owners and admins can fork, in the dashboard, with the CLI or with an API k
 - **Docker:** only into a fork target as above, one fork per target. A Docker server can't create clusters.
 - Rowsafe doesn't delete forks: see [Remove a fork](#remove-a-fork).
 
+## MySQL and MariaDB
+
+MySQL and MariaDB databases can be forked too, from the same **Fork** page, at any second of their recovery window or at a Mark. What differs:
+
+- **The place** is an **empty** MySQL (or MariaDB) server of the **same version series** on the fork server, one Rowsafe may load data into: when the installer finds a server with no databases it asks whether to keep it ready for a standby or a fork; say yes (or install with `--mysql-standby`). A server with databases is never used.
+- The fork server's agent restores the source's backups and binary logs up to the moment in a **private copy** next to that server, then loads its databases, routines, triggers, events and logins into it. That server keeps running; nothing is restarted.
+- **No masking** yet for MySQL and MariaDB: the fork holds the real data. Don't share it with people who shouldn't see customer data.
+- Then Rowsafe protects the fork like any MySQL database. If the binary log is off on that server, its backup plan turns it on, which takes a restart there.
+
+MongoDB and ClickHouse databases can't be forked yet.
+
 ## If it fails
 
 The fork's progress, and the CLI, show the failed step and the reason. The most common ones:

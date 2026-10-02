@@ -18,7 +18,7 @@ Before any destructive or risky database operation:
 3. **Proceed.**
 4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore): in the dashboard, restore a copy at that Mark and bring back what was lost, or rewind the whole database. If it's not clear when the damage happened, `find_moment` finds it ([Find the moment](/docs/guides/find-the-moment)), and its **Rewind to just before this** opens Rewind at exactly that point.
 
-Agents can't restore a copy, bring rows back, rewind a database or restart PostgreSQL: no MCP tool does any of it. They can show you how far back you can go (`rewind_window`), and you click.
+Agents can't restore a copy, bring rows back, rewind a database or restart the database server: no MCP tool does any of it. They can show you how far back you can go (`rewind_window`), and you click.
 
 **Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
 
@@ -81,7 +81,7 @@ Copy this into your project's agent instructions and set the database name:
 ```markdown
 ## Database safety (Rowsafe)
 
-This project's PostgreSQL is protected by Rowsafe (database: `app`). Before any destructive
+This project's database is protected by Rowsafe (database: `app`). Before any destructive
 or risky database operation (migrations, schema changes, DROP/TRUNCATE, DELETE or UPDATE
 without a narrow WHERE, backfills, resets, restoring a dump):
 
@@ -120,8 +120,9 @@ or set `ROWSAFE_REQUIRE_PROTECTION=1`. The hook then checks protection first, an
 | | Examples |
 |---|---|
 | Migration tools | `prisma migrate deploy/reset/dev`, `prisma db push`; `rails`/`rake db:migrate`, `db:rollback`, `db:drop`, `db:reset`, `db:schema:load`; `alembic upgrade/downgrade`; `manage.py migrate/flush`; `knex migrate:latest`, `seed:run`; `sequelize db:migrate`; `typeorm migration:run`, `schema:sync`; `drizzle-kit push/migrate`; `goose up/down/reset`; `migrate ... up/down/drop`; `dbmate up`; `atlas schema apply`; `sqlx migrate run`; `diesel migration run`; `flyway migrate/clean`; `liquibase update/rollback`; `mix ecto.migrate`; `artisan migrate`; `supabase db reset/push`; `npm run db:migrate` and similar script names |
-| SQL sent to `psql` | `DROP ...`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without `WHERE`, in `-c`, a heredoc, a pipe, or a small file passed with `-f` |
-| PostgreSQL tools | `dropdb`, `pg_restore --clean` |
+| SQL sent to a SQL client | `psql`, `mysql`, `mariadb`, `mycli` and `clickhouse-client` (or `clickhouse client`) with `DROP ...`, `TRUNCATE`, `RENAME TABLE`, `ALTER TABLE ... DROP/RENAME/TYPE/MODIFY/CHANGE`, ClickHouse mutations (`ALTER TABLE ... DELETE/UPDATE`, `DROP PARTITION`), `DELETE` or `UPDATE` without `WHERE`, in `-c`/`-e`/`--query`, a heredoc, a pipe, `< file`, or a small file passed with `-f` or `--queries-file` |
+| MongoDB shell | `mongosh` or `mongo` with `drop()`, `dropDatabase()`, `deleteMany({})`, `updateMany({}, ...)`, `dropIndex`, `renameCollection`, in `--eval` or a small script file |
+| Database tools | `dropdb`, `pg_restore --clean`, `mysqladmin drop`, `mongorestore --drop`, `myloader --overwrite-tables` |
 
 It ignores status, dry-run and help commands (`migrate status`, `alembic upgrade --sql`, `manage.py migrate --plan`, `--help`), generating migrations, and commands that only mention a tool (`git commit -m "..."`, `grep`, `echo`, `cat`).
 

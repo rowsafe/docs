@@ -7,6 +7,8 @@ Testing against production data finds the bugs that seed data hides, but it also
 
 Rowsafe restores a copy of the database on its own server, from your backups, replaces personal data with realistic fakes, and only then opens it on a network port for the addresses you choose. It deletes itself after a day unless you keep it longer.
 
+It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. What differs per engine is in [Other engines](#other-engines).
+
 ## Make one
 
 <Tabs items={["Dashboard", "CLI", "AI agents (MCP)"]}>
@@ -47,11 +49,13 @@ It waits until the copy is ready and prints the connection string once. By defau
 psql "postgresql://rowsafe_sc_5k2m9x7q4t1v:PASSWORD@10.0.4.12:55440/app?sslmode=require"
 ```
 
-- **The password is made on your computer** (in your browser, by the CLI, or by a local `rowsafe mcp`) and never reaches Rowsafe: Rowsafe only passes on its SCRAM verifier, which PostgreSQL checks logins against. Rowsafe never makes a password: the API refuses a copy without a verifier, except from the remote MCP endpoint, whose copies start with no password (nobody can log in until one is set).
+The connection string is in your engine's own form: `mysql://...?ssl-mode=REQUIRED` for MySQL and MariaDB, `mongodb://...?authSource=admin&tls=true` for MongoDB, `clickhouse://...?secure=true` for ClickHouse.
+
+- **The password is made on your computer** (in your browser, by the CLI, or by a local `rowsafe mcp`) and never reaches Rowsafe: Rowsafe only passes on its verifier, what the database checks logins against: a SCRAM-SHA-256 verifier for PostgreSQL and MongoDB, a `caching_sha2_password` hash for MySQL, a `mysql_native_password` hash for MariaDB, a SHA-256 hash for ClickHouse. Passwords are random (24 characters), so a hash can't be guessed back. Rowsafe never makes a password: the API refuses a copy without a verifier, except from the remote MCP endpoint, whose copies start with no password (nobody can log in until one is set).
 - **Lost it, or the copy has none yet?** Click **Set password** (or **Reset password**) on the copy: your browser makes a new one and shows it once. It works within a few seconds; the old one stops working. From a terminal: `rowsafe copies password app ID`.
-- **TLS is required.** Each copy has its own self-signed certificate, so use `sslmode=require` (or save the certificate and use `sslmode=verify-ca`). Set `ROWSAFE_COPY_TLS_CERT` and `ROWSAFE_COPY_TLS_KEY` on the server to use your own.
+- **TLS is required** for every engine. Each copy has its own self-signed certificate, so the connection strings don't check it (`sslmode=require` and its equivalents); save the certificate to check it. Set `ROWSAFE_COPY_TLS_CERT` and `ROWSAFE_COPY_TLS_KEY` on the server to use your own.
 - **Only the allowed addresses get in.** Everything else is refused before a password is asked.
-- **You can write to it**: run migrations, tests, fixtures. The login role owns your tables but is not a superuser.
+- **You can write to it**: run migrations, tests, fixtures. The login can change your databases but not the server: for PostgreSQL a role that owns your tables but is not a superuser; for MySQL and MariaDB every privilege on your databases only; for MongoDB `readWriteAnyDatabase` and `dbAdminAnyDatabase`; for ClickHouse a regular user.
 
 ### Reaching the port
 
@@ -76,7 +80,7 @@ Rowsafe suggests a choice for every column from its name and type, and applies i
 | Empty (NULL) | No value |
 | Keep | The real value |
 
-The same value is always masked the same way (with a key that stays on your server), so joins between tables still match, and unique columns stay unique. After masking, Rowsafe rebuilds the table statistics (which would otherwise show real sample values) and refreshes materialized views.
+The same value is always masked the same way (with a key that stays on your server), so joins between tables still match, and unique columns stay unique. After masking, Rowsafe rebuilds the table statistics (which would otherwise show real sample values): PostgreSQL's statistics and materialized views, MySQL's histograms, MariaDB's column statistics.
 
 **No masking** is possible for people who may see production data: an admin chooses it explicitly and types the database's name, and it is recorded in the audit log. AI agents never get an unmasked copy.
 
@@ -88,3 +92,23 @@ The same value is always masked the same way (with a key that stays on your serv
 - **Masking covers the columns you mask.** Personal data inside other columns (free-text notes you keep, JSON you keep, logs) stays unless you mask those too, and large objects are not masked. Old versions of masked rows remain in the copy's files on your server, readable only by a superuser, which nobody connecting to the copy is.
 - **Docker sidecar agents can't make safe copies** (the copy would be unreachable from outside the container); previews work there.
 - **What reaches Rowsafe**: table and column names and types (for the masking review), counts and sizes. Never the data.
+
+## Other engines
+
+<Tabs items={["MySQL and MariaDB", "MongoDB", "ClickHouse"]}>
+<Tab value="MySQL and MariaDB">
+
+The copy is restored from your latest backup and every binary log since, masked while it has no network port, then opened over TLS only (`require_secure_transport`). Every account production had is locked on the copy; the copy's login exists only for the allowed addresses (IPv4 ranges or single IPv6 addresses), with every privilege on your databases and none on the server. Masking runs one `UPDATE` per masked column through a mapping of its values, so tables without a primary key are masked too. Triggers on the masked tables run during masking.
+
+</Tab>
+<Tab value="MongoDB">
+
+The copy is restored from your latest backup and the oplog since, masked while it listens on no TCP port, then started with access control and TLS only. Every user production had is removed. The copy's user may sign in only from the allowed addresses (`authenticationRestrictions`). MongoDB has no column catalog, so the masking review lists fields from each collection's `$jsonSchema` validator, or from a small random sample of its documents read on your server (top-level fields and fields of embedded documents one level down; only names and types reach Rowsafe). Fields inside arrays and `_id` aren't masked.
+
+</Tab>
+<Tab value="ClickHouse">
+
+The copy is restored from your newest backup (ClickHouse keeps no log of its changes, so the data is as of that backup), masked with one mutation per table, then opened with its plain ports closed: the native protocol over TLS on the copy's port. Production's users aren't in a copy at all; its only login is the copy's, from the allowed networks. Columns in a table's sorting, primary or partition key, and tables outside the MergeTree family, can't be changed in place by ClickHouse, so they aren't masked and the copy's masking report lists them. The copy also answers HTTPS (TLS) on a second, random port of the same address, for the agent.
+
+</Tab>
+</Tabs>

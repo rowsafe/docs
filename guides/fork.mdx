@@ -299,7 +299,18 @@ MySQL and MariaDB databases can be forked too, from the same **Fork** page, at a
 - **No masking** yet for MySQL and MariaDB: the fork holds the real data. Don't share it with people who shouldn't see customer data.
 - Then Rowsafe protects the fork like any MySQL database. If the binary log is off on that server, its backup plan turns it on, which takes a restart there.
 
-MongoDB and ClickHouse databases can't be forked yet.
+## ClickHouse
+
+ClickHouse databases can be forked from the same **Fork** page, into an **empty** ClickHouse server on the fork server, of the same version or newer. What differs:
+
+- ClickHouse keeps no log of its changes, so a fork is **as of a backup**: the newest one taken at or before the moment you pick, or a Mark's.
+- The fork server's agent restores that backup **straight into** the empty server (ClickHouse's own `RESTORE`, read from your bucket through the agent's encrypting gateway on 127.0.0.1). The server keeps running.
+- Rowsafe's ClickHouse user there must be allowed to create databases: when the installer finds a ClickHouse server with no databases, it asks whether to keep it ready to receive clones; say yes (or install with `--clickhouse-clones`).
+- ClickHouse **users and grants** aren't in backups: create the fork's users on it. Tables that reach other systems (Kafka, S3 queues, MySQL...) and refreshable materialized views are left out, like in Rewind copies.
+- Databases or tables that use **ClickHouse Keeper** (`Replicated*`) can't be forked yet.
+- No masking for ClickHouse yet.
+
+MongoDB databases can't be forked yet.
 
 ## If it fails
 

@@ -59,7 +59,8 @@ Each change takes a few seconds, prints what Rowsafe may do now, and the agent r
 | `reboot` | reboot the server, for example after a kernel update | `security-updates` |
 | `pooler` | install and manage PgBouncer ([connection pooling](/docs/guides/connection-pooling)) | |
 | `pooler-public` | let PgBouncer listen on public addresses, when someone chooses that | `pooler` |
-| `firewall` | limit who can reach PostgreSQL's port with the firewall ([Security](/docs/guides/security#the-firewall)), never SSH or other ports | |
+| `firewall` | limit who can reach the database's port (any engine) with the firewall ([Security](/docs/guides/security#the-firewall)), never SSH or other ports | |
+| `tuning` | MongoDB and ClickHouse: write the settings you change under [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) into Rowsafe's own settings file | |
 
 **What one needs, you allow together.** `sudo rowsafe-allow reboot` on a server without security updates allowed changes nothing and tells you the command: `sudo rowsafe-allow security-updates reboot`. **Turning one off turns off what needs it:** `sudo rowsafe-allow --remove restart` also stops updates, security updates, reboots and new clusters.
 
@@ -93,7 +94,7 @@ It exits with `0` when done (or nothing to change), `2` when it refused and chan
 
 - **Root decides, on the server.** `rowsafe-allow` needs `sudo`. Rowsafe's API and AI agents can't change what is allowed, and the dashboard only will with a passkey root paired at the server (see above).
 - **Servers installed before `rowsafe-allow`** don't have it yet: a self-updated agent doesn't add it. Run the install command once more (`curl -fsSL https://rowsafe.sh | sudo sh`): it keeps your answers and adds `rowsafe-allow`. Until then, the [options](#install-options) work as before.
-- **PostgreSQL only.** On a server with only MySQL, MariaDB, MongoDB or ClickHouse there is nothing to allow yet.
+- **Other engines.** On a server with MySQL, MariaDB, MongoDB or ClickHouse, the firewall (`firewall`) and, for MongoDB and ClickHouse, Tuning (`tuning`: Rowsafe writes the settings you change into its own settings file) can be allowed; the rest is PostgreSQL's.
 - **Docker.** These permissions are for servers where Rowsafe runs as a service. In Docker, what the agent may do is set where its containers are defined: see [Docker](/docs/guides/docker#let-rowsafe-restart-the-container).
 
 ## Files on the server

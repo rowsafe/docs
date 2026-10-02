@@ -56,6 +56,11 @@ Without a terminal, `--protect NAME` works for MongoDB too. It never restarts Mo
 | Index suggestions | Slow operations that scan a collection become index ideas (equality fields, then the sort, then a range). Each is tested on a copy restored from your backups with the filter the profiler recorded (the values stay on your server), and only suggested when MongoDB uses it and reads at least half as many documents. **Create index** builds it after saving a Mark. |
 | [Logs](/docs/guides/logs) | MongoDB's own log (the structured log of MongoDB 4.4+), with values removed on your server. |
 | [Find the moment](/docs/guides/find-the-moment) | When documents were deleted or changed, or collections and databases dropped, read from the oplog in your bucket. |
+| Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
+| Databases & users | Create a database with its own user, add users with read-only (`read`), read-and-write (`readWrite`) or full (`dbOwner`) access to chosen databases, new passwords, remove users and databases (a Mark first). Users are created in `admin` (`authSource=admin`). New passwords are made on your server and encrypted to your browser. A new database shows up in MongoDB once something is written to it. |
+| Security | Access control, where MongoDB listens (also checked from the internet), TLS, users with old SCRAM-SHA-1 passwords and versions out of support. Turning on access control or changing `bindIp` needs MongoDB's configuration file and a restart, so those come with the exact steps. |
+| Folders | Back up the folders that go with the database (uploads), restored to the same moment. |
+| Second copy | With a second bucket (`--add-storage`), full backups and the oplog also go there, encrypted with that bucket's own passphrase; Proof alternates between the two. |
 
 Everything in your bucket is encrypted before it leaves the server: backups, oplog chunks and Marks. Object names only say *when* (timestamps), never *what*. Rowsafe's servers never see your data or your passphrase.
 
@@ -117,3 +122,5 @@ Oplog chunks (`oplog/*.bson.gz`) decrypt the same way into gzipped BSON oplog en
 - **Creating and dropping indexes** needs a role installs from this version on give Rowsafe; on an older install, run the install command again once. Index suggestions need the profiler on, and only come from operations with a plain filter (no `$or`, `$expr` or text search).
 - **Find the moment** groups deletes and updates outside a transaction by collection and second, and works to the second: rewinding to just before a change restores up to the second before it.
 - Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling and updates are PostgreSQL-only for now.
+- Rewinding the **whole** database in place, restarts from the dashboard, standbys and updates are PostgreSQL-only for now. [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) needs root's permission (`sudo rowsafe-allow tuning`); settings that MongoDB reads only at start wait for your next restart. A connection pooler isn't needed: MongoDB's drivers keep their own pool.
+- Rowsafe's MongoDB user gets `userAdminAnyDatabase` and `dbAdminAnyDatabase` for Databases & users. A user created before that can list but not change: the dashboard shows the one `mongosh` command that adds them.

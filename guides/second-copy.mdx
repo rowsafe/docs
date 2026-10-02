@@ -101,6 +101,10 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --remove-second-copy
 
 New backups and the change log then go to the first storage only (`archive_command` is switched back with a reload). What is already in the second bucket stays there: delete it at your provider when you no longer need it.
 
+## MySQL, MariaDB, MongoDB and ClickHouse
+
+The second copy works for the other engines with their own backups: weekly full backups go to the second storage too, encrypted with its own passphrase, and Proof alternates between the two storages. MySQL's and MariaDB's binary log and MongoDB's oplog are copied there as well, by a second copier on the server that reads the same files, so the second copy can also restore to any second. ClickHouse keeps no log of changes, so its second copy restores to its backups.
+
 ## Limits
 
 - One second copy per server; every database on the server uses it.

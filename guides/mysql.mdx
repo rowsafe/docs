@@ -36,7 +36,7 @@ Run the install command from the dashboard (**Servers → Add a server**) on the
 </Step>
 <Step>
 
-**Creates Rowsafe's own account** `rowsafe@localhost`, logging in as root through the local socket (Debian and Ubuntu let root in without a password there). If your root account has a password, the installer asks for it once and doesn't keep it. The account's random password stays on your server.
+**Creates Rowsafe's own account** `rowsafe@localhost`, logging in as root through the local socket (Debian and Ubuntu let root in without a password there). If your root account has a password, the installer asks for it once and doesn't keep it. The account's random password stays on your server. Besides what backups need, it may create databases and users and change the settings Rowsafe explains, which it only does when a person asks in the dashboard (Databases & users, Tuning); the server's own accounts (root, `mysql.*`) are never changed.
 
 </Step>
 <Step>
@@ -135,6 +135,13 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 - **Index suggestions**: Rowsafe turns slow queries into index ideas, tests each one on a copy restored from your backups, and only suggests the ones that make a query at least twice as fast. **Create index** builds it online. The test runs each query with real values, taken on your server from `performance_schema` (MySQL 8.0+) or from the slow query log (MariaDB, MySQL 5.7); they are only used on the copy and never sent to Rowsafe.
 - **[Logs](/docs/guides/logs)**: the error log and, when it is on, the slow query log, with values removed on your server.
 - **[Find the moment](/docs/guides/find-the-moment)**: when rows were deleted or changed, or tables emptied or dropped, read from the binary logs in your bucket.
+- **Databases & users**: create a database with its own user, add users with read-only, read-and-write or full access to chosen databases, give a user a new password, remove users and databases (Rowsafe saves a Mark first). New passwords are made on your server and encrypted to your browser: Rowsafe never sees them.
+- **Security**: who can reach the server (also checked from the internet), anonymous accounts, users without a password, administrators that may log in from anywhere, the sample `test` database, encryption and versions out of support. Removing anonymous accounts and an empty `test` database takes one click; the rest comes with the exact steps.
+- **Tuning**: the settings that matter, explained, and **Tune for this server** from its memory and disk. Rowsafe saves a Mark first, and every change can be undone. MySQL keeps changes with `SET PERSIST`; MariaDB in Rowsafe's own option file (`/etc/rowsafe/mysql/server.cnf`) and on the running server. Settings read only at start wait for your next restart.
+- **Folders**: back up the folders that go with the database (uploads), restored to the same moment as the database.
+- **Connection pooling**: ProxySQL in front of the server, installed and managed by Rowsafe where root allowed it ([details](/docs/guides/connection-pooling#mysql-and-mariadb-proxysql)).
+- **Firewall**: let only your app servers reach the port, where root allowed it.
+- **Second copy**: with a second bucket (`--add-storage`), weekly full backups and the binary log also go there, encrypted with that bucket's own passphrase, and Proof alternates between the two.
 
 ## If the server is lost
 
@@ -150,6 +157,8 @@ Leave out `--at` for the latest change in the bucket, or use `--mark NAME`. It d
 ## Honest limits
 
 - **No restart or rewind in place yet.** Rowsafe tells you when MySQL/MariaDB needs a restart but doesn't restart it for you, and Rewind brings rows back from a copy rather than rewinding the whole server.
+- **Accounts set up before Databases & users and Tuning** can list but not change: the dashboard shows the one command that gives Rowsafe's account the rights (`sudo rowsafe-agent setup mysql-account ...`).
+- **MariaDB in Docker**: Tuning can't keep settings across restarts there (the agent can't change the container's configuration); set them in the container's command.
 - **Triggers run** when rows are brought back: MySQL can't turn them off for one session. The result says which tables have triggers.
 - **Tables without a primary key** can be restored with the database but not compared or brought back row by row.
 - **Non-InnoDB tables** (MyISAM, Aria) are locked briefly during backups and can't be restored to an exact second.

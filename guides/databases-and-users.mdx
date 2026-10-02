@@ -86,6 +86,15 @@ Rowsafe never sees the passwords it creates:
 
 PostgreSQL stores only a SCRAM verifier the agent computes, so the password isn't in any SQL statement or server log either.
 
+## MySQL, MariaDB, MongoDB and ClickHouse
+
+The same page works for the other engines, in their own terms. Passwords are made on your server and reach only your browser, like PostgreSQL's.
+
+- **MySQL and MariaDB:** a database's "owner" is a user with every right on it (MySQL has no owners). New users may log in from any host (`'name'@'%'`); where the server listens and your firewall decide who reaches it. Removing a database also takes back users' rights on it.
+- **MongoDB:** users are created in `admin` (connect with `authSource=admin`) with `read`, `readWrite` or `dbOwner` on the databases you choose. A new database shows up in MongoDB once something is written to it.
+- **ClickHouse:** `CREATE DATABASE`, `CREATE USER` and `GRANT`. Users defined in ClickHouse's configuration files (like `default`) are listed but never changed. A server that keeps its users only in configuration files can't get new ones until SQL users are on: the page says so and shows the small file that turns them on.
+- **Rowsafe's own login** needs the rights to create users. Installs from before this feature can list but not change: the page shows the one command, for root on the server, that gives them.
+
 ## Who can do it
 
 - Owners and admins, in the dashboard; read-write API keys, with the CLI. Members and read-only keys can only see the list.
@@ -94,7 +103,7 @@ PostgreSQL stores only a SCRAM verifier the agent computes, so the password isn'
 
 ## Limits
 
-- PostgreSQL only for now.
+- Extensions, templates and locales are PostgreSQL's; the other engines don't have them (see [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse)).
 - A new user can connect to the databases it was given, and also to databases every user may connect to (on most servers, `postgres`, where it can't read anything it wasn't given). Rowsafe doesn't change your other databases' rights or `pg_hba.conf`.
 - "Tables created later" covers tables created by the database's owner and by users that already own tables in it.
 - Connection strings use the server's direct port. `sslmode=require` when TLS is on for the server, otherwise `prefer`.

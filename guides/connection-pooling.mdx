@@ -305,6 +305,21 @@ ROWSAFE_POOLER_STATS_URL=postgres://stats:PASSWORD@pgbouncer:6432/pgbouncer
 
 The same two settings work on a server where you run PgBouncer yourself: Rowsafe then monitors it and leaves it alone.
 
+## MySQL and MariaDB (ProxySQL)
+
+For MySQL and MariaDB, Rowsafe runs [ProxySQL](https://proxysql.com) the same way, where root allowed pooling (`sudo rowsafe-allow pooler`, or yes at the installer's question). Turn it on under **Connections**: root's copy of the agent installs ProxySQL from the server's package sources (add [ProxySQL's apt repository](https://proxysql.com/documentation/installing-proxysql/) first if they don't have it), points it at the database on this server, and starts it on port 6033.
+
+- **Your apps log in with their own users.** The agent reads each user's password hash from `mysql.user` and hands it to ProxySQL on the server; the passwords themselves never leave your apps, and Rowsafe never sees them. Users you create or change in [Databases & users](/docs/guides/databases-and-users) reach ProxySQL within minutes.
+- Users that may log in only from other hosts, and users without a password ProxySQL can check (socket login, PAM, ed25519), connect directly. The page lists them.
+- On MySQL, users with `caching_sha2_password` (the default) connect through ProxySQL with TLS, or with their driver's option to fetch the server's public key.
+- **Transaction mode** shares a database connection between transactions; ProxySQL keeps one per app connection while it holds session state. **Session mode** gives each app connection its own.
+- ProxySQL's admin password stays with root; the agent only reads its statistics.
+- **After a standby's promotion** ProxySQL follows the new primary. On the new primary's own server that is automatic; to send connections to another server, root on the ProxySQL server approves that address once by adding `target ADDRESS PORT` to `/etc/rowsafe/pooler-allowed` (the task says exactly which line). Until then ProxySQL keeps pointing where it was.
+
+## Other engines
+
+MongoDB's drivers keep their own pool in every app, and ClickHouse handles many connections itself, so neither needs a pooler.
+
 ## Limits
 
 - **PgBouncer runs on the database's server and only reaches clusters on that server** (ports root allowed). After a failover to another server, point your apps at the new primary directly, or run PgBouncer on a server of its own.

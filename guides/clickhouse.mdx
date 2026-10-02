@@ -56,6 +56,10 @@ Without a terminal, `--protect NAME` works for ClickHouse too. When the users fi
 | Queries | Every query from ClickHouse's query log, grouped with `normalizeQuery` (values replaced by `?`). |
 | [Recommendations](/docs/guides/recommendations) | Large tables without a sorting key (`ORDER BY tuple()`), tables split into too many partitions, and the capacity checks. |
 | [Logs](/docs/guides/logs) | ClickHouse's error log (warnings and errors, with the query that failed), with values removed on your server. |
+| Databases & users | Create databases and users with SQL (`CREATE DATABASE`, `CREATE USER`, `GRANT`): read-only, read-and-write or full access per database, new passwords (stored as SHA-256), remove users and databases (a Mark first). Users defined in ClickHouse's configuration files (like `default`) are listed but never changed. If the server keeps its users only in configuration files, the dashboard says so and shows the small file that turns on SQL users. |
+| Security | Where ClickHouse listens (also checked from the internet: a query without a password tells whether strangers get in), TLS, users without a password open to every network, administrators open to every network and old plaintext passwords, with the exact steps (the `default` user lives in configuration files). |
+| Folders | Back up the folders that go with the database (uploads), restored to the same moment as a backup. |
+| Second copy | With a second bucket (`--add-storage`), weekly full backups also go there, encrypted with that bucket's own passphrase; Proof alternates between the two. |
 | Pulse | Queries, inserts, merges, memory, disk, data parts per partition, mutations, replication, broken parts and the queries running now. **Stop query** ends one (`KILL QUERY`) after checking it is still the same query. **Cancel mutation** stops an `ALTER ... UPDATE/DELETE` that can't finish (`KILL MUTATION`); parts it already changed stay changed. |
 
 Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
@@ -170,3 +174,4 @@ RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_2026
 - **No Find the moment**: ClickHouse keeps no log of its changes, so Rowsafe can't tell when rows changed. Restore a backup or a Mark and compare instead.
 - **No index suggestions**: ClickHouse finds rows through each table's sorting key rather than indexes; Recommendations points out large tables without one.
 - Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling and updates are PostgreSQL-only for now.
+- Rewinding the **whole** database in place, restarts from the dashboard, standbys, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now. [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) needs root's permission (`sudo rowsafe-allow tuning`). Rowsafe doesn't put a connection pooler in front of ClickHouse: it handles many connections itself.

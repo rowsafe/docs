@@ -51,6 +51,7 @@ Without a terminal, `--protect NAME` works for MongoDB too. It never restarts Mo
 | Proof | Weekly: restore the newest backup and every change since into a scratch `mongod` that listens on a private Unix socket only (no network), check every database and collection, the indexes, document counts, and run `validate` on a few collections. Then delete it. |
 | Rewind | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back. Changed ones only when you ask. A collection dropped since is created again, with its indexes. |
 | Fork | A new, independent database as it was at any second or Mark, copied into an empty MongoDB server on a server you pick ([Fork a database](/docs/guides/fork#mongodb)). |
+| Standby | A second server joins the replica set as a member that never becomes primary by itself, and takes over when you promote it ([Standby servers](/docs/guides/standby#mongodb)). |
 | Move in | A one-time copy of a database from MongoDB Atlas or any MongoDB onto this server ([Move in](/docs/guides/move-in#mongodb)). |
 | Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
 
@@ -111,4 +112,3 @@ Oplog chunks (`oplog/*.bson.gz`) decrypt the same way into gzipped BSON oplog en
 - Bringing documents back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
 - Compare skips views and time series collections, and collections over 10 million documents.
 - Rewinding the **whole** database in place, restarts from the dashboard, pooling and updates aren't available for MongoDB yet.
-- **No standby servers yet**: a second server joins the replica set only with the set's shared key file and a MongoDB restart there, which Rowsafe can't do for MongoDB yet.

@@ -178,13 +178,13 @@ Move in works for MySQL and MariaDB databases too, from RDS, Aurora MySQL, Cloud
 
 ## MongoDB
 
-MongoDB databases move in from MongoDB Atlas, DigitalOcean or any MongoDB your server can reach, into a MongoDB server Rowsafe protects, as a **one-time copy**:
+MongoDB databases move in from MongoDB Atlas, DigitalOcean or any MongoDB your server can reach, into a MongoDB server Rowsafe protects:
 
 - **The connection string** is Atlas's `mongodb+srv://user:password@cluster.example.net/database` (Connect > Drivers, with your database's name after the host), or `mongodb://user:password@host:27017/database?authSource=admin`.
-- **Live sync isn't available for MongoDB yet**: stop your app's writes, then copy. The check says how long the copy should take; that is the downtime.
-- The copy is `mongodump` of that database piped into `mongorestore` on your server, into a new database of the same name (or the one you pick); then Rowsafe compares document counts per collection and makes a login for apps (`readWrite` and `dbAdmin` on that database only), whose connection string is sealed to your browser.
-- Rowsafe's MongoDB user on your server needs the `restore` role: install Rowsafe there with `--mongodb-clones` (an empty server's installer asks).
-- Users and roles at the source don't move. Indexes do.
+- **Live sync** (when the source is a replica set, as Atlas always is): Rowsafe opens a change stream on the source database at its current cluster time, copies the database (`mongodump` piped into `mongorestore`), then applies every change made during and after the copy: inserted, updated and replaced documents are written whole, deleted ones deleted, dropped collections dropped. It resumes by itself after an agent restart. At the switchover, stop your app's writes: Rowsafe waits until every change up to that moment is here, ends the sync, compares document counts and makes the login for apps. The user needs the read role on the database (on Atlas, `readAnyDatabase` or the project's admin).
+- **The one-time copy** is the same copy without the sync, while writes are stopped.
+- The login for apps gets `readWrite` and `dbAdmin` on the moved database only; its connection string is sealed to your browser. Users and roles at the source don't move. Indexes do; indexes created during the sync don't.
+- Rowsafe's MongoDB user on your server needs the `restore` and `readWriteAnyDatabase` roles: install Rowsafe there with `--mongodb-clones` (an empty server's installer asks).
 
 ## ClickHouse
 

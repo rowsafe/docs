@@ -226,7 +226,18 @@ Standbys work for MySQL and MariaDB too, with the same buttons, pairing and fing
   On MariaDB, logins with the `SUPER` or `READ_ONLY ADMIN` privilege can still write to a read-only server: keep your apps on ordinary logins. Settings in the server's configuration files aren't copied. The primary needs its binary logs from the moment of the latest copy in the bucket (they are kept for days by default).
 </Callout>
 
-MongoDB and ClickHouse databases have no standby servers yet. ClickHouse keeps no log of its changes that a second server could follow; real ClickHouse replication needs ClickHouse Keeper and `Replicated*` tables, which Rowsafe doesn't set up.
+## MongoDB
+
+MongoDB standbys use MongoDB's own replication: the standby becomes a member of the primary's replica set. The same buttons and fingerprint check; what differs:
+
+- **The other server**: an **empty** MongoDB of the **same version**, installed with Rowsafe and `--mongodb-standby` and `--allow-restart` (the installer asks when it finds an empty MongoDB). The primary's server needs `--mongodb-standby` too: Rowsafe's MongoDB user gets `clusterManager`, and root's helper may hand out the replica set's key file.
+- **Joining needs one restart of the empty server**, which you confirm when you add the standby. Root's helper writes only Rowsafe's own pieces into its `mongod.conf` (the set's `replication.replSetName`, `security.keyFile` and the server's address in `net.bindIp`), keeping a copy of the file as it was (`mongod.conf.rowsafe-backup`); the key file is made on the primary's server and travels sealed to the standby's agent, like bucket settings. The primary isn't restarted.
+- **It joins as a member that never becomes primary by itself** (priority 0, no vote), so elections and write concerns on the primary don't change. MongoDB copies the data to it from the primary (its initial sync: a replica set member can't start from a backup), then keeps it in sync.
+- **Promoting** hands over through MongoDB's own election: the standby gets a vote, the old primary steps down once the standby has every write, and keeps priority 0 from then on (also after a restart), as a secondary. When the old primary is down, the standby becomes the set's only voting member.
+- **Connect your apps** with both servers and the set's name (`mongodb://host1,host2/db?replicaSet=rs0`): MongoDB drivers find the primary themselves, also after a promotion.
+- **Removing** takes the standby out of the replica set; its copy of the data stays on that server.
+
+ClickHouse databases have no standby servers: ClickHouse keeps no log of its changes that a second server could follow; real ClickHouse replication needs ClickHouse Keeper and `Replicated*` tables, which Rowsafe doesn't set up.
 
 ## From a terminal and AI agents
 

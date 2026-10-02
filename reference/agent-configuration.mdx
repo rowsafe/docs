@@ -339,6 +339,9 @@ rowsafe-agent clickhouse status|login|save-login --port 8123 [--users-xml | --ad
                           ClickHouse user (--users-xml prints a users.d file for root to
                           install; --admin-user creates it with SQL, password on stdin);
                           save a login you made (user:password on stdin)
+rowsafe-agent clickhouse download-backup --stanza FOLDER [--label LABEL --to DIR]
+                          ClickHouse: list a database's backups, or decrypt one (and the full
+                          backup it builds on) into DIR for RESTORE ... FROM File(...)
 rowsafe-agent unseal      decrypt a file Rowsafe wrote to your bucket (stdin to stdout)
 rowsafe-agent version
 ```

@@ -44,16 +44,16 @@ This writes `.rowsafe.json` (`{"database": "app"}`). The CLI, the MCP server and
 
 The plugin bundles three things:
 
-- the MCP server with Marks (`rowsafe mcp --allow-restore-points`);
+- Rowsafe's MCP server (`https://api.rowsafe.sh/mcp`): sign in with Rowsafe once (`/mcp` in Claude Code) and choose whether it may save Marks;
 - a skill, `rowsafe-safety`, that teaches the workflow;
-- a hook, `rowsafe guard`, that sets a Mark **right before** destructive commands, whether or not the model remembered to.
+- a hook that runs `rowsafe guard` to set a Mark **right before** destructive commands, whether or not the model remembered to. It never approves a command.
 
 ```sh
 claude plugin marketplace add rowsafe/rowsafe
 claude plugin install rowsafe@rowsafe
 ```
 
-Or inside Claude Code: `/plugin marketplace add rowsafe/rowsafe`, then `/plugin install rowsafe@rowsafe`. The `rowsafe` CLI must be on your `PATH` and logged in.
+Or inside Claude Code: `/plugin marketplace add rowsafe/rowsafe`, then `/plugin install rowsafe@rowsafe`. The hook, migration previews (`rowsafe preview`) and safe copies (`rowsafe copies create`) need the `rowsafe` CLI on your `PATH`, logged in; without it the hook does nothing and the MCP tools still work.
 
 </Tab>
 <Tab value="MCP server">

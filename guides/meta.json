@@ -9,6 +9,7 @@
     "docker",
     "mysql",
     "mongodb",
+    "clickhouse",
     "move-in",
     "---Rewind: get data back---",
     "restore",

@@ -89,6 +89,16 @@ If some are missing, the agent keeps working with the first bucket only and says
 
 See [Protect MongoDB](/docs/guides/mongodb).
 
+### ClickHouse
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_CLICKHOUSE_URL` | `http://127.0.0.1:PORT` | Where ClickHouse's HTTP interface is. Docker sidecars: the `clickhouse` service, e.g. `http://clickhouse:8123`. |
+| `ROWSAFE_CLICKHOUSE_GATEWAY_LISTEN` | `127.0.0.1:0` (a free port) | Where the agent listens, during a backup or restore only, for ClickHouse to write and read the backup. The agent encrypts every file before it goes to your bucket. The Docker image sets `0.0.0.0:9010`. |
+| `ROWSAFE_CLICKHOUSE_GATEWAY_URL` | the listen address | How ClickHouse reaches that address. Docker sidecars: the agent's service, e.g. `http://rowsafe-agent:9010`. |
+
+See [Protect ClickHouse](/docs/guides/clickhouse).
+
 ### Files
 
 | Variable | Default | |
@@ -222,6 +232,8 @@ A permission that needs another one is refused without it, and turning one off t
 | `ROWSAFE_CHANNEL=stable` | The channel to install from. Later updates follow the host's channel in Rowsafe. |
 | `ROWSAFE_ALLOW_DOWNGRADE=1` | Allow `ROWSAFE_VERSION` to be older than the installed version. |
 | `ROWSAFE_ALLOW_UNSUPPORTED_OS=1` | Try an OS other than Debian 12/13 or Ubuntu 22.04/24.04. |
+| `ROWSAFE_MONGODB_ADMIN_USER`, `ROWSAFE_MONGODB_ADMIN_PASSWORD` | Without a terminal: a MongoDB administrator, to create Rowsafe's own MongoDB user. Used once, never saved. |
+| `ROWSAFE_CLICKHOUSE_ADMIN_USER`, `ROWSAFE_CLICKHOUSE_ADMIN_PASSWORD` | Without a terminal: a ClickHouse administrator, to create Rowsafe's own ClickHouse user when it can't be added as a users file. Used once, never saved. |
 
 The installer also copies these settings from its environment into `agent.env`, without printing them: `ROWSAFE_URL`, `ROWSAFE_ENROLL_TOKEN`, `ROWSAFE_STORAGE`, every `ROWSAFE_REPO_*` and `ROWSAFE_REPO2_*` setting above, `ROWSAFE_AUTO_UPDATE`, `ROWSAFE_PG_USER`, `ROWSAFE_PG_BIN_DIR`, `ROWSAFE_PGBACKREST_BIN`, `ROWSAFE_DRILL_DIR`, `ROWSAFE_DRILL_PORT`, `ROWSAFE_POLL_INTERVAL` and `ROWSAFE_HEARTBEAT_INTERVAL`. Set anything else by editing the file.
 
@@ -318,6 +330,11 @@ rowsafe-agent files discover|access|list|add
 rowsafe-agent mongodb status|login|initiate|save-uri --port 27017 [--admin-user NAME]
                           MongoDB: what the installer needs to know; create Rowsafe's
                           MongoDB user; start a replica set of one; save a login you made
+rowsafe-agent clickhouse status|login|save-login --port 8123 [--users-xml | --admin-user NAME]
+                          ClickHouse: what the installer needs to know; create Rowsafe's
+                          ClickHouse user (--users-xml prints a users.d file for root to
+                          install; --admin-user creates it with SQL, password on stdin);
+                          save a login you made (user:password on stdin)
 rowsafe-agent unseal      decrypt a file Rowsafe wrote to your bucket (stdin to stdout)
 rowsafe-agent version
 ```

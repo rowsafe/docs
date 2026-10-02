@@ -93,7 +93,7 @@ It exits with `0` when done (or nothing to change), `2` when it refused and chan
 
 - **Root decides, on the server.** `rowsafe-allow` needs `sudo`. Rowsafe's API and AI agents can't change what is allowed, and the dashboard only will with a passkey root paired at the server (see above).
 - **Servers installed before `rowsafe-allow`** don't have it yet: a self-updated agent doesn't add it. Run the install command once more (`curl -fsSL https://rowsafe.sh | sudo sh`): it keeps your answers and adds `rowsafe-allow`. Until then, the [options](#install-options) work as before.
-- **PostgreSQL only.** On a server with only MySQL, MariaDB or MongoDB there is nothing to allow yet.
+- **PostgreSQL only.** On a server with only MySQL, MariaDB, MongoDB or ClickHouse there is nothing to allow yet.
 - **Docker.** These permissions are for servers where Rowsafe runs as a service. In Docker, what the agent may do is set where its containers are defined: see [Docker](/docs/guides/docker#let-rowsafe-restart-the-container).
 
 ## Files on the server

@@ -129,7 +129,7 @@ Past the daily limit, new lines aren't kept until midnight UTC; the Logs page sh
 
 ## Limits
 
-- PostgreSQL only. MySQL, MariaDB and MongoDB logs aren't read yet.
+- PostgreSQL only. MySQL, MariaDB, MongoDB and ClickHouse logs aren't read yet.
 - Classification and redaction of messages rely on English `lc_messages` (see above).
 - The agent reads the log as the `postgres` user; a log that user can't read (or a journal it may not read) needs the change above.
 - On Docker, the log files need `logging_collector = on` and a restart of the PostgreSQL container.

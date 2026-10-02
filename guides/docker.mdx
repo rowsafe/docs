@@ -9,6 +9,8 @@ If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you d
   Docker Desktop on macOS or Windows runs containers in a VM whose disk and `fsync` behaviour Rowsafe doesn't guarantee. Use it to try Rowsafe, not for data you need to recover. Kubernetes isn't covered.
 </Callout>
 
+MySQL, MariaDB, MongoDB and ClickHouse have their own agent images, built on their official images: see [MySQL and MariaDB](/docs/guides/mysql#in-docker), [Protect MongoDB](/docs/guides/mongodb#docker) and [Protect ClickHouse](/docs/guides/clickhouse#docker). This page is about PostgreSQL.
+
 ## How it works
 
 ```text

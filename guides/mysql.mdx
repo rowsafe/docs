@@ -132,7 +132,7 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 - **Pulse**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, and rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`).
 - **Queries**: the statements that take the most time and the ones that got slower, from `performance_schema`'s statement digests (MySQL already replaces every value with `?`).
 - **[Recommendations](/docs/guides/recommendations)**: queries that read far more rows than they return or sort on disk, tables without a primary key, and indexes nothing uses or another index already covers, with **Drop** buttons (online, `ALGORITHM=INPLACE, LOCK=NONE`; Rowsafe saves a Mark first).
-- **Index suggestions** (MySQL 8.0 and later): Rowsafe turns slow queries into index ideas, tests each one on a copy restored from your backups, and only suggests the ones that make a query at least twice as fast. **Create index** builds it online.
+- **Index suggestions**: Rowsafe turns slow queries into index ideas, tests each one on a copy restored from your backups, and only suggests the ones that make a query at least twice as fast. **Create index** builds it online. The test runs each query with real values, taken on your server from `performance_schema` (MySQL 8.0+) or from the slow query log (MariaDB, MySQL 5.7); they are only used on the copy and never sent to Rowsafe.
 - **[Logs](/docs/guides/logs)**: the error log and, when it is on, the slow query log, with values removed on your server.
 - **[Find the moment](/docs/guides/find-the-moment)**: when rows were deleted or changed, or tables emptied or dropped, read from the binary logs in your bucket.
 
@@ -157,6 +157,6 @@ Leave out `--at` for the latest change in the bucket, or use `--mark NAME`. It d
 - **Replicas**: set up backups on the primary; a replica is skipped.
 - Rowsafe only needs the binary log positions, not GTIDs; if GTIDs are on, Marks record them too.
 - **Queries need `performance_schema`**, which MariaDB turns off by default (`performance_schema = ON` in the server's configuration, then a restart). Statements run as server-side prepared statements aren't in its statement digests.
-- **Index suggestions are MySQL 8.0+ only**: MariaDB and MySQL 5.7 keep no sample of a statement's values to test an index with. Only single-table statements are turned into ideas.
+- **Index suggestions on MariaDB and MySQL 5.7 need the slow query log** (`slow_query_log = ON`, `long_query_time = 1`, written to a file): that is where Rowsafe finds a run of each slow query to test with. Only single-table statements are turned into ideas.
 - **Creating and dropping indexes** needs the `INDEX` privilege, which installs from this version on give Rowsafe's account; on an older install, run the install command again once.
 - **Find the moment works to the second**: rewinding to just before a change restores up to the second before it, so changes earlier in that same second aren't in the copy. With `binlog_format = STATEMENT`, only TRUNCATEs and DROPs are found.

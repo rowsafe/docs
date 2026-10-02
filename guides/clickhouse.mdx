@@ -54,6 +54,7 @@ Without a terminal, `--protect NAME` works for ClickHouse too. When the users fi
 | Proof | Weekly: restore the newest backup into a temporary ClickHouse on the same server (listening on `127.0.0.1` only, with its own data folder), check that every database and table came back with the rows it had, then delete it. |
 | Rewind | Restore a copy as it was at a backup or a Mark, next to production, on the same kind of temporary ClickHouse. Compare a table with production and bring missing rows back. ClickHouse tables have no unique key, so rows are compared on all their columns: a row is missing when production has fewer copies of it than the copy. |
 | Fork | A new, independent database from a backup or a Mark, restored straight into an empty ClickHouse server on a server you pick ([Fork a database](/docs/guides/fork#clickhouse)). |
+| Move in | A one-time copy of a database from ClickHouse Cloud or any ClickHouse onto this server ([Move in](/docs/guides/move-in#clickhouse)). |
 | Pulse | Queries, inserts, merges, memory, disk, data parts per partition, mutations, replication, broken parts and the queries running now. **Stop query** ends one (`KILL QUERY`) after checking it is still the same query. **Cancel mutation** stops an `ALTER ... UPDATE/DELETE` that can't finish (`KILL MUTATION`); parts it already changed stay changed. |
 
 Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.

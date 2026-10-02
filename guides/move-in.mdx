@@ -1,6 +1,6 @@
 ---
 title: Move in from a managed database
-description: Move a PostgreSQL, MySQL or MongoDB database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
+description: Move a PostgreSQL, MySQL, MongoDB or ClickHouse database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
 ---
 
 Leave your managed database, keep the safety net. **Move in** copies a PostgreSQL database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
@@ -186,7 +186,15 @@ MongoDB databases move in from MongoDB Atlas, DigitalOcean or any MongoDB your s
 - Rowsafe's MongoDB user on your server needs the `restore` role: install Rowsafe there with `--mongodb-clones` (an empty server's installer asks).
 - Users and roles at the source don't move. Indexes do.
 
-ClickHouse databases can't be moved in yet.
+## ClickHouse
+
+ClickHouse databases move in from ClickHouse Cloud, Altinity, Aiven or any ClickHouse your server can reach, into a ClickHouse server Rowsafe protects, as a **one-time copy** (ClickHouse keeps no log of its changes, so there is no live sync):
+
+- **The connection string** is the source's HTTP interface with the database: `https://user:password@host:8443/database` (on ClickHouse Cloud: Connect > HTTPS).
+- Rowsafe creates the database and its tables here (ClickHouse Cloud's `Shared*` engines become their `MergeTree` equivalents), then streams each table's rows from the source through the agent into the new table, and compares row counts. Views come along; tables that read other systems (Kafka, S3, MySQL...) are created but not copied.
+- **Stop your app's writes** during the copy; the check says how long it should take.
+- Rowsafe's ClickHouse user here must be allowed to create databases: install Rowsafe here with `--clickhouse-clones`. When it may also create users, it makes a login for apps with every right on the new database; otherwise it says so and you make one.
+- ClickHouse users and grants at the source don't move.
 
 ## How your password is handled
 

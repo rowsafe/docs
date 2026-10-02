@@ -134,6 +134,8 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 - **Security**: who can reach the server (also checked from the internet), anonymous accounts, users without a password, administrators that may log in from anywhere, the sample `test` database, encryption and versions out of support. Removing anonymous accounts and an empty `test` database takes one click; the rest comes with the exact steps.
 - **Tuning**: the settings that matter, explained, and **Tune for this server** from its memory and disk. Rowsafe saves a Mark first, and every change can be undone. MySQL keeps changes with `SET PERSIST`; MariaDB in Rowsafe's own option file (`/etc/rowsafe/mysql/server.cnf`) and on the running server. Settings read only at start wait for your next restart.
 - **Folders**: back up the folders that go with the database (uploads), restored to the same moment as the database.
+- **Connection pooling**: ProxySQL in front of the server, installed and managed by Rowsafe where root allowed it ([details](/docs/guides/connection-pooling#mysql-and-mariadb-proxysql)).
+- **Firewall**: let only your app servers reach the port, where root allowed it.
 - **Second copy**: with a second bucket (`--add-storage`), weekly full backups and the binary log also go there, encrypted with that bucket's own passphrase, and Proof alternates between the two.
 
 ## If the server is lost
@@ -150,7 +152,6 @@ Leave out `--at` for the latest change in the bucket, or use `--mark NAME`. It d
 ## Honest limits
 
 - **No restart or rewind in place yet.** Rowsafe tells you when MySQL/MariaDB needs a restart but doesn't restart it for you, and Rewind brings rows back from a copy rather than rewinding the whole server.
-- **No connection pooler** (ProxySQL) from Rowsafe yet: use your app's own connection pool.
 - **Accounts set up before Databases & users and Tuning** can list but not change: the dashboard shows the one command that gives Rowsafe's account the rights (`sudo rowsafe-agent setup mysql-account ...`).
 - **MariaDB in Docker**: Tuning can't keep settings across restarts there (the agent can't change the container's configuration); set them in the container's command.
 - **Triggers run** when rows are brought back: MySQL can't turn them off for one session. The result says which tables have triggers.

@@ -1,6 +1,6 @@
 ---
 title: Move in from a managed database
-description: Move a PostgreSQL database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
+description: Move a PostgreSQL, MySQL, MongoDB or ClickHouse database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
 ---
 
 Leave your managed database, keep the safety net. **Move in** copies a PostgreSQL database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
@@ -162,6 +162,39 @@ What each provider needs so your server can pull the data with logical replicati
 ### Any other PostgreSQL
 
 - `wal_level = logical` and a restart; a superuser, or a user with `REPLICATION` that owns the tables; your server's IP allowed in `pg_hba.conf` and the firewall ([PostgreSQL: configuration](https://www.postgresql.org/docs/current/logical-replication-config.html)).
+
+## MySQL and MariaDB
+
+Move in works for MySQL and MariaDB databases too, from RDS, Aurora MySQL, Cloud SQL, Azure, DigitalOcean or any MySQL your server can reach, into a MySQL (or MariaDB) server Rowsafe protects. The same pages and buttons; what differs:
+
+- **The connection string** is `mysql://user:password@host:3306/database` (add `?ssl-mode=REQUIRED` to insist on TLS, or `DISABLED` for a server without it). It names one database; it moves into a new database of the same name on your server (or the name you pick).
+- **The server it moves to**: the same flavor (MySQL into MySQL, MariaDB into MariaDB), the same version or newer. Rowsafe's MySQL account there needs the rights to load data and set up replication: answer yes to standby servers when you install Rowsafe there (or `--mysql-standby`).
+- **Live sync** copies the database in one consistent snapshot with `mysqldump --single-transaction`, which records the source's binary log position, then follows the source's binary log on a replication channel of its own on your server (`rowsafe_<id>`, limited to that database). It needs the source's binary log on in `ROW` format (on RDS: automated backups on and `binlog_format = ROW` in the parameter group), and a user with `REPLICATION SLAVE` and `REPLICATION CLIENT` (the provider's admin user has them). On RDS the binary logs are deleted right away by default: the check offers **Keep them 24 hours** (one click). Into MariaDB, live sync keeps the database's name.
+- **The one-time copy** is the same snapshot without the sync.
+- **Stop your app's writes yourself** before the switchover (or the one-time copy): managed providers don't let anyone else make a MySQL server read-only, so Rowsafe can't. The switchover then waits until every change has arrived, ends the channel and compares row counts.
+- **The new login** (`app`, or the source's user name) gets every right on the moved database only. Its connection string is sealed to your browser, like for PostgreSQL.
+- What moves: tables, views, routines, triggers and events (events when the user may read them). Logins and their rights at the source don't move.
+- The copy and the sync are written to your server's own binary log, so its restores to any second include the moved data.
+
+## MongoDB
+
+MongoDB databases move in from MongoDB Atlas, DigitalOcean or any MongoDB your server can reach, into a MongoDB server Rowsafe protects:
+
+- **The connection string** is Atlas's `mongodb+srv://user:password@cluster.example.net/database` (Connect > Drivers, with your database's name after the host), or `mongodb://user:password@host:27017/database?authSource=admin`.
+- **Live sync** (when the source is a replica set, as Atlas always is): Rowsafe opens a change stream on the source database at its current cluster time, copies the database (`mongodump` piped into `mongorestore`), then applies every change made during and after the copy: inserted, updated and replaced documents are written whole, deleted ones deleted, dropped collections dropped. It resumes by itself after an agent restart. At the switchover, stop your app's writes: Rowsafe waits until every change up to that moment is here, ends the sync, compares document counts and makes the login for apps. The user needs the read role on the database (on Atlas, `readAnyDatabase` or the project's admin).
+- **The one-time copy** is the same copy without the sync, while writes are stopped.
+- The login for apps gets `readWrite` and `dbAdmin` on the moved database only; its connection string is sealed to your browser. Users and roles at the source don't move. Indexes do; indexes created during the sync don't.
+- Rowsafe's MongoDB user on your server needs the `restore` and `readWriteAnyDatabase` roles: install Rowsafe there with `--mongodb-clones` (an empty server's installer asks).
+
+## ClickHouse
+
+ClickHouse databases move in from ClickHouse Cloud, Altinity, Aiven or any ClickHouse your server can reach, into a ClickHouse server Rowsafe protects, as a **one-time copy** (ClickHouse keeps no log of its changes, so there is no live sync):
+
+- **The connection string** is the source's HTTP interface with the database: `https://user:password@host:8443/database` (on ClickHouse Cloud: Connect > HTTPS).
+- Rowsafe creates the database and its tables here (ClickHouse Cloud's `Shared*` engines become their `MergeTree` equivalents), then streams each table's rows from the source through the agent into the new table, and compares row counts. Views come along; tables that read other systems (Kafka, S3, MySQL...) are created but not copied.
+- **Stop your app's writes** during the copy; the check says how long it should take.
+- Rowsafe's ClickHouse user here must be allowed to create databases: install Rowsafe here with `--clickhouse-clones`. When it may also create users, it makes a login for apps with every right on the new database; otherwise it says so and you make one.
+- ClickHouse users and grants at the source don't move.
 
 ## How your password is handled
 

@@ -62,6 +62,8 @@ Without a terminal, `--protect NAME` works for ClickHouse too. When the users fi
 | Second copy | With a second bucket (`--add-storage`), weekly full backups also go there, encrypted with that bucket's own passphrase; Proof alternates between the two. |
 | Rewind the whole database | Puts every database back to a backup or a Mark, in place. Rowsafe restores the backup into ClickHouse under other names (`rowsafe_rewind_<tag>_<db>`; ClickHouse keeps running), then swaps each table's data partition by partition (`REPLACE PARTITION`, hard links: no extra disk), so views, materialized views and dictionaries keep pointing at the same tables. Tables dropped since come back; tables created since are emptied. The data from before is kept in `rowsafe_before_<tag>_*` databases for 7 days (never backed up): **Undo rewind** swaps it back, **Delete the old data now** drops it. Pause inserts while it runs. |
 | Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm, where root allowed it on the server (`sudo rowsafe-allow restart`). |
+| Fork | A new, independent database from a backup or a Mark, restored straight into an empty ClickHouse server on a server you pick ([Fork a database](/docs/guides/fork#clickhouse)). |
+| Move in | A one-time copy of a database from ClickHouse Cloud or any ClickHouse onto this server ([Move in](/docs/guides/move-in#clickhouse)). |
 | Pulse | Queries, inserts, merges, memory, disk, data parts per partition, mutations, replication, broken parts and the queries running now. **Stop query** ends one (`KILL QUERY`) after checking it is still the same query. **Cancel mutation** stops an `ALTER ... UPDATE/DELETE` that can't finish (`KILL MUTATION`); parts it already changed stay changed. |
 
 Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
@@ -181,3 +183,5 @@ RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_2026
 - Restarts from the dashboard need root's permission on a server where ClickHouse runs as a systemd service; in Docker, restart the container yourself.
 - [Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse) install new releases of the version you run (25.8.x); moving to a newer version (25.3 to 25.8) is a [major upgrade](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse), rehearsed on a restored copy first, with undo for 7 days.
 - Standbys and pooling are PostgreSQL-only for now.
+- **No standby servers**: ClickHouse keeps no log of its changes that a second server could follow, and real ClickHouse replication needs ClickHouse Keeper and `Replicated*` tables, which Rowsafe doesn't set up.
+- Rewinding the **whole** database in place, restarts from the dashboard, pooling, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now.

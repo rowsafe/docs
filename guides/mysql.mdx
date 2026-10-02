@@ -131,6 +131,9 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 - **Rewind the whole server**: put every database back to a second (or a Mark) in place, with Undo for 7 days. See [Rewind the whole server](#rewind-the-whole-server).
 - **Restart**: restart MySQL or MariaDB from the dashboard (**Restart**, or `rowsafe restart`) after you confirm, where root allowed it on the server (`sudo rowsafe-allow restart`). Rowsafe waits until it answers again.
 - **Marks**: named points (`rowsafe mark`, AI agents through MCP) you can restore to exactly.
+- **Standby servers**: a second, empty MySQL or MariaDB server kept in sync from your backups and the binary log, readable, and promoted with one click; the old primary is made read-only first. See [Standby servers](/docs/guides/standby#mysql-and-mariadb).
+- **Forks**: a new, independent copy as it was at any second (or a Mark), loaded into an empty MySQL or MariaDB server; see [Fork a database](/docs/guides/fork#mysql-and-mariadb).
+- **Move in**: bring a MySQL or MariaDB database from RDS, Cloud SQL, Azure or DigitalOcean onto this server with a live sync and a switchover; see [Move in](/docs/guides/move-in#mysql-and-mariadb).
 - **Pulse**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, and rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`).
 - **Queries**: the statements that take the most time and the ones that got slower, from `performance_schema`'s statement digests (MySQL already replaces every value with `?`).
 - **[Recommendations](/docs/guides/recommendations)**: queries that read far more rows than they return or sort on disk, tables without a primary key, and indexes nothing uses or another index already covers, with **Drop** buttons (online, `ALGORITHM=INPLACE, LOCK=NONE`; Rowsafe saves a Mark first).

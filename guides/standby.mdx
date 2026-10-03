@@ -11,6 +11,8 @@ A **standby** is a second server that stays in sync with your database. You can:
 
 Rowsafe sets it up from your backups and your bucket, keeps it in sync, watches how far behind it is, and makes sure the old primary stays stopped after a promotion.
 
+Standby servers work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb) and [ClickHouse](#clickhouse) say what differs.
+
 ## What you need
 
 - **Another server** in the same organization, with the Rowsafe agent installed natively (not in Docker).
@@ -208,6 +210,34 @@ Existing connections break at a promotion; the driver's normal reconnect then fi
 ## Remove a standby
 
 **Standby**, **Remove**, or `rowsafe standby remove app`. Rowsafe stops the standby, gives its cluster its own data back and starts it, and removes the standby's role and `pg_hba.conf` lines on the primary.
+
+## MySQL and MariaDB
+
+Standbys work for MySQL and MariaDB too, with the same buttons, pairing and fingerprint check. What differs:
+
+- **The other server**: an **empty** MySQL (or MariaDB) server of the **same version series** (8.4 with 8.4, 11.4 with 11.4), with the Rowsafe agent installed natively. When the installer finds a server with no databases, it asks whether to keep it ready to hold a standby; say yes.
+- **Standby rights on both servers**: Rowsafe's MySQL account needs administrator rights to create the replication login on the primary and to load the standby. The installer asks "Allow standby servers with this server?" (or pass `--mysql-standby`); answer yes on both servers. Rowsafe uses those rights only when someone adds, promotes or removes a standby and confirms.
+- **Seeded from your backups**: the standby server's agent restores the latest backup and the binary logs from your bucket into a private copy, then loads its databases, routines, triggers, events and logins into the empty server (without writing them to that server's own binary log). The primary isn't read for this.
+- **Then it replicates** from the primary's binary log, from exactly where the copy ends, with a replication login Rowsafe makes for the standby's address only (over TLS when the primary has it on). So the standby needs a network path to the primary's MySQL port; there is no bucket-only mode. It stays read-only (`super_read_only` on MySQL, `read_only` on MariaDB). If both servers have the same `server_id`, Rowsafe gives the standby another one.
+- **Fencing makes the old primary read-only** instead of stopping it: Rowsafe turns `super_read_only` (MySQL) or `read_only` (MariaDB) on, also for after a restart, and ends its client sessions so no open transaction can still commit. Its agent checks it every few seconds and makes it read-only again if someone changes that. Then the standby applies everything up to the old primary's last change before it is promoted.
+- **Turning the old primary into the new standby** reuses its data when the promotion waited for all of its changes (a promotion with the primary up always does); otherwise Rowsafe won't, because it may hold changes the new primary doesn't have.
+- **Removing** a standby stops replication and drops the databases and logins Rowsafe loaded, so the server is empty again.
+- **Connecting apps**: MySQL drivers connect to one server. Apps use the primary, reports can use the standby; after a promotion, point apps at the new primary (or at a DNS name you move, or a proxy such as ProxySQL).
+
+<Callout type="info" title="MySQL and MariaDB limits">
+  On MariaDB, logins with the `SUPER` or `READ_ONLY ADMIN` privilege can still write to a read-only server: keep your apps on ordinary logins. Settings in the server's configuration files aren't copied. The primary needs its binary logs from the moment of the latest copy in the bucket (they are kept for days by default).
+</Callout>
+
+## MongoDB
+
+MongoDB standbys use MongoDB's own replication: the standby becomes a member of the primary's replica set. The same buttons and fingerprint check; what differs:
+
+- **The other server**: an **empty** MongoDB of the **same version**, installed with Rowsafe and `--mongodb-standby` and `--allow-restart` (the installer asks when it finds an empty MongoDB). The primary's server needs `--mongodb-standby` too: Rowsafe's MongoDB user gets `clusterManager`, and root's helper may hand out the replica set's key file.
+- **Joining needs one restart of the empty server**, which you confirm when you add the standby. Root's helper writes only Rowsafe's own pieces into its `mongod.conf` (the set's `replication.replSetName`, `security.keyFile` and the server's address in `net.bindIp`), keeping a copy of the file as it was (`mongod.conf.rowsafe-backup`); the key file is made on the primary's server and travels sealed to the standby's agent, like bucket settings. The primary isn't restarted.
+- **It joins as a member that never becomes primary by itself** (priority 0, no vote), so elections and write concerns on the primary don't change. MongoDB copies the data to it from the primary (its initial sync: a replica set member can't start from a backup), then keeps it in sync.
+- **Promoting** hands over through MongoDB's own election: the standby gets a vote, the old primary steps down once the standby has every write, and keeps priority 0 from then on (also after a restart), as a secondary. When the old primary is down, the standby becomes the set's only voting member.
+- **Connect your apps** with both servers and the set's name (`mongodb://host1,host2/db?replicaSet=rs0`): MongoDB drivers find the primary themselves, also after a promotion.
+- **Removing** takes the standby out of the replica set; its copy of the data stays on that server.
 
 ## ClickHouse
 

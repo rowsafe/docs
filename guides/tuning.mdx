@@ -1,11 +1,11 @@
 ---
-title: "Tuning: PostgreSQL settings"
-description: See the PostgreSQL settings that matter explained in plain words, let Rowsafe tune them for your server's memory, CPUs and disk, change one setting safely, and undo a change in one click.
+title: "Tuning: your database's settings"
+description: See the settings that matter for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse explained in plain words, let Rowsafe tune them for your server's memory, CPUs and disk, change one setting safely, and undo a change in one click.
 ---
 
 A fresh PostgreSQL uses settings meant for a tiny machine: 128 MB of memory for caching data, whatever your server has. **Tuning** shows the settings that matter for each database, what each one does, and what suits your server, and changes them for you when you click.
 
-Open a database and pick the **Tuning** tab, or use `rowsafe settings` and `rowsafe tune` in a terminal.
+Open a database and pick the **Tuning** tab, or use `rowsafe settings` and `rowsafe tune` in a terminal. It works for every database Rowsafe protects; this page uses PostgreSQL's settings, and [MySQL and MariaDB](#mysql-and-mariadb) and [MongoDB and ClickHouse](#mongodb-and-clickhouse) say what differs.
 
 ## What you see
 
@@ -107,6 +107,24 @@ rowsafe settings undo app                 # undo the latest change
 ```
 
 See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI assistants can read the settings and recommendations (`database_settings` on the [MCP server](/docs/reference/mcp)) but never change them.
+
+## MySQL and MariaDB
+
+Tuning works for MySQL and MariaDB too: the buffer pool, the redo log, connections, temporary tables, disk speed, timeouts and the slow query log, explained, with **Tune for this server** from the server's memory and disk (about 70% of memory for the buffer pool on a server with 8 GB or more, a bigger redo log, SSD-sized disk speed). A Mark is saved first and every change can be undone.
+
+- **MySQL** keeps changes with `SET PERSIST`; settings read only at start use `SET PERSIST_ONLY` and wait for your next restart.
+- **MariaDB** keeps them in Rowsafe's own option file (`/etc/rowsafe/mysql/server.cnf`) and applies them to the running server (`SET GLOBAL`). In Docker the agent can't change MariaDB's configuration: set them in the container's command.
+- Rowsafe never changes the binary log settings its restores rely on, and never lets a commit wait less for the disk (`innodb_flush_log_at_trx_commit`, `sync_binlog`).
+- Settings read only at start say so and wait for the next restart, which you choose: **Restart** in the dashboard, where root allowed restarts.
+
+## MongoDB and ClickHouse
+
+MongoDB and ClickHouse keep their settings in configuration files that only root may change. Where root allowed it (`sudo rowsafe-allow tuning`, or yes at the installer's question), Tuning works for them too: root's copy of the agent writes the settings you change, from a fixed list with plain values, into Rowsafe's own file and nowhere else. A Mark is saved first, and undo puts back what was there before.
+
+- **ClickHouse:** the memory per query and for the whole server, spilling big GROUP BY and ORDER BY to disk, queries and connections at once, threads, merges and the longest query, in `config.d/rowsafe-tuning.xml` and `users.d/rowsafe-tuning.xml`. ClickHouse picks them up by itself within seconds; the few it can't change while running say so and wait for a restart.
+- **MongoDB:** the WiredTiger cache, connections, the longest transaction, the slow operation threshold and the profiler, as keys of its configuration file (edited as YAML; a copy is kept). The cache size, the transaction limit and the slow threshold also change on the running server at once; the rest waits for MongoDB's next restart.
+
+Settings that need a restart wait for the next one, which you choose (**Restart** in the dashboard, where root allowed it). In Docker, set these in the container's configuration instead.
 
 ## Limits
 

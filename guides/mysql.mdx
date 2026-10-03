@@ -1,9 +1,9 @@
 ---
 title: Protect MySQL or MariaDB
-description: Backups to your own bucket, restore to any second, a weekly restore test and monitoring for MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4, on a server or in Docker.
+description: Backups to your own bucket, restore to any second, weekly Proof, Rewind, Pulse, standbys, pooling and updates for MySQL 8.0/8.4 and MariaDB 10.6/10.11/11.4, on a server or in Docker.
 ---
 
-Rowsafe protects MySQL and MariaDB the way it protects PostgreSQL: physical backups encrypted on your server and stored in your own bucket, every change copied there continuously so you can restore **any second**, a weekly **Proof** that the backups really restore, **Rewind** copies to bring deleted rows back, **Marks**, and **Pulse** monitoring with fixes. How it works under the hood: [How MySQL and MariaDB backups work](/docs/concepts/mysql).
+Rowsafe protects MySQL and MariaDB with everything it does for PostgreSQL: physical backups encrypted on your server and stored in your own bucket, every change copied there continuously so you can restore **any second**, a weekly **Proof** that the backups really restore, **Rewind**, **Marks**, **Pulse** with one-click fixes, and the tools to run the server (restarts, updates, standbys, pooling, tuning). How the backups work under the hood: [How MySQL and MariaDB backups work](/docs/concepts/mysql).
 
 ## Supported versions
 
@@ -12,7 +12,7 @@ Rowsafe protects MySQL and MariaDB the way it protects PostgreSQL: physical back
 | MySQL | 8.0, 8.4 LTS | Percona XtraBackup 8.0 / 8.4 | Debian 12/13, Ubuntu 22.04/24.04; Docker (`mysql:8.0`, `mysql:8.4`) |
 | MariaDB | 10.6, 10.11, 11.4 LTS | mariadb-backup (MariaDB's own) | Debian 12/13, Ubuntu 22.04/24.04; Docker (`mariadb:10.6`, `mariadb:10.11`, `mariadb:11.4`) |
 
-Other MySQL versions (5.7, 9.x innovation releases), Percona Server and Galera clusters aren't supported yet.
+Other versions (MySQL 5.7 and the 9.x innovation releases), Percona Server and Galera clusters aren't supported.
 
 ## On a server: one command
 
@@ -26,7 +26,7 @@ Run the install command from the dashboard (**Servers → Add a server**) on the
 </Step>
 <Step>
 
-**Runs the agent as the `mysql` user**, which can read the data files (backups) and start private copies of the server (restore tests, Rewind).
+**Runs the agent as the `mysql` user**, which can read the data files (backups) and start private copies of the server (Proof, Rewind).
 
 </Step>
 <Step>
@@ -36,7 +36,12 @@ Run the install command from the dashboard (**Servers → Add a server**) on the
 </Step>
 <Step>
 
-**Creates Rowsafe's own account** `rowsafe@localhost`, logging in as root through the local socket (Debian and Ubuntu let root in without a password there). If your root account has a password, the installer asks for it once and doesn't keep it. The account's random password stays on your server.
+**Creates Rowsafe's own account** `rowsafe@localhost`, logging in as root through the local socket (Debian and Ubuntu let root in without a password there). If your root account has a password, the installer asks for it once and doesn't keep it. The account's random password stays on your server. What the account may do is [below](#what-rowsafe-may-do).
+
+</Step>
+<Step>
+
+**Asks what Rowsafe may do** on the server (restarts, updates, pooling, the firewall, standbys), each only when someone clicks it and confirms. See [What Rowsafe may do](#what-rowsafe-may-do).
 
 </Step>
 <Step>
@@ -49,12 +54,12 @@ Run the install command from the dashboard (**Servers → Add a server**) on the
 Once the settings are in effect, Rowsafe checks that changes reach your bucket, takes the first full backup and schedules the rest. After a restart you do yourself, Rowsafe notices and finishes by itself.
 
 <Callout title="A server with both PostgreSQL and MySQL">
-  On a server that also runs PostgreSQL, the agent runs as `postgres` and can't read MySQL's data files, so the installer only protects PostgreSQL there for now.
+  On a server that also runs PostgreSQL, the agent runs as `postgres` and can't read MySQL's data files, so the installer protects PostgreSQL there.
 </Callout>
 
 ## In Docker
 
-The agent runs as a sidecar container, built from the same official image as your server (so restore tests run the very same version), with the backup tools added. You add a socket volume to your database service and one service:
+The agent runs as a sidecar container, built from the same official image as your server (so Proof runs the very same version), with the backup tools added. You add a socket volume to your database service and one service:
 
 <Tabs items={["MySQL", "MariaDB"]}>
 <Tab value="MySQL">
@@ -122,14 +127,79 @@ Then: `rowsafe adopt cms --host db-1 --engine mariadb`, and approve the plan.
 
 `rowsafe-agent.env` holds the same settings as for PostgreSQL (the enrollment token and your bucket); see [Run the agent in Docker](/docs/guides/docker). The agent uses the root password once, to create its own account, and keeps that account in its state volume. Complete files: `deploy/docker/compose.mysql.yml` and `compose.mariadb.yml` in the [agent's repository](https://github.com/rowsafe/rowsafe).
 
+To let Rowsafe restart the database container when you click **Restart**, add the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container) with `ROWSAFE_CONTROL_SERVICE: mysql` (or your MariaDB service's name).
+
 ## What you get
 
+**Rewind and Proof**
+
 - **Backups**: a full backup every week and a differential every day (changes since the full), streamed from the running server without stopping it, compressed and encrypted on your server.
-- **Restore to any second**: the binary log (MySQL's record of every change) is copied to your bucket continuously, at most about a minute behind.
+- **Restore to any second**: the binary log (the server's record of every change) is copied to your bucket continuously, at most about a minute behind.
 - **Proof**: every week Rowsafe restores the latest backup and every change since into a private copy on your server, checks every database and the largest tables (`CHECK TABLE`, row counts), then deletes it.
-- **Rewind**: restore a copy as it was at any second (or a Mark), compare it with production table by table, and bring deleted or changed rows back with one click.
+- **[Rewind](/docs/guides/restore)**: restore a copy as it was at any second (or a Mark), compare it with production table by table, and bring deleted or changed rows back with one click. Or rewind the whole server in place, with **Undo** for 7 days ([below](#rewind-the-whole-server)).
 - **Marks**: named points (`rowsafe mark`, AI agents through MCP) you can restore to exactly.
-- **Pulse**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, and rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`).
+- **[Find the moment](/docs/guides/find-the-moment)**: when rows were deleted or changed, or tables emptied or dropped, read from the binary logs in your bucket.
+- **[Files](/docs/guides/files)**: the folders that go with the database (uploads), restored to the same moment.
+- **[Second copy](/docs/guides/second-copy)**: weekly full backups and the binary log in a second bucket too.
+
+**Pulse**
+
+- **[Monitoring](/docs/guides/monitoring)**: connections, queries per second, slow queries, row lock waits, the buffer pool, long transactions and replication delay, with fixes: stop a query or end a session that blocks others, rebuild tables with a lot of free space inside (`OPTIMIZE TABLE`), turn on the slow query log.
+- **Queries**: the statements that take the most time and the ones that got slower, from `performance_schema`'s statement digests (values replaced by `?`).
+- **[Recommendations](/docs/guides/recommendations)**: queries that read far more rows than they return or sort on disk, tables without a primary key, unused and duplicate indexes with **Drop** (online; a Mark first), and new indexes tested on a copy restored from your backups, suggested only when they make a query at least twice as fast. **Create index** builds it online.
+- **[Logs](/docs/guides/logs)**: the error log and, when it is on, the slow query log, with values removed on your server.
+- **[Security](/docs/guides/security)**: who can reach the server (also checked from the internet), anonymous accounts, users without a password, administrators that may log in from anywhere, the sample `test` database, encryption and versions out of support, with one-click fixes and the firewall.
+- **[Tuning](/docs/guides/tuning#mysql-and-mariadb)**: the settings that matter, explained, and **Tune for this server** from its memory and disk; a Mark first, and every change can be undone.
+
+**Run the server**
+
+- **Restart** from the dashboard (or `rowsafe restart`), after you confirm. Rowsafe waits until it answers again.
+- **[Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse)**: new releases of the version you run (8.0.x, 10.11.x) with one click, and major upgrades (MySQL 8.0 to 8.4, MariaDB 10.11 to 11.4) rehearsed on a restored copy first, with undo for 7 days.
+- **[Standby servers](/docs/guides/standby#mysql-and-mariadb)**: a second server kept in sync by binary log replication, readable, promoted with one click; the old primary is made read-only first.
+- **[Connection pooling](/docs/guides/connection-pooling#mysql-and-mariadb-proxysql)**: ProxySQL in front of the server, installed and managed by Rowsafe.
+- **[Fork](/docs/guides/fork#mysql-and-mariadb)**: a new, independent copy as it was at any second (or a Mark), loaded into an empty server.
+- **[Move in](/docs/guides/move-in#mysql-and-mariadb)**: bring a database from RDS, Aurora, Cloud SQL, Azure or DigitalOcean onto your server, with a live sync and a switchover.
+- **[Databases & users](/docs/guides/databases-and-users)**: create databases and users, new passwords, remove them (a Mark first). Passwords are made on your server and reach only your browser.
+- **Guard**: [preview a migration](/docs/guides/preview-migrations#other-engines) on a copy, and [safe copies](/docs/guides/safe-copies#other-engines) with personal data masked, for developers and AI agents.
+
+## Rewind the whole server
+
+When a whole server needs to go back (a migration that went wrong everywhere), **Rewind the whole database** on the Rewind page puts every database back to the second you pick, or a Mark:
+
+1. Rowsafe saves a Mark of right now, then restores the backup and the binary log up to that second into a private copy on the server. The server keeps running meanwhile.
+2. It stops the server (through the same root helper that restarts it), swaps the data directory's contents for the restored ones, and starts it again. That takes seconds; your apps get errors until it's back.
+3. The data from before is kept on the server for 7 days. **Undo rewind** swaps it back the same way; **Delete the old data now** frees the space.
+
+If anything fails after the server was stopped, Rowsafe puts the original data back and starts it. Afterwards it takes a full backup: restoring to a point after the rewind waits for it.
+
+It needs `restart` allowed on the server, Rowsafe's folder (`/var/lib/rowsafe`) on the same disk as the data directory, and room there for a second copy.
+
+## What Rowsafe may do
+
+**Rowsafe's account** (`rowsafe@localhost`) gets what backups, Proof, Rewind and Pulse need, plus what the dashboard's buttons need. It uses each right only when a person clicks and confirms ([all of them](/docs/concepts/mysql#rowsafes-account)):
+
+| Rights | For |
+|---|---|
+| `RELOAD`, `LOCK TABLES`, `PROCESS`, `BACKUP_ADMIN` (MySQL), `REPLICATION CLIENT` (MySQL) / `BINLOG MONITOR` (MariaDB) | backups, the binary log position of a backup or a Mark |
+| `SELECT`, `SHOW VIEW`, `TRIGGER` | Pulse, comparing a copy with production |
+| `INSERT`, `UPDATE`, `INDEX` | bringing rows back from a copy; creating and dropping the indexes you pick |
+| `CONNECTION_ADMIN` | ending a query or session that blocks others |
+| `CREATE USER` and the database rights, with `GRANT OPTION` | [Databases & users](/docs/guides/databases-and-users). The server's own accounts (root, `mysql.*`) are never changed. |
+| `SYSTEM_VARIABLES_ADMIN`, `PERSIST_RO_VARIABLES_ADMIN` (MySQL) / `SUPER` (MariaDB) | [Tuning](/docs/guides/tuning#mysql-and-mariadb) and turning on the slow query log |
+
+**Standby servers** need more: the installer asks *Allow standby servers with this server?* (default no; `--mysql-standby`). With yes, the account gets administrator rights (`ALL PRIVILEGES WITH GRANT OPTION`), used only when someone adds, promotes or removes a standby, forks to an empty server or moves a database in. On an empty server, the installer also asks whether to keep it ready to hold a standby or a fork.
+
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`):
+
+| Permission | Lets Rowsafe |
+|---|---|
+| `restart` | restart, stop and start the server: **Restart**, and rewinding the whole server |
+| `updates` | install the server's updates and major upgrades (needs `restart`) |
+| `security-updates`, `reboot` | install the server's security updates, and reboot it |
+| `pooler` | install and manage ProxySQL; `sudo rowsafe-allow pooler-target ADDRESS PORT` lets it follow a standby promoted on another server |
+| `firewall` | limit who can reach the database's port |
+
+Tuning needs no root permission here: MySQL keeps changes with `SET PERSIST`, MariaDB in Rowsafe's own option file (`/etc/rowsafe/mysql/server.cnf`).
 
 ## If the server is lost
 
@@ -142,12 +212,18 @@ sudo -u mysql sh -c 'set -a; . /etc/rowsafe/agent.env; set +a; exec /opt/rowsafe
 
 Leave out `--at` for the latest change in the bucket, or use `--mark NAME`. It downloads the newest backup before that point, prepares it and replays the binary log up to the second; `/var/lib/mysql-restored/data` is then a data directory to start the server on. Nothing else on the server changes.
 
-## Honest limits
+## Limits
 
-- **No restart or rewind in place yet.** Rowsafe tells you when MySQL/MariaDB needs a restart but doesn't restart it for you, and Rewind brings rows back from a copy rather than rewinding the whole server.
+- **Rewinding the whole server in place** isn't available in Docker, on a server with replicas (a standby included), with SELinux enforcing, when the data directory is on another disk than `/var/lib/rowsafe`, or when InnoDB keeps files outside the data directory. Restore a copy and bring rows back instead.
+- **In Docker**, Restart needs the container control service; ProxySQL and a standby's server need the agent installed on the server; Tuning on MariaDB can't keep settings across restarts (the agent can't change the container's configuration), so set them in the container's command. For updates, pull the newest image of the same version and recreate the container.
 - **Triggers run** when rows are brought back: MySQL can't turn them off for one session. The result says which tables have triggers.
-- **Tables without a primary key** can be restored with the database but not compared or brought back row by row.
+- **Tables without a primary key** are restored with the database, but can't be compared or brought back row by row.
 - **Non-InnoDB tables** (MyISAM, Aria) are locked briefly during backups and can't be restored to an exact second.
-- **Encrypted binary logs** (`binlog_encryption`, `encrypt_binlog`) aren't supported yet.
+- **Encrypted binary logs** (`binlog_encryption`, `encrypt_binlog`) aren't supported.
 - **Replicas**: set up backups on the primary; a replica is skipped.
-- Rowsafe only needs the binary log positions, not GTIDs; if GTIDs are on, Marks record them too.
+- **Queries need `performance_schema`**, which MariaDB turns off by default (`performance_schema = ON` in the server's configuration, then a restart). Statements run as server-side prepared statements aren't in its statement digests.
+- **Index suggestions on MariaDB need the slow query log**: that is where Rowsafe finds a run of each slow query to test with. **Turn on the slow query log** (Pulse) does it: on MySQL with `SET PERSIST`, so it stays on; on MariaDB with `SET GLOBAL`, until the next restart (add `slow_query_log = ON` to the server's configuration to keep it). Only single-table statements are turned into ideas. Pulse warns when an unrotated slow log passes 1 GB.
+- **Find the moment works to the second**: rewinding to just before a change restores up to the second before it, so changes earlier in that same second aren't in the copy. With `binlog_format = STATEMENT`, only TRUNCATEs and DROPs are found.
+- **Forks hold the real data**: masking a fork is PostgreSQL's. Use a [safe copy](/docs/guides/safe-copies) for masked data.
+- **Older installs**: an account created before Databases & users, Tuning or index suggestions can list but not change; run the install command again once (the dashboard shows the exact command).
+- Rowsafe only needs binary log positions, not GTIDs; if GTIDs are on, Marks record them too.

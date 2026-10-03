@@ -60,8 +60,8 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | Flag | Default | |
 |---|---|---|
 | `--host HOST` | | Host name or ID. Can be left out when the organization has one host. |
-| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MongoDB's port (`27017` by default); ClickHouse's HTTP port (`8123` by default). |
-| `--engine ENGINE` | `postgresql` | `mongodb` for MongoDB ([Protect MongoDB](/docs/guides/mongodb)), `clickhouse` for ClickHouse ([Protect ClickHouse](/docs/guides/clickhouse)). |
+| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MySQL's and MariaDB's (`3306`); MongoDB's port (`27017` by default); ClickHouse's HTTP port (`8123` by default). |
+| `--engine ENGINE` | `postgresql` | `mysql` or `mariadb` ([Protect MySQL or MariaDB](/docs/guides/mysql)), `mongodb` ([Protect MongoDB](/docs/guides/mongodb)), `clickhouse` ([Protect ClickHouse](/docs/guides/clickhouse)). |
 | `--socket-dir DIR` | `/var/run/postgresql` | PostgreSQL's Unix socket directory. |
 | `--retention-full N` | `2` | Full backups to keep, 1 to 52 (MongoDB: `7`, one a day). |
 | `--no-wait` | | Return without waiting for the plan. |

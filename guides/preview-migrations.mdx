@@ -7,6 +7,8 @@ A migration that is instant on your laptop can lock a busy production table for 
 
 Rowsafe restores a copy of the database on its own server, from your backups and every change since, runs the migration there, and tells you what happened. Production is never touched.
 
+It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. What a preview can tell differs a little per engine: see [Other engines](#other-engines).
+
 ## What you get
 
 - **A verdict**: *Safe*, *Careful*, *Dangerous*, or *Fails* (the migration errors on production's data).
@@ -16,10 +18,10 @@ Rowsafe restores a copy of the database on its own server, from your backups and
 ## Preview from the dashboard
 
 1. Open the database, then **Guard → Migration previews**.
-2. Click **Preview a migration**, and paste the migration's SQL or upload its file.
+2. Click **Preview a migration**, and paste the migration's SQL (for MongoDB, its mongosh calls) or upload its file.
 3. Watch it run: waiting for the agent, getting a fresh copy, running the migration. Then read the report.
 
-The first preview of a database restores a copy, which takes about as long as a restore test (Proof). Rowsafe keeps that copy for an hour, so the next previews start in seconds. Each runs on its own clone of the database, so one preview never sees another's changes.
+The first preview of a database restores a copy, which takes about as long as a restore test (Proof). For PostgreSQL, Rowsafe keeps that copy for an hour, so the next previews start in seconds; each runs on its own clone of the database, so one preview never sees another's changes. For the other engines every preview restores a new copy.
 
 ## Preview from a terminal or CI
 
@@ -27,7 +29,7 @@ The first preview of a database restores a copy, which takes about as long as a 
 rowsafe preview app migrations/0042_add_reference.sql
 ```
 
-The report is printed when the preview ends. Add `--db NAME` when the server has several PostgreSQL databases and the migration isn't for the one named like `app`.
+The report is printed when the preview ends. Add `--db NAME` when the server has several databases and the migration isn't for the one named like `app`.
 
 - `--json` prints one object with `verdict`, `summary` and `error` (empty when the preview ran), plus `markdown` (a ready-made pull request comment) and `result` (every statement).
 - `--format markdown` prints the pull request comment.
@@ -95,12 +97,48 @@ rowsafe preview app drizzle/0007_add_reference.sql
 </Tab>
 </Tabs>
 
+## Other engines
+
+<Tabs items={["MySQL and MariaDB", "MongoDB", "ClickHouse"]}>
+<Tab value="MySQL and MariaDB">
+
+The copy is restored from your latest backup and every binary log since, on a private server with no network port, like a restore test. Each statement runs on its own, as MySQL and MariaDB run them: schema changes commit one by one there, so a migration that fails halfway leaves the earlier changes applied on production. The preview shows that as **Dangerous**, with the changes that would stay.
+
+For each statement you see its time, the rows it changed, the tables it copied into a new one (a column type change, `ALGORITHM=COPY`, `OPTIMIZE TABLE`), the indexes it built and the tables it dropped. Rowsafe can't watch MySQL's locks on the copy, so it tells you the lock from how MySQL runs the statement: a statement that must copy the table blocks writes for its whole run, `LOCK=EXCLUSIVE` blocks reads too, and online changes (`ALGORITHM=INSTANT`, `INPLACE`) only take a brief lock.
+
+Account statements (`GRANT`, `CREATE USER`) and statements about the server or its files (`SET GLOBAL`, `LOAD DATA`, `INTO OUTFILE`) aren't run on the copy; the report marks them.
+
+</Tab>
+<Tab value="MongoDB">
+
+Write the migration as plain mongosh calls with literal values, one after the other:
+
+```js
+db.orders.updateMany({ status: "old" }, { $set: { archived: true } })
+db.orders.createIndex({ archived: 1, created: -1 })
+db.getCollection("audit-log").drop()
+```
+
+Rowsafe runs each call itself on a copy restored from your latest backup and the oplog since; it never runs the file as JavaScript, so variables, loops, functions and `require()` aren't supported and the preview says so. It supports inserts, updates, deletes, `createIndex`, `dropIndex`, `createCollection`, `drop`, `renameCollection`, `aggregate` and schema `runCommand`s (`collMod`, `create`, `createIndexes`, ...). Reads (`find`, `countDocuments`) are skipped.
+
+For each call you see its time, the documents it changed, the indexes it built and the collections it dropped, with findings for `drop()`, `deleteMany({})`, `updateMany({}, ...)`, `$unset` and new validators.
+
+</Tab>
+<Tab value="ClickHouse">
+
+The copy is restored from your newest backup (one every hour), so it has the data of that backup. Each statement runs on its own; mutations (`ALTER TABLE ... UPDATE`, `ALTER TABLE ... DELETE`, `MODIFY COLUMN`) run to the end on the copy so their time shows, and the report says when one was still running or failing at the end: on production a mutation keeps rewriting parts in the background after the migration returns.
+
+Statements that reach outside the server (table functions such as `url()` or `s3()`, external dictionaries and table engines, files) and server statements (`SYSTEM`, `GRANT`, users and roles) aren't run on the copy; the report marks them.
+
+</Tab>
+</Tabs>
+
 ## How it works, and its limits
 
 - **Where it runs.** On the database's server, next to production, at low CPU and IO priority, listening on no network port, with no background jobs (pg_cron and friends don't run). It needs free disk for a copy: about 1.3 times the cluster's size plus 1 GB, and room for a clone of the database when a copy is reused. Previews need the Rowsafe agent to be running and at least one backup.
-- **How fresh the data is.** The copy has everything that reached your bucket: at most about a minute behind production. A copy is reused for up to an hour (`fresh_minutes` in the API, `--fresh` in the CLI).
+- **How fresh the data is.** The copy has everything that reached your bucket: at most about a minute behind production (ClickHouse: its newest backup). A copy is reused for up to an hour (`fresh_minutes` in the API, `--fresh` in the CLI).
 - **One transaction or as written.** A migration without its own `BEGIN`/`COMMIT` runs in one transaction, committed at the end, like most migration tools; locks then last until the end, and the report says so. SQL with its own transactions, or with statements that can't run in one (`CREATE INDEX CONCURRENTLY`, `VACUUM`), runs statement by statement as written. psql commands (`\set`, `\c`) are skipped.
-- **Never as a superuser.** The migration runs as a regular role that owns your tables, so it can't run programs or read files on the server. `CREATE EXTENSION` statements are run first, by Rowsafe, as a superuser. Statements that need a superuser on your server too (`ALTER SYSTEM`, untrusted languages, `COPY` to a file) fail in the preview and say why.
+- **Never as a superuser (PostgreSQL).** The migration runs as a regular role that owns your tables, so it can't run programs or read files on the server. `CREATE EXTENSION` statements are run first, by Rowsafe, as a superuser. Statements that need a superuser on your server too (`ALTER SYSTEM`, untrusted languages, `COPY` to a file) fail in the preview and say why.
 - **Times are estimates.** The copy has a small cache and low priority, so production is usually faster, but production is also busy: a lock that takes a second on the copy waits behind running queries on production, and every query behind it waits too. That's why Rowsafe suggests `lock_timeout`.
 - **What reaches Rowsafe.** Your SQL passes through Rowsafe to your server, and is removed from Rowsafe as soon as the preview ends (only its size and a hash stay). The report holds table names, counts, sizes and timings. An error message that quotes a value from your data shows `(a value from your data)` instead; the full message stays in the agent's log on your server.
 - **Size.** Up to 960 kB of SQL and 5,000 statements per preview, at most 30 minutes of running time, and five previews waiting per database.

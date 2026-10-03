@@ -9,6 +9,8 @@ Each recommendation says **what** to change, **why** (with the numbers behind it
 
 Recommendations don't change the health score. They are in every plan, including Free.
 
+They work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse).
+
 ## See them
 
 In the dashboard: open a database, then **Pulse**, **Recommendations**. They are grouped into **Schema**, **Queries**, **Capacity** and **Indexes**, most important first.
@@ -104,6 +106,18 @@ At the top of the group, the **index check** shows the last check in numbers ("L
 
 **Create index** builds it with `CREATE INDEX CONCURRENTLY` (reads and writes carry on), named `rs_<table>_<columns>_idx`. On your server, Rowsafe first checks that the table and columns still exist and that no index doing the same job appeared since, refuses on a replica and when the disk has less than about twice the index free, waits at most 5 seconds for a lock, and removes the half-built index if the build fails. A week later the group reports what it did in practice ("used 1.2 million times in its first week, and the queries it was made for got about 31× faster"); Pulse doesn't call a new index unused for two weeks, after which the usual unused-index finding offers to remove it.
 
+#### ClickHouse
+
+ClickHouse finds rows through each table's sorting key (`ORDER BY`), so the ideas are what ClickHouse adds next to it. Rowsafe reads the slowest SELECTs of the last week from `system.query_log` (on your server: the query texts with their values never leave it), keeps the ones that read far more rows than they return, and tests on a copy of the tables involved, restored from your latest backup into a temporary ClickHouse on the same server:
+
+- a **skipping index** on a column the sorting key doesn't start with: `bloom_filter` for `=` and `IN`, `set` for columns with few values, `minmax` for ranges, `tokenbf_v1` for `hasToken` and `ngrambf_v1` for `LIKE`;
+- a **projection** that keeps what a busy `GROUP BY` needs already added up, or the rows sorted by another column (tried only when a skipping index on that column didn't do the job);
+- for a table with **no sorting key** at all, which sorting key it should have (advice only: changing it means rebuilding the table, so **Do it yourself** shows the steps).
+
+Each idea is added to the copy and built (`MATERIALIZE`), and the queries run again: it is recommended only when they read at least 2 times fewer rows and get faster, with the rows read and the times before and after.
+
+**Add skipping index** / **Add projection** saves a Mark, then runs `ALTER TABLE ... ADD INDEX` (or `ADD PROJECTION`) and `MATERIALIZE`: ClickHouse builds it for the data already there in the background, part by part, while queries and inserts go on; new data gets it as it is written. Pulse shows **ClickHouse is building an index Rowsafe added** with the parts left to do, and **Cancel** stops the build and removes it. Skipping indexes and projections no query used in the last week (from the query log and the queries' plans; at least 10 MB) show in the unused-index finding with **Drop**, refused if a query used it since. Only `MergeTree` and `ReplicatedMergeTree` tables get projections.
+
 ```sh
 rowsafe recommendations app --group indexes   # the proven indexes, and the last index check
 rowsafe recommendations find app              # test index ideas now
@@ -122,6 +136,16 @@ The copy is restored exactly like a [Proof run](/docs/guides/restore): its own d
 
 </Accordion>
 </Accordions>
+
+## MySQL, MariaDB, MongoDB and ClickHouse
+
+The query and capacity checks work for every engine, from each one's statement statistics: MySQL's and MariaDB's `performance_schema`, MongoDB's profiler, ClickHouse's query log. Values are left out of every statement before it leaves your server. Each engine also gets its own checks:
+
+| Engine | Checks |
+|---|---|
+| MySQL, MariaDB | Queries that read far more rows than they return, queries that sort or group on disk, tables without a primary key, indexes nothing uses and indexes another index covers (with **Drop**, online, a Mark first). Index suggestions tested on a copy (samples from `performance_schema`, or the slow query log on MariaDB). |
+| MongoDB | Operations that read far more documents than they return, the profiler being off (with **Turn on query statistics**), indexes nothing used for a week and redundant indexes (with **Drop**), and index suggestions tested on a copy. |
+| ClickHouse | Large tables without a sorting key, tables split into too many partitions, and skipping indexes and projections tested on a copy ([above](#clickhouse)), with **Add** and **Drop**. |
 
 ## Limits
 

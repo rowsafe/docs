@@ -5,7 +5,7 @@ description: Find out exactly when rows were deleted or changed, or a table was 
 
 Something went missing: customers are gone, orders all say "closed", a table is empty. Before you can [rewind](/docs/guides/restore), you need the moment it happened. **Find the moment** tells you: it lists each big delete, update, `TRUNCATE` and `DROP`, with the exact second it happened, the table, how many rows, and its transaction ID.
 
-It only reads. Nothing in the database changes, and your data never leaves your server: the Rowsafe agent reads the database's change log (the WAL in your storage) on your server, and only names, times and counts reach Rowsafe.
+It only reads. Nothing in the database changes, and your data never leaves your server: the Rowsafe agent reads the database's change log in your storage (PostgreSQL's WAL, MySQL's binary log, MongoDB's oplog) on your server, and only names, times and counts reach Rowsafe.
 
 ## In the dashboard
 
@@ -50,6 +50,17 @@ Rewind to just before the biggest one (a copy next to production; it never touch
 ## For AI agents
 
 The MCP tool `find_moment` does the same search, and it is read-only, so it is available to every key, including read-only ones. An assistant can answer "when were rows deleted from applications?" and give you the exact point, but it never rewinds anything itself: that stays with you. See [Guard](/docs/guides/ai-agents).
+
+## By database
+
+| | Reads | Differences |
+|---|---|---|
+| PostgreSQL | the WAL in your bucket | to the microsecond, with transaction IDs |
+| MySQL, MariaDB | the binary logs in your bucket, with the server's own `mysqlbinlog` | to the second; with `binlog_format = STATEMENT`, only TRUNCATEs and DROPs are found |
+| MongoDB | the oplog in your bucket | to the second; outside a multi-document transaction, deletes and updates are grouped by collection and second |
+| ClickHouse | the record of the parts ClickHouse wrote, in your bucket | to the microsecond; a mutation is one change at its first part; `UPDATE` rows are those of the parts it rewrote ("up to"); `TRUNCATE` and `DROP PARTITION` show as emptied tables |
+
+Rows are only counted on your server: their contents never leave it. **To the second** means **Rewind to just before this** goes back to the second before the change: other changes earlier in that same second aren't in the copy. The notes below describe PostgreSQL.
 
 ## What it shows, and what it can't
 

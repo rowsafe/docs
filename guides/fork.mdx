@@ -13,6 +13,8 @@ Use a fork to:
 
 Production isn't touched. The fork is restored from the source's backups in your bucket, and it never writes into them.
 
+Forks work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [ClickHouse](#clickhouse) and [MongoDB](#mongodb) say what differs. Masking personal data on the way is PostgreSQL's; for the others, a [safe copy](/docs/guides/safe-copies) gives masked data.
+
 ## What you need
 
 - **Backups running** for the source database: it has at least one full backup. You can fork from any second between its oldest kept full backup and its last archived change.
@@ -227,11 +229,13 @@ While masking, triggers don't fire, so audit logs and webhooks in your schema st
 
 When the fork is done, it lists **every masked column** and how it was masked (`rowsafe forks app --json` too). **Read that list** before you give anyone access.
 
-Masking rules you save for Guard's safe copies will apply to forks too once that feature ships; until then, masking goes by column names only.
+The masking choices you save for Guard's [safe copies](/docs/guides/safe-copies#masking) (**Guard, Masking**) apply to forks too; columns no choice covers go by their names, as above.
+
+Masking works for every engine. For MySQL, MariaDB and MongoDB, Rowsafe masks the fork in its private copy on the fork's server, before anything is loaded, so the real values never reach the new server. ClickHouse restores straight into the new server, so the fork is masked there right after the restore (with ClickHouse mutations), before it is handed over; columns in a table's sorting, primary or partition key can't be changed that way and are listed as skipped. The same limits as for [safe copies](/docs/guides/safe-copies#other-engines) apply (MongoDB fields inside arrays aren't masked).
 
 <Callout type="warn" title="Know what masking doesn't do">
 
-- **The real data reaches the fork's server first.** Rowsafe restores it there, then masks it on that server. Files it deletes aren't wiped from the disk. If a server must never hold real personal data, don't fork to it.
+- **The real data reaches the fork's server first.** Rowsafe restores it there, then masks it on that server (in a private copy for MySQL, MariaDB and MongoDB; in the new server itself for PostgreSQL and ClickHouse). Files it deletes aren't wiped from the disk. If a server must never hold real personal data, don't fork to it.
 - **Detection goes by column names.** A column named `notes` or `data` that holds emails isn't found, and neither is personal data in free text. Check the list.
 - **JSON columns aren't masked field by field.** A JSON column whose name looks personal is emptied when it allows `NULL`, and left as it is otherwise. Personal data inside other JSON columns stays.
 - **If masking fails, the fork fails.** It is removed and never starts unmasked.
@@ -289,6 +293,36 @@ Only owners and admins can fork, in the dashboard, with the CLI or with an API k
 - **One fork restore at a time** per server.
 - **Docker:** only into a fork target as above, one fork per target. A Docker server can't create clusters.
 - Rowsafe doesn't delete forks: see [Remove a fork](#remove-a-fork).
+
+## MySQL and MariaDB
+
+MySQL and MariaDB databases can be forked too, from the same **Fork** page, at any second of their recovery window or at a Mark. What differs:
+
+- **The place** is an **empty** MySQL (or MariaDB) server of the **same version series** on the fork server, one Rowsafe may load data into: when the installer finds a server with no databases it asks whether to keep it ready for a standby or a fork; say yes (or install with `--mysql-standby`). A server with databases is never used.
+- The fork server's agent restores the source's backups and binary logs up to the moment in a **private copy** next to that server, then loads its databases, routines, triggers, events and logins into it. That server keeps running; nothing is restarted.
+- **No masking**: the fork holds the real data. Don't share it with people who shouldn't see customer data.
+- Then Rowsafe protects the fork like any MySQL database. If the binary log is off on that server, its backup plan turns it on, which takes a restart there.
+
+## ClickHouse
+
+ClickHouse databases can be forked from the same **Fork** page, into an **empty** ClickHouse server on the fork server, of the same version or newer. What differs:
+
+- A fork is as of **any second** (the newest backup before it plus every part ClickHouse wrote up to it) or a Mark.
+- The fork server's agent restores it **straight into** the empty server (ClickHouse's own `RESTORE`, read from your bucket through the agent's encrypting gateway on 127.0.0.1). The server keeps running.
+- Rowsafe's ClickHouse user there must be allowed to create databases: when the installer finds a ClickHouse server with no databases, it asks whether to keep it ready to receive clones; say yes (or install with `--clickhouse-clones`).
+- ClickHouse **users and grants** aren't in backups: create the fork's users on it. Tables that reach other systems (Kafka, S3 queues, MySQL...) and refreshable materialized views are left out, like in Rewind copies.
+- Databases or tables that use **ClickHouse Keeper** (`Replicated*`) can't be forked.
+- No masking: the fork holds the real data.
+
+## MongoDB
+
+MongoDB databases can be forked from the same **Fork** page, at any second of their recovery window or at a Mark, into an **empty** MongoDB server on the fork server (the same version or newer).
+
+- The fork server's agent restores the backup and the copied changes (the oplog) up to the moment into an **isolated** temporary server (Unix socket only), then copies the databases, with their indexes, into the empty server. That server keeps running.
+- Rowsafe's MongoDB user there needs the `restore` role: when the installer finds a MongoDB server with no databases, it asks whether to keep it ready to receive clones; say yes (or install with `--mongodb-clones`).
+- **Users and roles** stay out (they belong to the server, and the source's include Rowsafe's own login): create the fork's users on it.
+- To protect the fork with restores to any second, that server must be a replica set (one member is enough): Rowsafe's plan for the fork's backups says so.
+- No masking: the fork holds the real data.
 
 ## If it fails
 

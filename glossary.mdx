@@ -35,11 +35,11 @@ A place in cloud storage where your backups are kept: Cloudflare R2, Backblaze B
 
 ## Change log (WAL)
 
-PostgreSQL's running diary of every change. Rowsafe copies it to your bucket continuously, at most about a minute behind, so it can replay changes up to any second. PostgreSQL calls it the write-ahead log, or WAL. See [How PostgreSQL backups work](/docs/concepts/postgresql#wal-archiving).
+The database's running diary of every change. Rowsafe copies it to your bucket continuously, at most about a minute behind, so it can replay changes up to any second. PostgreSQL calls it the write-ahead log, or WAL; MySQL and MariaDB the binary log; MongoDB the oplog. ClickHouse has none, so Rowsafe records the parts it writes instead (see [Protect ClickHouse](/docs/guides/clickhouse#how-restores-to-any-second-work)). See [How PostgreSQL backups work](/docs/concepts/postgresql#wal-archiving).
 
 ## Connection pooling
 
-A pooler, such as PgBouncer, sits between your apps and PostgreSQL. Many app connections share a few database connections, so a busy app doesn't run PostgreSQL out of connections. A guide to connection pooling with Rowsafe is coming.
+A pooler, such as PgBouncer (PostgreSQL) or ProxySQL (MySQL, MariaDB), sits between your apps and the database. Many app connections share a few database connections, so a busy app doesn't run the database out of connections. See [Connection pooling](/docs/guides/connection-pooling).
 
 ## Control plane
 
@@ -51,7 +51,7 @@ A **Rewind copy**: your database as it was at a moment you pick, restored on you
 
 ## Database
 
-In Rowsafe, a "database" is one PostgreSQL server instance (a cluster): one host and port, with every database inside it. They are backed up, restored and checked together. See [Create databases and users](/docs/guides/databases-and-users).
+In Rowsafe, a "database" is one database server instance (for PostgreSQL, a cluster): one host and port, with every database inside it. They are backed up, restored and checked together. See [Create databases and users](/docs/guides/databases-and-users).
 
 ## Drill
 
@@ -91,11 +91,11 @@ A server (or, with Docker, the agent's container) running the Rowsafe [agent](#a
 
 ## Logs
 
-PostgreSQL's own log in the dashboard, with values removed on your server before anything is sent. Filter errors and slow queries, and watch it live. See [Logs](/docs/guides/logs).
+The database's own log in the dashboard, with values removed on your server before anything is sent. Filter errors and slow queries, and watch it live. See [Logs](/docs/guides/logs).
 
 ## Major upgrade
 
-Moving PostgreSQL to a new major version, for example 16 to 18. Rowsafe checks first, rehearses it on a copy, then upgrades, with undo. It needs Debian or Ubuntu, with PostgreSQL installed from packages. See [Major upgrades](/docs/guides/updates#major-upgrades).
+Moving the database to a new major version, for example PostgreSQL 16 to 18 or MySQL 8.0 to 8.4. Rowsafe checks first, rehearses it on a copy, then upgrades, with undo. It needs Debian or Ubuntu, with the database installed from packages. See [Major upgrades](/docs/guides/updates#major-upgrades).
 
 ## Mark
 
@@ -103,7 +103,7 @@ A named restore point, such as `before-migration-42`: a moment you can rewind to
 
 ## MCP
 
-The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health and save Marks. No MCP tool restores, rewinds, restarts PostgreSQL or applies fixes. See [MCP server](/docs/reference/mcp).
+The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health and save Marks. No MCP tool restores, rewinds, restarts the database or applies fixes. See [MCP server](/docs/reference/mcp).
 
 ## Migration preview
 
@@ -111,7 +111,7 @@ Runs a migration on a fresh copy of your database first, and tells you what it w
 
 ## Minor update
 
-A bug and security release of the PostgreSQL version you run, for example 16.9 to 16.10. One click and a restart of a few seconds, on Debian or Ubuntu servers with PostgreSQL installed from packages. See [Minor updates](/docs/guides/updates#minor-updates).
+A bug and security release of the version you run, for example PostgreSQL 16.9 to 16.10. One click and a restart of a few seconds, on Debian or Ubuntu servers with the database installed from packages. See [Minor updates](/docs/guides/updates#minor-updates).
 
 ## Move in
 
@@ -159,7 +159,7 @@ Every change saved, and restore to any second or to a [Mark](#mark), in one clic
 
 ## Rewind in place
 
-Rewinding the whole live database to a moment, for the worst case. PostgreSQL stops while Rowsafe restores it. What was written after that moment is kept aside for 7 days, so you can **undo** the rewind. See [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database).
+Rewinding the whole live database to a moment, for the worst case. PostgreSQL and MySQL stop briefly while Rowsafe swaps the data; MongoDB and ClickHouse keep running. What was written after that moment is kept aside for 7 days, so you can **undo** the rewind. See [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database).
 
 ## Rowsafe service
 
@@ -187,7 +187,7 @@ A second server kept in sync with your database, also called a replica. You can 
 
 ## Tuning
 
-PostgreSQL's settings that matter, explained, with values that suit your server's memory, CPUs and disk. Rowsafe changes them when you click, with undo. See [Tuning](/docs/guides/tuning).
+The database's settings that matter, explained, with values that suit your server's memory, CPUs and disk. Rowsafe changes them when you click, with undo. See [Tuning](/docs/guides/tuning).
 
 ## WAL
 

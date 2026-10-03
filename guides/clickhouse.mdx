@@ -140,6 +140,10 @@ When an owner or admin clicks **Update now** and confirms, the control service c
 
 With `ROWSAFE_CONTROL_UPDATE_ONLY`, the control service can only update the agent's container: it refuses to stop, start or restart ClickHouse, whoever asks. How it works and what it can and can't do: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
 
+## Find the moment
+
+[Find the moment](/docs/guides/find-the-moment) works for ClickHouse too. It reads the record of changes Rowsafe already keeps, on your server: every `DELETE` (lightweight or `ALTER ... DELETE`) with the rows it removed, every `UPDATE` with the rows of the parts it rewrote (ClickHouse doesn't count the rows an `UPDATE` changes, so this says "up to"), every `TRUNCATE` and `DROP PARTITION` with the rows they removed, and every dropped table. A change made in several parts is one change, at the moment its first part was written; restoring to just before it is a microsecond earlier. Only kinds, table names, times and counts reach Rowsafe, never a query or a value.
+
 ## Restore without Rowsafe
 
 The agent is open source, and your backups are ClickHouse's own backup format once decrypted. In the bucket, every file and its name are encrypted, so use the agent to download a backup: it decrypts both. On any Linux server with the agent and your bucket's settings: the `ROWSAFE_REPO_*` lines of `/etc/rowsafe/agent.env`, or the same values set by hand on a new server (the passphrase is the one you saved at install):

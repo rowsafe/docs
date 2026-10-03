@@ -165,4 +165,5 @@ RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_2026
 - Tables that read from another system (Kafka, MySQL, PostgreSQL, S3, URL and similar) and the views fed by them are backed up but left out of Proof and Rewind copies, so a test never reads from or writes to that system.
 - When a backup has replicated tables, Proof and Rewind copies start their own ClickHouse Keeper for them. Its internal port listens on all of the server's addresses while the copy exists (ClickHouse has no setting to limit it); the task log says so. Backups without replicated tables don't start one.
 - ClickHouse 24.8 or newer.
-- Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now.
+- Rewinding the **whole** database in place, restarts from the dashboard, standbys, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now.
+- [Connection pooling](/docs/guides/connection-pooling#clickhouse-chproxy) covers ClickHouse's HTTP interface (chproxy), not the native protocol (port 9000).

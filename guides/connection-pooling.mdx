@@ -1,6 +1,6 @@
 ---
 title: Connection pooling
-description: Put PgBouncer in front of PostgreSQL so many app connections share a few database connections. Rowsafe installs it, configures it, watches it in Pulse and points it at the new primary after a failover.
+description: Put PgBouncer in front of PostgreSQL so many app connections share a few database connections, or chproxy in front of ClickHouse's HTTP interface to queue bursts of queries. Rowsafe installs it, configures it, watches it in Pulse and points it at the new primary after a failover.
 ---
 
 **Connection pooling** puts [PgBouncer](https://www.pgbouncer.org/) between your apps and PostgreSQL. Your apps open as many connections as they like to PgBouncer, and PgBouncer shares a small number of real PostgreSQL connections between them.
@@ -304,6 +304,21 @@ ROWSAFE_POOLER_STATS_URL=postgres://stats:PASSWORD@pgbouncer:6432/pgbouncer
 ```
 
 The same two settings work on a server where you run PgBouncer yourself: Rowsafe then monitors it and leaves it alone.
+
+## ClickHouse (chproxy)
+
+For ClickHouse, the pooler is [chproxy](https://github.com/ContentSquare/chproxy), the usual proxy for ClickHouse's **HTTP interface** (port 8123, or 8443 with TLS). It doesn't share connections the way PgBouncer does: it limits how many queries each ClickHouse user runs at once and **queues the rest** (30 seconds at most), so a burst of dashboards or app requests waits a moment instead of failing with "too many simultaneous queries" or slowing every query down.
+
+- **HTTP only.** clickhouse-client and drivers that use the native protocol (port 9000) keep connecting to ClickHouse directly; the Connections tab says so.
+- **Your apps' own logins.** chproxy passes each request's user and password on to ClickHouse, which checks them: Rowsafe stores no credentials for it, and its configuration (`/etc/rowsafe/chproxy.yml`) holds no secrets.
+- **Installed from chproxy's release.** Root's helper (`rowsafe-chproxy-apply.service`, allowed with the same `sudo rowsafe-allow pooler`) downloads chproxy 1.30.0 for the server's architecture from GitHub, checks it against the SHA-256 pinned in the agent, and runs it as `rowsafe-chproxy.service` with a throwaway system user. There is no Debian package for chproxy.
+- **Settings.** *Queries at once* (per user; Rowsafe picks the server's number of cores, at least 4, within `max_concurrent_queries`), *Queue* (how many more may wait; 100) and the port (9090). Changing who can connect works as for PgBouncer: *This server only*, *Private network* (chproxy listens on every address but only accepts private networks) or *Anywhere* where root allowed it.
+- **Pointing it elsewhere** reloads chproxy's configuration: queries in flight finish, queued ones go to the new port.
+- **Pulse** shows the queries running and waiting in chproxy, read from its metrics.
+
+```
+http://USER:PASSWORD@db-1:9090/?database=DATABASE
+```
 
 ## Limits
 

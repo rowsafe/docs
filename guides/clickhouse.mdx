@@ -148,7 +148,7 @@ A standby is a second ClickHouse server that follows this one, for reads and to 
 - The standby is read-only for every user but Rowsafe's, and its merges are stopped: it mirrors this server's parts.
 - **Promote** makes this server read-only (it keeps running for reads), waits until its last change is in the bucket, applies it on the standby and makes the standby writable. From then on Rowsafe copies the new primary's changes; restores to a moment after the promotion are exact once the new primary's first backup has finished (within the hour). Moving to a new server is the same flow.
 - If this server already has Replicated tables with Keeper, you can also add a replica with ClickHouse's own replication; Rowsafe's standby follows Replicated tables through the bucket like the others.
-- Tables that aren't MergeTree (Log, Memory...) are on the standby as of the backup it started from.
+- Tables that aren't MergeTree (Log, Memory...) are on the standby as of the backup it started from (empty again if their definition changes later).
 
 See [Standby servers](/docs/guides/standby#clickhouse).
 

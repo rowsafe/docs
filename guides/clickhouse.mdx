@@ -64,6 +64,7 @@ Without a terminal, `--protect NAME` works for ClickHouse too. When the users fi
 | Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm, where root allowed it on the server (`sudo rowsafe-allow restart`). |
 | Fork | A new, independent database from a backup or a Mark, restored straight into an empty ClickHouse server on a server you pick ([Fork a database](/docs/guides/fork#clickhouse)). |
 | Move in | A one-time copy of a database from ClickHouse Cloud or any ClickHouse onto this server ([Move in](/docs/guides/move-in#clickhouse)). |
+| Index advice | Skipping indexes and projections tested on a copy restored from your backups, with **Add** buttons, and advice on a sorting key for tables without one ([Recommendations](/docs/guides/recommendations#clickhouse)). |
 | Pulse | Queries, inserts, merges, memory, disk, data parts per partition, mutations, replication, broken parts and the queries running now. **Stop query** ends one (`KILL QUERY`) after checking it is still the same query. **Cancel mutation** stops an `ALTER ... UPDATE/DELETE` that can't finish (`KILL MUTATION`); parts it already changed stay changed. |
 
 Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
@@ -185,3 +186,5 @@ RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_2026
 - Standbys and pooling are PostgreSQL-only for now.
 - **No standby servers**: ClickHouse keeps no log of its changes that a second server could follow, and real ClickHouse replication needs ClickHouse Keeper and `Replicated*` tables, which Rowsafe doesn't set up.
 - Rewinding the **whole** database in place, restarts from the dashboard, pooling, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now.
+- Rewinding the **whole** database in place, restarts from the dashboard, standbys, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now.
+- [Connection pooling](/docs/guides/connection-pooling#clickhouse-chproxy) covers ClickHouse's HTTP interface (chproxy), not the native protocol (port 9000).

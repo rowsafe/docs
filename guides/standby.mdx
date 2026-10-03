@@ -253,4 +253,4 @@ A ClickHouse standby follows its primary **through your bucket**, like a Postgre
 
 All of it is in the CLI: `rowsafe standby`, `add`, `promote`, `rebuild`, `unfence`, `failover` and `remove`. See [CLI reference](/docs/reference/cli#standby).
 
-AI assistants can read a standby's status (the `standby_status` MCP tool). They can't create, promote, rebuild or remove one, or turn automatic failover on: that is for people only, like every change to production.
+AI assistants can read a standby's status (the `standby_status` MCP tool). They can't create, promote, rebuild or remove one, or turn automatic failover on, by themselves: like every change to production, they can only ask, and it happens when an owner or admin [approves](/docs/guides/approvals) it.

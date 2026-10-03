@@ -59,7 +59,7 @@ For example, the keys to your bucket were changed. Rowsafe raises a critical ale
 
 - **It never sees your data.** Backups are encrypted on your server. Your passphrase and bucket keys stay there. Rowsafe only stores names, sizes, settings and metrics. See the [security model](/docs/security).
 - **It never restarts or changes your database on its own.** Only when an owner or admin clicks and confirms, and only what the server's root allowed when the agent was installed. The two exceptions are ones you turn on yourself: [automatic minor updates](/docs/guides/updates#minor-updates) and [automatic failover](/docs/guides/standby#automatic-failover).
-- **AI agents can't change production.** Through Guard, they can read health and backups, set Marks, preview migrations on a copy and make masked [safe copies](/docs/guides/safe-copies). They can't restore, rewind, restart the database, apply fixes or promote a standby. A person does that.
+- **AI agents can't change production on their own.** Through Guard, they can read what the dashboard shows, set Marks, run backups and checks, preview migrations on a copy and make masked [safe copies](/docs/guides/safe-copies). To restore, rewind, restart the database, apply a fix or promote a standby, they can only ask: nothing happens until an owner or admin clicks **Approve**. See [Approvals](/docs/guides/approvals).
 - **It never runs commands or SQL sent over the network.** The agent on your server runs only a fixed list of tasks.
 
 <Cards>

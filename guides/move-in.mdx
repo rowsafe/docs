@@ -213,4 +213,4 @@ ClickHouse databases move in from ClickHouse Cloud, Altinity, Aiven or any Click
 - **Extensions only your provider has** (for example `aws_s3`, `pgsodium`, `neon`) are left out, and what depends on them is listed after the copy.
 - **Replication slots cost the old database disk** while the sync runs: if your server stops following for long, WAL piles up at the source. Cancelling removes the slot. Some providers drop inactive slots on their own (Neon after about 40 hours).
 - **Docker sidecar agents** need `pg_dump` and `pg_restore` of the server's PostgreSQL version next to the agent; the check says when they're missing.
-- AI assistants on [MCP](/docs/reference/mcp) can't start or change a move.
+- AI assistants on [MCP](/docs/reference/mcp) can't start or change a move in.

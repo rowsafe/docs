@@ -98,7 +98,7 @@ The same page works for the other engines, in their own terms. Passwords are mad
 ## Who can do it
 
 - Owners and admins, in the dashboard; read-write API keys, with the CLI. Members and read-only keys can only see the list.
-- AI agents (MCP) can only read the list (`list_databases_on_server`); they can't create or remove anything or get a password.
+- AI agents (MCP) read the list (`list_databases_on_server`). They can't create or remove anything on their own, and never get a password: they can ask to create a database for an existing owner, remove a database or user, or turn an extension on or off, and it happens when an owner or admin [approves](/docs/guides/approvals). New users and passwords are for people only.
 - Every change is in the [audit log](/docs/guides/teams#audit-log), without passwords.
 
 ## Limits

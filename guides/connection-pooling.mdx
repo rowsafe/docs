@@ -314,7 +314,7 @@ For MySQL and MariaDB, Rowsafe runs [ProxySQL](https://proxysql.com) the same wa
 - On MySQL, users with `caching_sha2_password` (the default) connect through ProxySQL with TLS, or with their driver's option to fetch the server's public key.
 - **Transaction mode** shares a database connection between transactions; ProxySQL keeps one per app connection while it holds session state. **Session mode** gives each app connection its own.
 - ProxySQL's admin password stays with root; the agent only reads its statistics.
-- **After a standby's promotion** ProxySQL follows the new primary. On the new primary's own server that is automatic; to send connections to another server, root on the ProxySQL server approves that address once by adding `target ADDRESS PORT` to `/etc/rowsafe/pooler-allowed` (the task says exactly which line). Until then ProxySQL keeps pointing where it was.
+- **After a standby's promotion** ProxySQL follows the new primary. On the new primary's own server that is automatic; to send connections to another server, root on the ProxySQL server approves that address once with `sudo rowsafe-allow pooler-target ADDRESS PORT` (the Standby page shows the exact command as soon as the standby exists). Until then ProxySQL keeps pointing where it was.
 
 ## Other engines
 

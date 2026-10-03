@@ -62,6 +62,7 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 - read metadata: server and database names and sizes, table counts, PostgreSQL settings, task logs, metrics and long-running query text (unless you [turn it off](/docs/guides/monitoring#privacy));
 - withhold agent updates, or offer a release that was properly signed but is known to be bad. Agents still self-test it, put it on probation and roll back;
 - with [Rowsafe Storage](/docs/guides/rowsafe-storage) only (coming soon, not available yet): delete or withhold your backups, because Rowsafe runs that bucket. They still couldn't read them. If that matters to you, use your own bucket.
+- with a connected cloud account ([Create a server for me](/docs/guides/create-a-server)): create, resize or delete servers there, and get into the servers it reaches with your cloud's own tools. The list below doesn't hold for those servers; see [Servers Rowsafe creates](#servers-rowsafe-creates).
 
 They **could not**:
 
@@ -85,6 +86,24 @@ They **could not**:
 - Rowsafe can't recover a lost passphrase. Keep it in your secret manager.
 - All traffic between the agent, the CLI and Rowsafe uses HTTPS.
 
+## Servers Rowsafe creates
+
+With [Create a server for me](/docs/guides/create-a-server), Rowsafe creates a server in your own cloud account (Hetzner, DigitalOcean, AWS, Google Cloud or Azure). For that, and only for that, it keeps a credential for your cloud account:
+
+- **Limited to a dedicated place.** Each cloud's steps create the credential for a Hetzner project, a DigitalOcean team, an IAM user whose policy only changes what is tagged `rowsafe=1`, a Google Cloud project, or one Azure resource group. Each page shows exactly what access it gives: [Hetzner](/docs/guides/cloud-accounts/hetzner), [DigitalOcean](/docs/guides/cloud-accounts/digitalocean), [AWS](/docs/guides/cloud-accounts/aws), [Google Cloud](/docs/guides/cloud-accounts/google-cloud), [Azure](/docs/guides/cloud-accounts/azure).
+- **Stored encrypted.** Rowsafe checks it, then seals it with AES-256-GCM under a key kept outside its database. It's never shown again, never logged and never put in an error message.
+- **Used only when a person asks.** Rowsafe creates, resizes, changes the firewall of or deletes a server only when an owner or admin clicks and confirms (or uses a read-write API key), and then follows that change through. Every change is in the [audit log](/docs/guides/teams#audit-log). AI agents (MCP) can't create, resize or delete servers.
+- **Revocable.** Delete the token or key in your cloud and it stops working at once; **Remove** under Settings → Cloud accounts makes Rowsafe forget it.
+
+On the server itself:
+
+- **Rowsafe never adds its own SSH key**, and doesn't need one. Only the public keys you give go on the server, and SSH stays closed in the cloud firewall unless you open it to addresses you choose.
+- **The server gets no secret from Rowsafe** except a one-time enrollment token that works only for that server and expires soon. Backups go to Rowsafe Storage with the same temporary, per-organization access as any server; no bucket key passes through Rowsafe or the server's setup.
+- **The backup passphrase is made on the server and never leaves it**, except encrypted to your browser when an owner or admin clicks **Show passphrase**: the browser makes a one-time key pair, the agent encrypts the passphrase to it, and Rowsafe only relays the ciphertext, once. Each time is audited. New database passwords work the same way.
+- **What Rowsafe may do on it** (restarts, updates, reboots, firewall, new clusters) is what you chose when you created it, enforced on the server by root's allow lists as on any server, and still only when someone clicks and confirms.
+
+**Know the trade-off.** A cloud credential that can create and delete servers is powerful. Someone who controlled the Rowsafe service could use it to create servers your cloud bills you for, resize or delete the servers in that project, team, account or resource group, change who can reach them, and, with your cloud's own tools (resetting a password, a rescue system, changing what runs at boot), get into them and read the database. Rowsafe never does any of that on its own. If it matters to you, revoke the credential once the server is ready: the server, its backups, Proof and Pulse keep working, and only resizing, firewall changes and deleting from the dashboard stop.
+
 ## Credentials
 
 | Credential | Prefix | Held by | Allows |
@@ -95,6 +114,7 @@ They **could not**:
 | Bucket keys | | `agent.env` and pgBackRest configuration, on your server | Your bucket. |
 | Rowsafe Storage credentials | | `/var/lib/rowsafe/storage-credentials.json` and pgBackRest configuration (0600), on your server | Your organization's space in Rowsafe Storage only, for 7 days; renewed daily. |
 | Encryption passphrase | | The same files, and your secret manager | Decrypting every backup. |
+| Cloud account credential | | Rowsafe, sealed with AES-256-GCM, only if you use [Create a server for me](/docs/guides/create-a-server) | Creating, resizing and deleting servers where you allowed it: one Hetzner project, DigitalOcean team, Google Cloud project or Azure resource group, or what the AWS policy allows. |
 
 Rowsafe stores only SHA-256 hashes of API keys, enrollment tokens and agent tokens.
 

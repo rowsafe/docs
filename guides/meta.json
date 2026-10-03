@@ -6,6 +6,8 @@
     "rowsafe-storage",
     "second-copy",
     "adopt",
+    "create-a-server",
+    "cloud-accounts",
     "docker",
     "mysql",
     "mongodb",

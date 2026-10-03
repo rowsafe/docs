@@ -209,6 +209,16 @@ Existing connections break at a promotion; the driver's normal reconnect then fi
 
 **Standby**, **Remove**, or `rowsafe standby remove app`. Rowsafe stops the standby, gives its cluster its own data back and starts it, and removes the standby's role and `pg_hba.conf` lines on the primary.
 
+## ClickHouse
+
+A ClickHouse standby follows its primary **through your bucket**, like a PostgreSQL standby without streaming: no connection between the two servers, no login on the primary, no ClickHouse Keeper. It starts from the primary as it is now (the newest backup plus every change since) and then applies each change ClickHouse makes on the primary as it reaches the bucket, usually within a minute. See [Protect ClickHouse](/docs/guides/clickhouse#standby).
+
+- **What you need:** another server with the agent installed natively and an **empty ClickHouse server** of the same version or newer, whose Rowsafe user may create databases (answer yes to receiving clones when installing).
+- **Read-only:** every user but Rowsafe's is read-only there (a settings profile, `readonly = 2`). Its merges are stopped: it mirrors the primary's.
+- **Promote:** Rowsafe makes the old primary read-only (ClickHouse keeps running there, for reads) and waits until its last change is in the bucket; the standby applies it and becomes writable. Automatic failover isn't available: it needs a standby that streams from the primary.
+- **Rebuild:** the old primary can become the new primary's standby; its own databases are set aside (`rowsafe_before_*`) and come back if you remove the standby.
+- **Remove:** Rowsafe drops the standby's copy, so the server is empty and writable again.
+
 ## From a terminal and AI agents
 
 All of it is in the CLI: `rowsafe standby`, `add`, `promote`, `rebuild`, `unfence`, `failover` and `remove`. See [CLI reference](/docs/reference/cli#standby).

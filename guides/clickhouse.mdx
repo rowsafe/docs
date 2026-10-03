@@ -140,6 +140,18 @@ When an owner or admin clicks **Update now** and confirms, the control service c
 
 With `ROWSAFE_CONTROL_UPDATE_ONLY`, the control service can only update the agent's container: it refuses to stop, start or restart ClickHouse, whoever asks. How it works and what it can and can't do: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
 
+## Standby
+
+A standby is a second ClickHouse server that follows this one, for reads and to take over. ClickHouse's own replication needs ClickHouse Keeper and Replicated tables; Rowsafe's standby needs neither. It follows through your bucket: it starts from this server as it is now, then applies every part ClickHouse writes here as it reaches the bucket (one partition at a time, each swapped in whole), usually within a minute. Nothing changes on this server and the two never connect.
+
+- The other server needs the agent installed natively and an empty ClickHouse server of the same version or newer.
+- The standby is read-only for every user but Rowsafe's, and its merges are stopped: it mirrors this server's parts.
+- **Promote** makes this server read-only (it keeps running for reads), waits until its last change is in the bucket, applies it on the standby and makes the standby writable. From then on Rowsafe copies the new primary's changes; restores to a moment after the promotion are exact once the new primary's first backup has finished (within the hour). Moving to a new server is the same flow.
+- If this server already has Replicated tables with Keeper, you can also add a replica with ClickHouse's own replication; Rowsafe's standby follows Replicated tables through the bucket like the others.
+- Tables that aren't MergeTree (Log, Memory...) are on the standby as of the backup it started from.
+
+See [Standby servers](/docs/guides/standby#clickhouse).
+
 ## Find the moment
 
 [Find the moment](/docs/guides/find-the-moment) works for ClickHouse too. It reads the record of changes Rowsafe already keeps, on your server: every `DELETE` (lightweight or `ALTER ... DELETE`) with the rows it removed, every `UPDATE` with the rows of the parts it rewrote (ClickHouse doesn't count the rows an `UPDATE` changes, so this says "up to"), every `TRUNCATE` and `DROP PARTITION` with the rows they removed, and every dropped table. A change made in several parts is one change, at the moment its first part was written; restoring to just before it is a microsecond earlier. Only kinds, table names, times and counts reach Rowsafe, never a query or a value.
@@ -180,4 +192,4 @@ rowsafe-agent clickhouse download-backup --stanza analytics --at 2026-10-02T14:3
 - Tables that read from another system (Kafka, MySQL, PostgreSQL, S3, URL and similar) and the views fed by them are backed up but left out of Proof and Rewind copies, so a test never reads from or writes to that system.
 - When a backup has replicated tables, Proof and Rewind copies start their own ClickHouse Keeper for them. Its internal port listens on all of the server's addresses while the copy exists (ClickHouse has no setting to limit it); the task log says so. Backups without replicated tables don't start one.
 - ClickHouse 24.8 or newer.
-- Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling, updates and [Logs](/docs/guides/logs) are PostgreSQL-only for now.
+- Pooling and updates aren't available for ClickHouse yet. Standbys aren't available in Docker (the standby needs the agent installed natively next to an empty ClickHouse server).

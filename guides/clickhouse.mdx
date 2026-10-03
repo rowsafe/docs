@@ -1,13 +1,15 @@
 ---
 title: Protect ClickHouse
-description: Backups to your own bucket, Marks, weekly Proof, Rewind copies and Pulse for ClickHouse 25.8, 26.3 and 26.8 on your own server or in Docker. Restores go to a backup or a Mark.
+description: Backups to your own bucket, restores to any second, Marks, weekly Proof, Rewind copies and Pulse for ClickHouse 24.8 to 26.8 on your own server or in Docker.
 ---
 
-Rowsafe protects ClickHouse 25.8, 26.3 and 26.8 (the LTS releases) much like it protects PostgreSQL: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; a weekly **Proof** restores a copy and checks it; **Rewind** restores a copy next to production and brings deleted rows back; **Pulse** watches the server.
+Rowsafe protects ClickHouse 24.8 to 26.8 (the LTS releases) much like it protects PostgreSQL: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; you can restore to **any second**; a weekly **Proof** restores a copy and checks it; **Rewind** restores a copy next to production and brings deleted rows back; **Pulse** watches the server.
 
-<Callout title="One difference: no restore to any second">
-  ClickHouse keeps no log of changes that Rowsafe could copy, so you can't go back to any second. You go back to a **backup** or a **Mark**. Rowsafe takes a full backup every week and a backup of what changed every hour, and a Mark takes one on the spot. So without a Mark, you lose at most about an hour.
-</Callout>
+## How restores to any second work
+
+ClickHouse never changes data in place. Every insert writes a new **part** (a folder of files), a merge writes a new part that replaces the ones it combined, and an `ALTER ... UPDATE/DELETE` or a `DELETE` writes a new version of each part it changes. ClickHouse records when each part was made, to the microsecond (`system.part_log`).
+
+So the agent copies each new part to your bucket as it appears, encrypted on your server, and records when it appeared, along with every change to your tables' and databases' definitions. It reads the parts from ClickHouse's data folder and never writes there. To restore to a moment, Rowsafe takes the newest backup before it and adds every part made up to that moment: the result is your server exactly as it was then.
 
 ## Before you start
 
@@ -34,11 +36,11 @@ The installer finds ClickHouse next to (or instead of) PostgreSQL. Nothing resta
 **If that isn't possible** (ClickHouse's users come from elsewhere), an administrator signs in once instead, and Rowsafe creates the same user with SQL. That password is used once and never saved.
 </Step>
 <Step>
-**The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in ClickHouse's settings changes. Rowsafe checks that a backup reaches your bucket and opens with your key, and takes the first full backup.
+**The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in ClickHouse's settings changes. Rowsafe checks that a backup reaches your bucket and opens with your key, starts copying every change, and takes the first full backup.
 </Step>
 </Steps>
 
-On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`.
+On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`, in the `clickhouse` group so it can read (never write) ClickHouse's data folder.
 
 Without a terminal, `--protect NAME` works for ClickHouse too. When the users file can't be used, it takes an administrator from `ROWSAFE_CLICKHOUSE_ADMIN_USER` and `ROWSAFE_CLICKHOUSE_ADMIN_PASSWORD` (used once, never saved).
 
@@ -49,10 +51,11 @@ Without a terminal, `--protect NAME` works for ClickHouse too. When the users fi
 | Full backup | ClickHouse's own `BACKUP` of every database except the system ones. Every week by default. |
 | Differential backup | A `BACKUP` that copies only the data parts written since the last full backup. ClickHouse never changes a part once it is written, so this is small and quick. Every hour by default. |
 | Encryption | ClickHouse writes its backup to a small S3-compatible service inside the agent, which lives only for the length of the backup. The agent encrypts every file, and its name, before it goes to your bucket: the bucket shows when each backup was taken, never your databases' or tables' names. ClickHouse never sees your bucket's keys or your passphrase. |
+| Every change | Each new part, copied from ClickHouse's data folder as it appears (the agent looks every 15 seconds), encrypted on your server, with when ClickHouse made it. Changes to tables and databases are recorded too. |
 | Marks | A differential backup taken on the spot and named after the Mark. Restoring to a Mark brings back exactly that moment. |
-| Restore | To a backup or a Mark. Choosing a time picks the newest backup that finished at or before it. |
-| Proof | Weekly: restore the newest backup into a temporary ClickHouse on the same server (listening on `127.0.0.1` only, with its own data folder), check that every database and table came back with the rows it had, then delete it. |
-| Rewind | Restore a copy as it was at a backup or a Mark, next to production, on the same kind of temporary ClickHouse. Compare a table with production and bring missing rows back. ClickHouse tables have no unique key, so rows are compared on all their columns: a row is missing when production has fewer copies of it than the copy. |
+| Restore | To any second, or a Mark. Rowsafe starts from the newest backup before that moment and adds every part ClickHouse made up to it. |
+| Proof | Weekly: restore the server as it was a moment ago (the newest backup plus every change since) into a temporary ClickHouse on the same server (listening on `127.0.0.1` only, with its own data folder), check that every database and table came back and reads in full, then delete it. |
+| Rewind | Restore a copy as it was at any second or a Mark, next to production, on the same kind of temporary ClickHouse. Compare a table with production and bring missing rows back. ClickHouse tables have no unique key, so rows are compared on all their columns: a row is missing when production has fewer copies of it than the copy. |
 | Pulse | Queries, inserts, merges, memory, disk, data parts per partition, mutations, replication, broken parts and the queries running now. **Stop query** ends one (`KILL QUERY`) after checking it is still the same query. **Cancel mutation** stops an `ALTER ... UPDATE/DELETE` that can't finish (`KILL MUTATION`); parts it already changed stay changed. |
 
 Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
@@ -81,9 +84,10 @@ services:
     env_file: rowsafe-agent.env
     volumes:
       - rowsafe-state:/var/lib/rowsafe
+      - chdata:/var/lib/clickhouse:ro             # read only: the agent copies new parts from it
 ```
 
-ClickHouse sends its backups to the agent on port `9010`, inside the compose network. Don't publish that port. Then, once:
+ClickHouse sends its backups to the agent on port `9010`, inside the compose network. Don't publish that port. The agent reads ClickHouse's data volume, read only, to copy each new part as it appears (restores to any second). Then, once:
 
 ```bash
 docker compose exec rowsafe-agent rowsafe-agent clickhouse login --port 8123 --admin-user admin
@@ -155,9 +159,17 @@ RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_2026
   SETTINGS base_backup = File('/var/lib/clickhouse/backups/restore/20261002-010000F/')
 ```
 
+To get the server as it was at any second instead, give the moment with `--at`. The agent assembles an ordinary backup folder for it (the newest backup before that moment plus every part ClickHouse made up to it) and prints its `RESTORE` statement:
+
+```bash
+rowsafe-agent clickhouse download-backup --stanza analytics --at 2026-10-02T14:31:07Z --to /var/lib/clickhouse/backups/moment
+```
+
 ## Limits
 
-- **No restore to any second.** Restores go to a backup or a Mark (see above).
+- **Tables without parts.** Log, TinyLog, StripeLog, Memory and similar tables, and tables kept on object storage (S3 disks), come back as of the newest backup before the moment you pick, not the second itself.
+- **Short-lived tables.** A table created and dropped again within a few seconds, between two looks of the agent, may be missing from restores to moments in between.
+- **When the agent stops.** ClickHouse keeps a replaced part about 8 minutes (`old_parts_lifetime`). If the agent can't copy for longer, a part made and merged away meanwhile is still restored from what it was merged into, but a moment in between that can't be rebuilt goes back to the newest backup before it, and the task says so.
 - **Clusters**: Rowsafe protects the ClickHouse server where the agent runs. A cluster with several shards isn't backed up as one yet. Replicated tables are backed up from this server's replica.
 - Bringing rows back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
 - Rows aren't brought back into SummingMergeTree, AggregatingMergeTree, CollapsingMergeTree or VersionedCollapsingMergeTree tables: there, adding a row changes totals or cancels other rows. Restore a copy and copy what you need yourself.

@@ -96,6 +96,8 @@ See [Protect MongoDB](/docs/guides/mongodb).
 | `ROWSAFE_CLICKHOUSE_URL` | `http://127.0.0.1:PORT` | Where ClickHouse's HTTP interface is. Docker sidecars: the `clickhouse` service, e.g. `http://clickhouse:8123`. |
 | `ROWSAFE_CLICKHOUSE_GATEWAY_LISTEN` | `127.0.0.1:0` (a free port) | Where the agent listens, during a backup or restore only, for ClickHouse to write and read the backup. The agent encrypts every file before it goes to your bucket. The Docker image sets `0.0.0.0:9010`. |
 | `ROWSAFE_CLICKHOUSE_GATEWAY_URL` | the listen address | How ClickHouse reaches that address. Docker sidecars: the agent's service, e.g. `http://rowsafe-agent:9010`. |
+| `ROWSAFE_CLICKHOUSE_DATA_PATH` | ClickHouse's own `path` | Where the agent reads ClickHouse's data folder (read only), to copy each new part as it appears, when it isn't at the same path as on the server. Docker sidecars mount the data volume at `/var/lib/clickhouse`, so they don't need it. |
+| `ROWSAFE_CLICKHOUSE_ARCHIVE_INTERVAL` | `15s` | How often the agent looks for new parts (1s to 5m). The time of each change comes from ClickHouse itself, so this changes how soon a change reaches your bucket, not how precise restores are. |
 
 See [Protect ClickHouse](/docs/guides/clickhouse).
 

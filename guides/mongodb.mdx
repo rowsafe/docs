@@ -1,9 +1,9 @@
 ---
 title: Protect MongoDB
-description: Backups to your own bucket, restore to any second, weekly Proof, Rewind copies and Pulse for MongoDB 6.0, 7.0 and 8.0 on your own server or in Docker.
+description: Backups to your own bucket, restore to any second, weekly Proof, Rewind, Pulse, standbys and updates for MongoDB 6.0, 7.0 and 8.0 on your own server or in Docker.
 ---
 
-Rowsafe protects MongoDB Community 6.0, 7.0 and 8.0 the same way it protects PostgreSQL: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; every change is copied about once a minute, so you can go back to any second; a weekly **Proof** restores a copy and checks it; **Rewind** restores a copy next to production and brings deleted documents back; **Pulse** watches the server.
+Rowsafe protects MongoDB Community 6.0, 7.0 and 8.0 with everything it does for PostgreSQL, except connection pooling, which MongoDB doesn't need (its drivers keep their own pool). Backups go to **your** bucket, encrypted on your server with a passphrase only you hold; every change is copied about once a minute, so you can go back to any second; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted documents back or puts the whole database back; **Pulse** watches the server and fixes what it can.
 
 ## Before you start
 
@@ -19,7 +19,7 @@ Run the install command on the server, as for PostgreSQL, and approve the server
 curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
-The installer finds MongoDB next to (or instead of) PostgreSQL and asks before changing anything:
+The installer finds MongoDB and asks before changing anything:
 
 <Steps>
 <Step>
@@ -29,7 +29,10 @@ The installer finds MongoDB next to (or instead of) PostgreSQL and asks before c
 **Replica set.** If MongoDB runs standalone, it explains why a replica set is needed and asks *Turn on the replica set and restart MongoDB now?* (default no). On yes it adds `replication.replSetName: rs0` to MongoDB's config file (keeping a copy of the old one), adds a `keyFile` when access control is on, restarts MongoDB once (a few seconds) and starts the replica set. If MongoDB doesn't start, it puts the old config back. Your apps keep connecting as before.
 </Step>
 <Step>
-**Rowsafe's own MongoDB user.** It creates the user `rowsafe` with a random password that is saved for the agent only (`/var/lib/rowsafe/engines/mongodb/logins`, readable by the agent alone). With access control on, an administrator signs in once for this; that password is used once and never saved.
+**Rowsafe's own MongoDB user.** It creates the user `rowsafe` with a random password that is saved for the agent only (`/var/lib/rowsafe/engines/mongodb/logins`, readable by the agent alone). With access control on, an administrator signs in once for this; that password is used once and never saved. What the user may do is [below](#what-rowsafe-may-do).
+</Step>
+<Step>
+**What Rowsafe may do** on the server (restarts, updates, tuning, the firewall), each only when someone clicks it and confirms.
 </Step>
 <Step>
 **The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in MongoDB's settings changes: the agent starts copying the oplog to your bucket, checks that a fresh change arrives and opens with your key, and takes the first full backup.
@@ -49,25 +52,50 @@ Without a terminal, `--protect NAME` works for MongoDB too. It never restarts Mo
 | Restore to any second | The newest backup before that moment, then the oplog chunks up to it (`mongorestore --oplogReplay`). |
 | Marks | A note written into the oplog (`appendOplogNote`); the Mark is confirmed once the chunk holding it is in your bucket. Restoring to a Mark stops exactly there. |
 | Proof | Weekly: restore the newest backup and every change since into a scratch `mongod` that listens on a private Unix socket only (no network), check every database and collection, the indexes, document counts, and run `validate` on a few collections. Then delete it. |
-| Rewind | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back. Changed ones only when you ask. A collection dropped since is created again, with its indexes. |
+| [Rewind](/docs/guides/restore) | Restore a copy as it was at any second or Mark, kept up to 7 days on the same kind of private socket. Compare it with production by `_id` (missing, changed, added since), and bring missing documents back; changed ones only when you ask. A collection dropped since is created again, with its indexes. |
+| Rewind the whole database | Puts every database (not `admin`, `config`, `local`) back to a second or a Mark, in place. Rowsafe restores privately first (MongoDB keeps running), loads it into MongoDB under temporary names, then swaps each collection for its restored version with a rename (instant whatever the size). The collections from before are kept as `rowsafe_before_<tag>.<name>` for 7 days: **Undo rewind** swaps them back, **Delete the old data now** drops them. Views and users are left as they are. Pause the apps that write while it runs: a write during the swap may land on either side. |
+| [Find the moment](/docs/guides/find-the-moment) | When documents were deleted or changed, or collections and databases dropped, read from the oplog in your bucket. |
 | Pulse | Connections, operations, queues, WiredTiger cache, write conflicts, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
 | Queries | The slow operations MongoDB's profiler records, grouped by shape with every value replaced by `?`. The profiler is off by default: **Turn on query statistics** turns it on for operations over 100 ms (no restart). |
 | [Recommendations](/docs/guides/recommendations) | Operations that read far more documents than they return (often a missing index), indexes nothing has used for a week, and indexes another index already covers, with **Drop** (a Mark first). |
 | Index suggestions | Slow operations that scan a collection become index ideas (equality fields, then the sort, then a range). Each is tested on a copy restored from your backups with the filter the profiler recorded (the values stay on your server), and only suggested when MongoDB uses it and reads at least half as many documents. **Create index** builds it after saving a Mark. |
 | [Logs](/docs/guides/logs) | MongoDB's own log (the structured log of MongoDB 4.4+), with values removed on your server. |
-| [Find the moment](/docs/guides/find-the-moment) | When documents were deleted or changed, or collections and databases dropped, read from the oplog in your bucket. |
-| Rewind the whole database | Puts every database (not `admin`, `config`, `local`) back to a second or a Mark, in place. Rowsafe restores privately first (MongoDB keeps running), loads it into MongoDB under temporary names, then swaps each collection for its restored version with a rename (instant whatever the size). The collections from before are kept as `rowsafe_before_<tag>.<name>` for 7 days: **Undo rewind** swaps them back, **Delete the old data now** drops them. Views and users are left as they are. Pause the apps that write while it runs: a write during the swap may land on either side. |
-| Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm, where root allowed it on the server (`sudo rowsafe-allow restart`). Rowsafe waits until MongoDB is the primary again. |
-| Fork | A new, independent database as it was at any second or Mark, copied into an empty MongoDB server on a server you pick ([Fork a database](/docs/guides/fork#mongodb)). |
-| Standby | A second server joins the replica set as a member that never becomes primary by itself, and takes over when you promote it ([Standby servers](/docs/guides/standby#mongodb)). |
-| Move in | A one-time copy of a database from MongoDB Atlas or any MongoDB onto this server ([Move in](/docs/guides/move-in#mongodb)). |
-| Pulse | Connections, operations, queues, WiredTiger cache, oplog window, secondary lag, disk, and operations running for over a minute. **Stop operation** ends one (`killOp`) after checking it is still the same operation. |
-| Databases & users | Create a database with its own user, add users with read-only (`read`), read-and-write (`readWrite`) or full (`dbOwner`) access to chosen databases, new passwords, remove users and databases (a Mark first). Users are created in `admin` (`authSource=admin`). New passwords are made on your server and encrypted to your browser. A new database shows up in MongoDB once something is written to it. |
-| Security | Access control, where MongoDB listens (also checked from the internet), TLS, users with old SCRAM-SHA-1 passwords and versions out of support. Turning on access control or changing `bindIp` needs MongoDB's configuration file and a restart, so those come with the exact steps. |
-| Folders | Back up the folders that go with the database (uploads), restored to the same moment. |
-| Second copy | With a second bucket (`--add-storage`), full backups and the oplog also go there, encrypted with that bucket's own passphrase; Proof alternates between the two. |
+| [Security](/docs/guides/security) | Access control, where MongoDB listens (also checked from the internet), TLS, users with old SCRAM-SHA-1 passwords and versions out of support, and the firewall. Turning on access control or changing `bindIp` needs MongoDB's configuration file and a restart, so those come with the exact steps. |
+| [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) | The WiredTiger cache, connections, the longest transaction, the slow operation threshold and the profiler, explained, with **Tune for this server**. Root's helper writes them into MongoDB's configuration file (a copy kept); some also change on the running server at once. |
+| Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm. Rowsafe waits until MongoDB is the primary again. |
+| [Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse) | New releases of the version you run (7.0.x) with one click, and the next major version (7.0 to 8.0, one at a time) rehearsed on a restored copy first, with undo for 7 days. |
+| [Standby](/docs/guides/standby#mongodb) | A second server joins the replica set as a member that never becomes primary by itself, and takes over when you promote it. |
+| [Fork](/docs/guides/fork#mongodb) | A new, independent database as it was at any second or Mark, copied into an empty MongoDB server on a server you pick. |
+| [Move in](/docs/guides/move-in#mongodb) | Bring a database from MongoDB Atlas or any MongoDB onto this server, with a live sync through a change stream and a switchover. |
+| [Databases & users](/docs/guides/databases-and-users) | Create a database with its own user, add users with read-only (`read`), read-and-write (`readWrite`) or full (`dbOwner`) access to chosen databases, new passwords, remove users and databases (a Mark first). New passwords are made on your server and encrypted to your browser. |
+| Guard | [Preview a migration](/docs/guides/preview-migrations#other-engines) (mongosh calls) on a copy, and [safe copies](/docs/guides/safe-copies#other-engines) with personal data masked. |
+| [Files](/docs/guides/files) | Back up the folders that go with the database (uploads), restored to the same moment. |
+| [Second copy](/docs/guides/second-copy) | Full backups and the oplog also go to a second bucket, encrypted with that bucket's own passphrase; Proof alternates between the two. |
 
 Everything in your bucket is encrypted before it leaves the server: backups, oplog chunks and Marks. Object names only say *when* (timestamps), never *what*. Rowsafe's servers never see your data or your passphrase.
+
+## What Rowsafe may do
+
+**Rowsafe's MongoDB user** (`rowsafe`, in `admin`) gets `backup`, `clusterMonitor` and `readAnyDatabase` (backups, Proof, Pulse), `userAdminAnyDatabase` and `dbAdminAnyDatabase` (Databases & users), and a role of its own for what it does beyond reading, each only when someone asks: write a Mark into the oplog, stop an operation, put documents back from a copy, turn the profiler on, create or drop an index, rename collections for a rewind in place, finish a major upgrade (`setFeatureCompatibilityVersion`) and change settings with `setParameter`.
+
+Two install options give it more, for features that need it:
+
+| Option | Gives | For |
+|---|---|---|
+| `--mongodb-standby` (the installer asks on an empty server) | `clusterManager`; root's helper may hand out the replica set's key file and add `replSetName`, `keyFile` and an address to `mongod.conf` (a copy kept). Needs `restart`. | [Standby servers](/docs/guides/standby#mongodb), on both servers |
+| `--mongodb-clones` (the installer asks on an empty server) | `restore` and `readWriteAnyDatabase` | receiving a [fork](/docs/guides/fork#mongodb) or a database [moved in](/docs/guides/move-in#mongodb) |
+
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`):
+
+| Permission | Lets Rowsafe |
+|---|---|
+| `restart` | restart MongoDB (**Restart**) |
+| `updates` | install MongoDB's updates and major upgrades (needs `restart`) |
+| `security-updates`, `reboot` | install the server's security updates, and reboot it |
+| `tuning` | write the settings you change under Tuning into MongoDB's configuration file, only Rowsafe's keys |
+| `firewall` | limit who can reach MongoDB's port |
+
+Rewinding the whole database in place needs no root permission: it swaps collections inside MongoDB.
 
 ## Docker
 
@@ -117,20 +145,18 @@ Oplog chunks (`oplog/*.bson.gz`) decrypt the same way into gzipped BSON oplog en
 
 ## Limits
 
-- **Sharded clusters** (`mongos`) aren't supported yet. Replica sets and single servers made into a replica set of one are.
+- **No connection pooling**: MongoDB's drivers keep their own pool in every app, so Rowsafe doesn't put a pooler in front of MongoDB.
+- **Sharded clusters** (`mongos`) aren't supported. Replica sets and single servers made into a replica set of one are.
 - Backups run on the **primary** of the replica set, on the server where the agent runs. A secondary is skipped with a note.
 - Backups are **logical** (`mongodump`). A large database takes longer to back up and restore than a file-level copy would. Proof tells you how long a restore really takes.
 - If the agent or the bucket is down for longer than MongoDB's oplog reaches back (Pulse shows the **oplog window**), changes from that gap can't be restored. Rowsafe reports the gap and carries on; the next full backup starts a new unbroken chain. A bigger oplog (`replSetResizeOplog`) widens the window.
 - Bringing documents back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
 - Compare skips views and time series collections, and collections over 10 million documents.
-- **Queries only see slow operations**: the profiler records operations over its threshold (100 ms by default), so fast ones aren't counted. Turning it on from the dashboard lasts until MongoDB restarts; set `operationProfiling.mode: slowOp` in `mongod.conf` to keep it. On a server set up with an older Rowsafe, run the install command again once so Rowsafe may read and turn on the profiler.
-- **Creating and dropping indexes** needs a role installs from this version on give Rowsafe; on an older install, run the install command again once. Index suggestions need the profiler on, and only come from operations with a plain filter (no `$or`, `$expr` or text search).
+- **Rewinding the whole database** needs room on MongoDB's disk for a second copy, and the loaded data goes through the oplog: on a big database, give the oplog room. Databases with time series collections can't be rewound in place (they can't be renamed).
+- **Queries only see slow operations**: the profiler records operations over its threshold (100 ms by default). Turning it on from the dashboard lasts until MongoDB restarts; [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) or `operationProfiling.mode: slowOp` in `mongod.conf` keeps it on.
+- **Index suggestions** need the profiler on, and only come from operations with a plain filter (no `$or`, `$expr` or text search).
 - **Find the moment** groups deletes and updates outside a transaction by collection and second, and works to the second: rewinding to just before a change restores up to the second before it.
-- Rewinding the **whole** database in place, restarts from the dashboard, standbys, pooling and updates are PostgreSQL-only for now.
-- Rewinding the **whole** database in place, restarts from the dashboard, standbys and updates are PostgreSQL-only for now. [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) needs root's permission (`sudo rowsafe-allow tuning`); settings that MongoDB reads only at start wait for your next restart. A connection pooler isn't needed: MongoDB's drivers keep their own pool.
-- Rowsafe's MongoDB user gets `userAdminAnyDatabase` and `dbAdminAnyDatabase` for Databases & users. A user created before that can list but not change: the dashboard shows the one `mongosh` command that adds them.
-- Rewinding the whole database needs room on MongoDB's disk for a second copy, and Rowsafe's user to rename collections (installs before this version: run the installer again). Time series collections can't be renamed, so a database with them can't be rewound in place yet. The loaded data goes through the oplog: on a big database, give the oplog room (Pulse shows its window).
-- Restarts from the dashboard need root's permission and work where MongoDB runs as a systemd service; in Docker, restart the container yourself.
-- [Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse) install new releases of the version you run (7.0.x); upgrading to the next major version (7.0 to 8.0, one at a time) is [rehearsed on a restored copy first](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse), with undo for 7 days.
-- Standbys and pooling are PostgreSQL-only for now.
-- Rewinding the **whole** database in place, restarts from the dashboard, pooling and updates aren't available for MongoDB yet.
+- **In Docker**, restart the container yourself (Rowsafe notices); Tuning and standbys need the agent installed on the server; for updates, pull the newest image of the same version and recreate the container.
+- **Settings MongoDB reads only at start** wait for the next restart.
+- **Forks hold the real data**: masking a fork is PostgreSQL's. Use a [safe copy](/docs/guides/safe-copies) for masked data.
+- **Older installs**: a user created before Databases & users, index suggestions or the rewind in place can list but not change; run the install command again once (the dashboard shows the exact command).

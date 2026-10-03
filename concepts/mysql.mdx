@@ -73,9 +73,12 @@ The agent logs in as `rowsafe@localhost`, an account created once when you set u
 | `REPLICATION CLIENT` (MySQL) / `BINLOG MONITOR` (MariaDB) | the binary log position of a backup or a Mark |
 | `SELECT`, `SHOW VIEW`, `TRIGGER` | comparing a copy with production, monitoring |
 | `INSERT`, `UPDATE` | bringing rows back, only when someone asks in the dashboard |
-| `CONNECTION_ADMIN` | ending a query or session, only when someone applies that fix |
+| `INDEX` | creating and dropping the indexes someone picks |
+| `CONNECTION_ADMIN` (MySQL) / `CONNECTION ADMIN` (MariaDB) | ending a query or session, only when someone applies that fix |
+| `CREATE USER` and the database rights (`CREATE`, `DROP`, `ALTER`, `DELETE`...) `WITH GRANT OPTION` | [Databases & users](/docs/guides/databases-and-users), only when someone asks. The server's own accounts (root, `mysql.*`) are never changed. |
+| `SYSTEM_VARIABLES_ADMIN`, `PERSIST_RO_VARIABLES_ADMIN` (MySQL) / `SUPER` (MariaDB) | [Tuning](/docs/guides/tuning#mysql-and-mariadb) and turning on the slow query log, only when someone asks |
 
-It can't create users or change the server's configuration.
+With standby servers allowed at install (*Allow standby servers with this server?*, or `--mysql-standby`), it also gets `ALL PRIVILEGES WITH GRANT OPTION`, used only when someone adds, promotes or removes a standby, forks to an empty server or moves a database in.
 
 ## On your server
 

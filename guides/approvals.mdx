@@ -1,0 +1,71 @@
+---
+title: Approvals
+description: AI agents can ask for any change the dashboard makes to production, such as a fix, a restart or a rewind. Nothing changes until an owner or admin clicks Approve.
+---
+
+AI agents connected to Rowsafe can do almost everything the dashboard does. They read health, alerts and backups, run backups and checks, and test on copies. But they **never change production by themselves**. When an agent wants to apply a fix, restart the database, rewind it or upgrade it, it asks you. Nothing happens until you click **Approve**.
+
+## How it works
+
+<Steps>
+<Step>
+
+**The agent asks.** It explains what it wants to do and why, then files a request with `request_change`. It gives you a link to the request in the dashboard. Apps that can open links for you (MCP URL elicitation) ask you to open it; others show the link.
+
+</Step>
+<Step>
+
+**You get told.** The request shows under **Approvals** in the dashboard's sidebar, with a count, and as a one-line banner on **Home**. The people who get the [weekly Pulse](/docs/guides/monitoring#your-weekly-pulse) and your email [notification channels](/docs/guides/monitoring#notification-channels) also get an email with the link. Slack, Discord and webhook channels don't get requests yet.
+
+</Step>
+<Step>
+
+**You read it.** The request's page shows:
+
+- **What will change**, written by Rowsafe, not by the agent;
+- the agent's reason, labeled as its words (Rowsafe doesn't check them);
+- the **risk**: *Apps won't notice* (it changes Rowsafe or a copy), *Apps may notice* (a restart, a short pause or a switch) or *Replaces data* (it replaces or deletes data, or removes the way back);
+- who asked (the app or API key) and when the request expires.
+
+</Step>
+<Step>
+
+**You approve or deny.** Only an owner or admin signed in to the dashboard can. To approve a change that replaces data, you type the database's name. Deny it and nothing changes; you can add a note the agent will see.
+
+</Step>
+<Step>
+
+**Rowsafe does it, as you.** It makes the same call the dashboard's own button makes, with the same checks and confirmations. The [audit log](/docs/guides/teams#audit-log) records it as you ("approved request apr_..."). The result (the tasks it started, or why it didn't work) shows on the request's page, and the agent sees it too.
+
+</Step>
+</Steps>
+
+A request nobody decides expires after 24 hours. The agent can withdraw a request that is still waiting.
+
+## What an agent can ask for
+
+| | Changes |
+|---|---|
+| Pulse | Apply a fix, change database settings or undo a change, the index check schedule, restart the database, turn on backups |
+| Rewind | Restore a copy, compare it with production, keep it longer or delete it, bring back rows, rewind the whole database, undo or finish a rewind |
+| Updates | Install a minor update, upgrade to a new major version, undo or finish an upgrade, install the server's security updates, reboot the server, automatic minor updates |
+| Standby | Create, promote (fail over), rebuild or remove a standby, start or stop watching a fenced old primary, automatic failover |
+| Move and fork | Move to another server, schedule or make the switch, cancel, switch back, finish; fork the database |
+| Security | Turn connection pooling on or off, change security settings, fix a security finding |
+| Data | Create a database for an existing owner, remove a database or user, turn an extension on or off, change masking rules, stop protecting a database |
+| Files and alerts | Restore files and undo it, change an alert rule |
+
+The agent's `describe_change` tool lists them with their parameters.
+
+## What stays the same
+
+- **A person decides.** API keys and AI agents can never approve, not even their own requests.
+- **Root's permissions still apply.** A restart, an update or a reboot runs only on servers where root allowed it at install. See [Permissions](/docs/guides/permissions).
+- **Secrets never go through agents.** Passwords for new database users, password resets and passwords for restored copies are set by people in the dashboard.
+- **No queries or commands.** Agents never run SQL or commands on production through Rowsafe and never see what's inside your backups. They test on masked [safe copies](/docs/guides/safe-copies).
+
+## Which agents can ask
+
+- **Local `rowsafe mcp`**: with `--allow-writes`. See the [MCP reference](/docs/reference/mcp#set-up).
+- **The remote endpoint with an API key**: a read-write key. A read-only key can't ask.
+- **Apps signed in with Rowsafe** (ChatGPT, Claude, Cursor...): only if you ticked **Act for you** when you connected them. See [Connect AI apps](/docs/guides/connect-ai-apps).

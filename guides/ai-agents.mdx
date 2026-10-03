@@ -16,9 +16,17 @@ Before any destructive or risky database operation:
 1. **Is it safe?** `safety_check` (or `rowsafe status app`) answers "could this database be restored right now?". If not, the agent tells you why and waits for your OK.
 2. **Set a Mark** with a descriptive name: `create_restore_point` (or `rowsafe mark app before-drop-orders`). It waits until the Mark is in your bucket, and tells you its name.
 3. **Proceed.**
-4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything itself. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore): in the dashboard, restore a copy at that Mark and bring back what was lost, or rewind the whole database. If it's not clear when the damage happened, `find_moment` finds it ([Find the moment](/docs/guides/find-the-moment)), and its **Rewind to just before this** opens Rewind at exactly that point.
+4. **If something breaks, stop.** The agent doesn't try to repair data and never restores anything on its own. It tells you the Mark, and you decide whether to [rewind](/docs/guides/restore): in the dashboard, restore a copy at that Mark and bring back what was lost, or rewind the whole database. If you'd rather the agent start it, it asks with `request_change` and you [approve](/docs/guides/approvals) it. If it's not clear when the damage happened, `find_moment` finds it ([Find the moment](/docs/guides/find-the-moment)), and its **Rewind to just before this** opens Rewind at exactly that point.
 
-Agents can't restore a copy, bring rows back, rewind a database or restart the database server: no MCP tool does any of it. They can show you how far back you can go (`rewind_window`), and you click.
+## Agents ask, you approve
+
+An agent connected to Rowsafe can do what the dashboard does, but it never changes production by itself:
+
+- **It reads everything the dashboard shows:** health and findings, alerts, what's running now and who blocks whom, metrics, the disk forecast, uptime, security, updates, standbys, pooling, forks, the audit log and the weekly Pulse.
+- **It acts where production can't be hurt** (with write access): backups and Proof runs, acknowledging alerts, dismissing recommendations, testing indexes on a copy, checking and rehearsing an upgrade on a copy, the security check, files backups, and safe copies.
+- **It asks for changes to production:** applying a fix, changing settings, restarting, restoring a copy, bringing rows back, rewinding, updating or upgrading, promoting a standby, moving a database, and more. `request_change` files a request and gives you a link. Nothing happens until an owner or admin clicks **Approve** in the dashboard, and an agent can never approve.
+
+See [Approvals](/docs/guides/approvals) for what you see before you approve, and the [MCP reference](/docs/reference/mcp#tools) for every tool.
 
 **Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
 
@@ -44,7 +52,7 @@ This writes `.rowsafe.json` (`{"database": "app"}`). The CLI, the MCP server and
 
 The plugin bundles three things:
 
-- Rowsafe's MCP server (`https://api.rowsafe.sh/mcp`): sign in with Rowsafe once (`/mcp` in Claude Code) and choose whether it may save Marks;
+- Rowsafe's MCP server (`https://api.rowsafe.sh/mcp`): sign in with Rowsafe once (`/mcp` in Claude Code) and choose whether it may save Marks and act for you (run checks, and ask you to approve changes to production);
 - a skill, `rowsafe-safety`, that teaches the workflow;
 - a hook that runs `rowsafe guard` to set a Mark **right before** destructive commands, whether or not the model remembered to. It never approves a command.
 
@@ -64,7 +72,13 @@ Give any MCP client the read tools plus Marks:
 claude mcp add rowsafe -- rowsafe mcp --allow-restore-points
 ```
 
-That adds `safety_check`, `create_restore_point`, `list_restore_points`, `rewind_window` and the read-only fleet tools, and nothing that queues backups or changes settings. See the [MCP reference](/docs/reference/mcp) for other clients, the remote endpoint and every tool.
+That adds `safety_check`, `create_restore_point`, `list_restore_points`, `rewind_window` and the read-only tools, and nothing that queues backups or asks for changes. To let the agent run backups and checks too, and ask you to [approve](/docs/guides/approvals) changes to production:
+
+```sh
+claude mcp add rowsafe -- rowsafe mcp --allow-writes
+```
+
+See the [MCP reference](/docs/reference/mcp) for other clients, the remote endpoint and every tool.
 
 </Tab>
 <Tab value="AGENTS.md only">
@@ -94,7 +108,8 @@ without a narrow WHERE, backfills, resets, restoring a dump):
 
 If something goes wrong: stop, don't try to repair the data, and never restore, rewind or
 restart anything yourself. Tell me what happened and the Mark's name; I'll decide whether
-to Rewind from the Rowsafe dashboard.
+to Rewind from the Rowsafe dashboard. If I ask you to start it, file it with
+`request_change` and give me the approval link; nothing changes until I approve it.
 ```
 
 ## The guard hook
@@ -146,4 +161,4 @@ rowsafe api-keys create ci-agent
 rowsafe api-keys create reviewer-bot --read-only
 ```
 
-A **read-only** key can still run `safety_check`, but can't set Marks or change anything.
+A **read-only** key can still run `safety_check`, but can't set Marks, run anything or ask for changes.

@@ -281,7 +281,7 @@ The fork server receives the source's bucket keys and passphrase. It uses them o
 
 `ROWSAFE_STANDBY` in `/etc/rowsafe/agent.env` covers forks too. Because Rowsafe relays the keys, a compromised Rowsafe could present a key of its own as a fork target. With `pinned`, a server only hands its bucket settings to (or accepts them from) the fingerprints in `ROWSAFE_STANDBY_PEERS`, so that is ruled out. With `off`, it never hands them over: fork on the same server instead. See [Agent configuration](/docs/reference/agent-configuration#postgresql-and-the-server).
 
-Only owners and admins can fork, in the dashboard, with the CLI or with an API key that can write. AI assistants (the [MCP server](/docs/reference/mcp)) can't fork. Every fork is in the [audit log](/docs/guides/teams#audit-log) as `database.fork`, with the server, the moment, whether it was masked and the fingerprint.
+Only owners and admins can fork, in the dashboard, with the CLI or with an API key that can write. AI assistants (the [MCP server](/docs/reference/mcp)) can't fork on their own: they can ask, and the fork starts when an owner or admin [approves](/docs/guides/approvals) it. Every fork is in the [audit log](/docs/guides/teams#audit-log) as `database.fork`, with the server, the moment, whether it was masked and the fingerprint.
 
 ## Limits
 

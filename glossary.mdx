@@ -17,6 +17,10 @@ A key (`rsk_...`) that lets the CLI, a script, a CI job or an AI assistant use y
 
 The button on a Pulse finding that fixes the problem for you: Rowsafe does the work on your server, after you confirm. See [Apply fix](/docs/guides/monitoring#apply-fix).
 
+## Approval
+
+A request from an AI agent (or an API key) to change production: apply a fix, restart, rewind, upgrade and so on. It waits under **Approvals** in the dashboard, and nothing changes until an owner or admin clicks **Approve**. Agents can never approve. See [Approvals](/docs/guides/approvals).
+
 ## Ask Rowsafe
 
 Ask questions about your databases in plain words, such as "Why is my database slow today?", and get an answer from Rowsafe's own data, with the fix as a button when there is one. See [Ask Rowsafe](/docs/guides/ask).
@@ -103,7 +107,7 @@ A named restore point, such as `before-migration-42`: a moment you can rewind to
 
 ## MCP
 
-The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health and save Marks. No MCP tool restores, rewinds, restarts the database or applies fixes. See [MCP server](/docs/reference/mcp).
+The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health, save Marks, run backups and checks, and ask you to approve changes to production. No MCP tool restores, rewinds, restarts the database or applies a fix on its own: a person approves each one ([Approval](#approval)). See [MCP server](/docs/reference/mcp).
 
 ## Migration preview
 

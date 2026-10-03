@@ -147,7 +147,7 @@ Only on a server where you allowed restarts during install. On the database's pa
 rowsafe restart app       # asks to confirm; --yes skips it
 ```
 
-Only admins and owners can restart, never with a read-only API key, and at most once every 2 minutes. AI agents can't restart PostgreSQL through MCP.
+Only admins and owners can restart, never with a read-only API key, and at most once every 2 minutes. AI agents can't restart PostgreSQL through MCP: they can only ask, and it happens when an owner or admin [approves](/docs/guides/approvals).
 
 </Tab>
 </Tabs>

@@ -129,7 +129,7 @@ What Rowsafe can fix:
 | A [Rewind](/docs/guides/restore) copy is about to expire | **Keep it 24 hours longer** | Keeps the copy 24 more hours. |
 | Data kept aside by a rewind uses disk | **Delete the old data now** | Deletes the data from before the rewind. It can't be undone after that. |
 | Dead rows piling up, vacuum behind, transaction ID wraparound | **Clean up** | `VACUUM (ANALYZE)` on those tables, with `FREEZE` for wraparound. |
-| A query got slower | **Refresh statistics** | `ANALYZE` on the tables it reads, so PostgreSQL can pick a better plan. |
+| A query got slower | **Refresh statistics** | `ANALYZE` on the tables the slower queries read, when their statistics may be out of date, so PostgreSQL can pick a better plan. Rowsafe then checks the queries again. Slower inserts, and queries whose tables have current statistics, get the likely causes instead. |
 | An index with a lot of wasted space | **Rebuild index** | `REINDEX INDEX CONCURRENTLY` (PostgreSQL 12 and later). |
 | An unused or duplicate index | **Remove** | `DROP INDEX CONCURRENTLY`, after saving a Mark. |
 | An index would make slow queries faster ([tested on a copy](/docs/guides/recommendations#indexes)) | **Create index** | `CREATE INDEX CONCURRENTLY`; a failed build leaves nothing behind. |
@@ -198,7 +198,7 @@ rowsafe insights app
 
 ## Slow queries
 
-With `pg_stat_statements` turned on, Rowsafe keeps 14 days of per-query timing in 5-minute steps. It shows the queries that took the most time in any range, their share of all query time, and **which got slower**: a query whose average time more than doubled against the previous period is flagged.
+With `pg_stat_statements` turned on, Rowsafe keeps 14 days of per-query timing in 5-minute steps. It shows the queries that took the most time in any range, their share of all query time, and **which got slower**: a query whose average time more than doubled against the previous period is flagged, when it adds at least 5 ms per call or a minute in all. Monitoring queries that only read PostgreSQL's own statistics (Rowsafe's agent reading `pg_stat_statements`, for one) are left out.
 
 ```sh
 rowsafe top app                   # last 24 hours

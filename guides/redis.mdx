@@ -1,0 +1,221 @@
+---
+title: Protect Redis or Valkey
+description: Backups to your own bucket, restores to any second, Marks, weekly Proof, Rewind and Pulse with one-click fixes for Redis 7.0 and newer and Valkey 7.2 and newer, on your own server or in Docker.
+---
+
+Rowsafe protects Redis and Valkey the way it protects your other databases: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; every change is saved as it happens, so you can restore to **any second**; **Marks** save the exact moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted keys back or puts the whole server back; **Pulse** watches the server and fixes what it can. Some features aren't there for Redis yet: see [Not yet](#not-yet) and [Limits](#limits).
+
+Valkey is a fork of Redis that speaks the same language and keeps the same files, so everything on this page is the same for both. Where the page says Redis, it means Valkey too.
+
+## What you get
+
+| | |
+|---|---|
+| Backups | A full snapshot of the server, encrypted on your server, in your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)). |
+| Restore to any second | Every change is saved, stamped with the second it happened, and uploaded about every minute. |
+| [Marks](/docs/concepts/restore-points) | Name a moment before a risky change; a restore to it stops exactly there. |
+| [Proof](/docs/concepts/restore-drills) | Every week, your newest backup is restored into a temporary server and checked. |
+| [Rewind](/docs/guides/restore) | Restore a copy at any second, compare it with production, bring keys back, or rewind the whole server in place, with **Undo** for 7 days. |
+| [Pulse](/docs/guides/monitoring) | Memory, evictions, hit rate, clients, persistence, replication, the slow log and latency, with fixes you apply in one click. |
+| Restart | **Restart** in the dashboard, after you confirm. |
+| [Files](/docs/guides/files) and [second copy](/docs/guides/second-copy) | Back up the folders that go with your app, and keep your backups in a second bucket too. |
+
+## Before you start
+
+- **Redis 7.0 or newer**, or **Valkey 7.2 or newer**. That is the Redis or Valkey that comes with:
+  - Debian 12 (Redis 7.0) and Debian 13 (Redis 8.0, Valkey 8.1);
+  - Ubuntu 24.04 (Redis 7.0, Valkey 7.2);
+  - Redis's own packages ([packages.redis.io](https://packages.redis.io));
+  - the official Docker images: `redis` 7.2 to 8.10 and `valkey/valkey` 7.2 to 9.2.
+- Ubuntu 22.04's own Redis is 6.0, which is too old. Install Redis from Redis's own packages instead.
+- A **standalone** server, with or without replicas of its own. Redis Cluster and servers managed by Sentinel aren't supported yet.
+- Redis listens on a TCP port (`6379` by default) without requiring TLS. Rowsafe connects to it from the server itself.
+- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt) for the one-command install.
+
+## Turn on backups
+
+Run the install command on the server and approve the server in your browser when it prints the link:
+
+```bash
+curl -fsSL https://rowsafe.sh | sudo sh
+```
+
+The installer finds `redis-server` or `valkey-server`. Nothing restarts:
+
+<Steps>
+<Step>
+**Rowsafe's own Redis user.** The installer creates an ACL user for Rowsafe, `rowsafe`, with a random password. The password stays on the server, saved for the agent only. The installer also keeps the user across restarts, in Redis's ACL file or its config file, whichever your server uses. What the user may do is [below](#what-rowsafe-may-do).
+</Step>
+<Step>
+**Read access to Redis's data folder**, for the agent only. Rowsafe needs it only when it can't follow the server (see [When Rowsafe can't follow the server](#when-rowsafe-cant-follow-the-server)).
+</Step>
+<Step>
+**What Rowsafe may do** on the server: restart Redis, only when someone clicks it and confirms. Say no and restart it yourself when it suits you.
+</Step>
+<Step>
+**The plan.** You see what Rowsafe will do and say yes. Nothing in Redis's settings changes. Rowsafe checks that a backup reaches your bucket and opens with your key, and takes the first full backup.
+</Step>
+</Steps>
+
+On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`.
+
+## What Rowsafe does
+
+| | How |
+|---|---|
+| Backup | A full snapshot of the server (an RDB file), which Redis sends Rowsafe's agent the same way it sends one to a new replica (what `redis-cli --rdb` does). The agent never needs Redis's files for this, so it works across containers too. Redis forks to make it, as it does for any snapshot or new replica. Every backup is a full snapshot. |
+| Encryption | The agent encrypts the snapshot on your server, before it goes to your bucket (or Rowsafe Storage). Your keys and values never leave the server unencrypted. |
+| Every change | The agent stays attached to Redis as a replica that never serves anything. It stamps every change with the moment it arrived and uploads the changes about every minute, encrypted. |
+| Restore to any second | The newest snapshot before that moment, then the changes up to it, to about a second. |
+| [Marks](/docs/concepts/restore-points) | The server's position in its stream of changes at that moment. A restore to a Mark replays exactly up to it. |
+| [Proof](/docs/concepts/restore-drills) | Weekly: restore the newest backup into a temporary server of the same engine and version, check that it loads and that every logical database (`db0`, `db1`...) has as many keys as when the backup was taken, then replay the changes since and compare with production. The temporary server is deleted afterwards. |
+| [Rewind](/docs/guides/restore) | Restore a copy as it was at any second or a Mark, as a temporary server on the same host, reachable only through a private Unix socket (no network). Compare it with production and bring keys back ([below](#rewind)). |
+| Rewind the whole server | Puts the data back as it was at any second or a Mark, in place, through Redis itself: no restart, never a moment without data. **Undo** for 7 days ([below](#rewind-the-whole-server)). |
+| [Pulse](/docs/guides/monitoring) | Memory, evictions, clients, persistence, replication, slow log and latency, with one-click fixes ([below](#pulse)). |
+| Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm ([below](#restart)). |
+| [Files](/docs/guides/files) | Back up the folders that go with the database (uploads), restored to the same moment. |
+| [Second copy](/docs/guides/second-copy) | Your backups also go to a second bucket at another provider, encrypted with that bucket's own passphrase. |
+
+Before every temporary server (Proof, a Rewind copy), the agent checks there is enough free disk and memory on the server, and refuses with a plain message if there isn't. Temporary servers are capped in memory, so they can't take memory from production.
+
+In Redis's own list of replicas (`INFO replication`), Rowsafe's link shows as `ip=rowsafe-agent`. Rowsafe leaves it out of its own replica counts, but other tools that count replicas will see it.
+
+### When Rowsafe can't follow the server
+
+Some servers refuse Rowsafe's link: the replication commands (`SYNC`, `PSYNC`) are renamed or not allowed for Rowsafe's user, or the server uses `min-replicas-to-write` (Rowsafe's link would count as a replica and weaken that guarantee, so Rowsafe doesn't attach). Then:
+
+- backups are snapshots on the schedule only: Rowsafe asks Redis to save one (`BGSAVE`) and reads it from Redis's own file;
+- restores go back to those snapshots, not to any second;
+- the dashboard says so plainly, and why.
+
+For this the agent needs read access to Redis's data folder: the installer gives it, and in Docker you mount Redis's data volume into the agent, read only.
+
+## Rewind
+
+All of this is in the dashboard, for owners and admins. See [Restore a database](/docs/guides/restore) for how the buttons work.
+
+- **Restore a copy** at any second or a Mark. It runs as a temporary server on the same host, reachable only through a private Unix socket.
+- **Compare** it with production, one logical database at a time: keys only in the copy (deleted since), keys whose value differs, and keys added since. Large databases are sampled, and the result says how many keys were compared.
+- **Bring back keys** for a key pattern (like `user:*`) in a logical database. Keys come back with their remaining time to live. Keys that exist in production are never overwritten, unless you choose to.
+
+### Rewind the whole server
+
+**Rewind the whole database** puts every logical database back as it was at the moment you pick, through Redis itself, one logical database at a time: the restored keys are loaded into an empty logical database, then swapped with the live one in an instant (`SWAPDB`). Redis never restarts, and there is never a moment without data.
+
+It needs one empty logical database on the server, and enough free memory for one more copy of your largest logical database. The data from before is kept as a snapshot in your bucket for 7 days: **Undo rewind** puts it back.
+
+## Pulse
+
+Pulse reads Redis's own statistics about every 5 minutes: memory against `maxmemory`, evictions, the hit rate, commands per second, clients (blocked and rejected), fragmentation, persistence (whether snapshots and the append-only file are working), replication (replicas and their lag), the slow log and the latency monitor's events. The slow log reaches Rowsafe as command names only, never keys or values.
+
+Fixes come with **Apply fix** and a confirmation:
+
+| Finding | Fix |
+|---|---|
+| Redis is near `maxmemory` and set to refuse writes once full (`noeviction`) | **Set an eviction policy**, so Redis removes old keys instead of refusing writes. |
+| A lot of memory is fragmented | **Give memory back** (`MEMORY PURGE`), or **turn on active defragmentation**, which compacts memory in the background at a small CPU cost. Both need Redis built with jemalloc (most Linux builds are); Rowsafe offers them only then. |
+| A client looks stuck (blocked for a long time, or holding a large output buffer) | **Disconnect** it. Rowsafe checks it's still the same connection first, and never disconnects replicas or its own link. |
+| Rowsafe's link (or a replica) often needs a whole new snapshot | **Raise the replication backlog**, so a short break continues where it stopped. |
+
+Fixes apply on the running server at once. Rowsafe also keeps them in Redis's config file when Redis can write it; otherwise they last until the next restart, and the result says which.
+
+A server without a password is flagged: anyone who can reach its port can read and change everything.
+
+## Restart
+
+**Restart** in the dashboard restarts Redis after you confirm, through root's helper, and only for the services root allowed at install (`redis-server`, `valkey-server`...). See [Permissions](/docs/guides/permissions). In Docker, it works through the optional container control service ([below](#docker)).
+
+## What Rowsafe may do
+
+**Rowsafe's Redis user** (`rowsafe`) gets only what it needs, each used only when someone asks or for the backups you turned on:
+
+- read and inspect the server: backups, Proof, compare and Pulse;
+- the replication handshake: the snapshot for backups, and following every change;
+- `DUMP` and `RESTORE`: bring keys back from a copy;
+- `SWAPDB` and `FLUSHDB`: rewind the whole server in place;
+- `CONFIG GET`, `CONFIG SET` and `CONFIG REWRITE`, `MEMORY PURGE` and `CLIENT KILL`: the fixes;
+- `BGSAVE`: scheduled snapshots, when Rowsafe can't follow the server.
+
+It never sees anything outside Redis.
+
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`):
+
+| Permission | Lets Rowsafe |
+|---|---|
+| `restart` | restart Redis (**Restart**) |
+
+Rewinding the whole server in place needs no root permission: it swaps data inside Redis.
+
+## Docker
+
+Use the Redis agent image next to the official `redis` or `valkey/valkey` image. There is one image per version, with that version's `redis-server` (or `valkey-server`) inside, which Proof and Rewind copies run: `ghcr.io/rowsafe/agent:redis<version>`, like `redis8.2`, and `ghcr.io/rowsafe/agent:valkey<version>`, like `valkey8.1`. Use the one that matches your server.
+
+```yaml
+services:
+  redis:
+    image: redis:8.2
+    # Users, Rowsafe's included, live in an ACL file in the data volume, so they survive restarts.
+    # The full example below sets this up.
+    volumes:
+      - redisdata:/data
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:redis8.2
+    hostname: db-1
+    environment:
+      ROWSAFE_REDIS_HOST: redis
+    env_file: rowsafe-agent.env
+    volumes:
+      - rowsafe-state:/var/lib/rowsafe
+      - redisdata:/data:ro          # read only: only used when Rowsafe can't follow the server
+```
+
+Start Redis with an ACL file in its data volume, as the full example does, so Rowsafe's user is still there after Redis restarts. The full example is [`deploy/docker/compose.redis.example.yml`](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.redis.example.yml). Then, once:
+
+```bash
+docker compose exec rowsafe-agent rowsafe-agent redis login --port 6379 --admin-user default
+rowsafe adopt cache --host db-1 --engine redis --port 6379
+rowsafe apply cache
+```
+
+`redis login` asks for the administrator's password (type it, one line), creates Rowsafe's user with it, and forgets it: it is used once and never saved. For Valkey, use `--engine valkey`.
+
+### Restart and update in Docker
+
+Without help, restart the Redis container yourself; Rowsafe notices. To get **Restart** in the dashboard, add the container control service, set to your Redis service (`ROWSAFE_CONTROL_SERVICE: redis`). It holds the Docker socket, so the agent never gets it. See [Let Rowsafe restart the container](/docs/guides/docker#let-rowsafe-restart-the-container) and its [threat model](/docs/guides/docker#threat-model).
+
+The agent never updates itself in Docker. To update it, download the newest image and recreate only the agent's container. Redis keeps running:
+
+```bash
+docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
+```
+
+Name the service: a plain `docker compose pull` also downloads a newer Redis image if there is one, and `docker compose up -d` then restarts Redis to use it. With the container control service, **Update now** in the dashboard does it for you: see [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard).
+
+On a server, the agent updates itself: see [Updating the agent](/docs/guides/agent-updates).
+
+## Not yet
+
+These Rowsafe features aren't available for Redis and Valkey yet. The dashboard says so where you would look for them.
+
+- Standby servers, forks (clones) and moving a database in.
+- Connection pooling.
+- Minor updates and major upgrades of Redis.
+- Tuning, security checks and logs.
+- Find the moment.
+- Safe copies and migration previews.
+- Databases & users.
+
+## Limits
+
+- **Not supported yet**: Redis Cluster, servers managed by Sentinel, and servers reachable only over TLS or only through a Unix socket.
+- **Precision**: a restore to a second uses the moment each change reached the agent, so it is precise to about a second. A restore to a Mark is exact.
+- **When the agent is away** (stopped, or the server unreachable) for longer than Redis's replication backlog holds (`repl-backlog-size`, 1 MB by default), Redis sends a whole new snapshot when the agent comes back. That snapshot becomes a new backup by itself, but the time in between can't be restored to a second. When this happens often, Pulse proposes a larger backlog, with a button.
+- **Expired keys**: keys whose expiry time has passed by the time of a restore are gone, as Redis drops them itself.
+- **Every backup is a full snapshot**, and Redis forks to make it, as it does for its own snapshots and new replicas.
+- **Servers Rowsafe can't follow** (replication refused, or `min-replicas-to-write` in use) get scheduled snapshots only, and restore to those snapshots, not to any second. See [above](#when-rowsafe-cant-follow-the-server).
+- **Compare** samples large databases; the result says how many keys were compared.
+- **Rewinding the whole server** needs an empty logical database and enough free memory for one more copy of the largest logical database.
+- **Temporary servers** (Proof, Rewind copies) need free disk and memory on the server; the agent checks first and refuses if there isn't enough.
+- **Fixes** last only until the next restart when Redis can't write its config file; the result says so.
+- **In Docker**, restart the container yourself unless you add the container control service; for updates, pull the newest agent image of the same version and recreate its container.

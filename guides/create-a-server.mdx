@@ -48,7 +48,7 @@ In the dashboard, open **Servers**, click **Add server** and choose **Create a s
 - **Server size**: the dashboard suggests the cheapest size with at least 2 CPUs and 4 GB of memory, a good start for most apps. You can make it bigger later with one click.
 - **Server name**: lowercase letters, digits and dashes, starting with a letter, like `shop-db`. It's also the database's name in Rowsafe.
 
-Rowsafe installs **PostgreSQL 17** on new servers for now.
+Rowsafe installs **PostgreSQL 17** unless you pick 18, 16 or 15.
 
 </Step>
 <Step>
@@ -98,7 +98,7 @@ The server's page shows the progress. It takes about 5 minutes, and you can leav
 
 1. **Creating the server.** Your cloud creates a Debian 12 server of the size you chose, with a cloud firewall that only lets in the addresses you added. Everything Rowsafe creates is labelled `rowsafe=1`.
 2. **Starting up.** At its first boot, the server runs the Rowsafe installer once, by itself. It carries a one-time token that works only for this server and expires soon, and no other secret.
-3. **Installing PostgreSQL.** PostgreSQL 17 from the PostgreSQL project's own repository (its signing key checked), reachable from the network only with encryption (TLS, with a certificate made on the server) and a password. Then the Rowsafe agent, with the choices you made.
+3. **Installing PostgreSQL.** The version you picked, from the PostgreSQL project's own repository (its signing key checked), reachable from the network only with encryption (TLS, with a certificate made on the server) and a password. Then the Rowsafe agent, with the choices you made.
 4. **Turning on backups.** The first backup goes to Rowsafe Storage, encrypted on the server with a passphrase made on the server.
 5. **Ready.** PostgreSQL is running and backed up, Proof tests a restore every week, and Pulse watches its health.
 
@@ -189,7 +189,7 @@ Only **owners and admins** create, resize and delete servers, connect cloud acco
 
 ## Limits
 
-- **PostgreSQL only**, version 17. MySQL, MariaDB, MongoDB and ClickHouse servers aren't offered yet: install Rowsafe on a server you already have ([Quickstart](/docs/quickstart)).
+- **PostgreSQL only**, versions 15 to 18. MySQL, MariaDB, MongoDB and ClickHouse servers aren't offered yet: install Rowsafe on a server you already have ([Quickstart](/docs/quickstart)).
 - **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To use your own bucket instead, [move to it](/docs/guides/rowsafe-storage#move-to-your-own-bucket) on the server; that needs SSH. A [second copy](/docs/guides/second-copy) in your own bucket works too.
 - **One server per database.** A [standby](/docs/guides/standby) isn't available on Rowsafe Storage yet: move to your own bucket first.
 - The choices of what Rowsafe may do, and SSH keys, are set when the server is created. Changing them later needs you to log in to the server.

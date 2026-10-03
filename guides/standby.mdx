@@ -241,7 +241,7 @@ MongoDB standbys use MongoDB's own replication: the standby becomes a member of 
 
 ## ClickHouse
 
-A ClickHouse standby follows its primary **through your bucket**, like a PostgreSQL standby without streaming: no connection between the two servers, no login on the primary, no ClickHouse Keeper. It starts from the primary as it is now (the newest backup plus every change since) and then applies each change ClickHouse makes on the primary as it reaches the bucket, usually within a minute. See [Protect ClickHouse](/docs/guides/clickhouse#standby).
+A ClickHouse standby follows its primary **through your bucket**, like a PostgreSQL standby without streaming: no connection between the two servers, no login on the primary, no ClickHouse Keeper. It starts from the primary as it is now (the newest backup plus every change since) and then applies each change ClickHouse makes on the primary as it reaches the bucket, usually within a minute. See [Protect ClickHouse](/docs/guides/clickhouse).
 
 - **What you need:** another server with the agent installed natively and an **empty ClickHouse server** of the same version or newer, whose Rowsafe user may create databases (answer yes to receiving clones when installing).
 - **Read-only:** every user but Rowsafe's is read-only there (a settings profile, `readonly = 2`). Its merges are stopped: it mirrors the primary's.

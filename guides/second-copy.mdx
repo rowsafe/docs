@@ -5,7 +5,7 @@ description: Keep your backups in a second bucket at another provider too, so lo
 
 Your backups live in one bucket. That is one place that can go wrong: a bucket deleted by mistake, an account closed or locked, a provider outage, or someone who got hold of your storage keys. A **second copy** keeps everything (the backups and the change log that lets you restore to any second) in a second bucket too, ideally at **another provider**. That's the well-known 3-2-1 rule: your database, two copies of its backups, one of them somewhere else.
 
-- PostgreSQL **never waits** for the second copy. If the second storage is down, backups carry on in the first one, Rowsafe alerts you, and the second copy catches up by itself when it's back.
+- Your database **never waits** for the second copy. If the second storage is down, backups carry on in the first one, Rowsafe alerts you, and the second copy catches up by itself when it's back.
 - It has its **own access key and its own encryption passphrase**. Like the first ones, they stay on your server: Rowsafe never sees them.
 - Rowsafe takes a **full backup into it every week** (Sunday 03:30 UTC) and keeps the last 2. **Proof** alternates between the two storages, so both are shown to restore.
 - The Storage page shows **what each storage holds and costs** each month.
@@ -103,7 +103,7 @@ New backups and the change log then go to the first storage only (`archive_comma
 
 ## MySQL, MariaDB, MongoDB and ClickHouse
 
-The second copy works for the other engines with their own backups: weekly full backups go to the second storage too, encrypted with its own passphrase, and Proof alternates between the two storages. MySQL's and MariaDB's binary log and MongoDB's oplog are copied there as well, by a second copier on the server that reads the same files, so the second copy can also restore to any second. ClickHouse keeps no log of changes, so its second copy restores to its backups.
+The second copy works for the other engines with their own backups: weekly full backups go to the second storage too, encrypted with its own passphrase, and Proof alternates between the two storages. MySQL's and MariaDB's binary log and MongoDB's oplog are copied there as well, by a second copier on the server that reads the same files, so the second copy can also restore to any second. ClickHouse's second copy restores to its weekly full backups.
 
 ## Limits
 

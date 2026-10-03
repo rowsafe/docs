@@ -3,9 +3,11 @@ title: Move in from a managed database
 description: Move a PostgreSQL, MySQL, MongoDB or ClickHouse database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
 ---
 
-Leave your managed database, keep the safety net. **Move in** copies a PostgreSQL database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
+Leave your managed database, keep the safety net. **Move in** copies a database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
 
 Everything runs on your server. Its Rowsafe agent connects to the old database with the credentials you give it; the data goes straight from the old database to your server, never through Rowsafe.
+
+It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb) and [ClickHouse](#clickhouse) say what differs. ClickHouse moves as a one-time copy; the others can also keep a live sync until you switch over.
 
 ## Before you start
 
@@ -188,7 +190,7 @@ MongoDB databases move in from MongoDB Atlas, DigitalOcean or any MongoDB your s
 
 ## ClickHouse
 
-ClickHouse databases move in from ClickHouse Cloud, Altinity, Aiven or any ClickHouse your server can reach, into a ClickHouse server Rowsafe protects, as a **one-time copy** (ClickHouse keeps no log of its changes, so there is no live sync):
+ClickHouse databases move in from ClickHouse Cloud, Altinity, Aiven or any ClickHouse your server can reach, into a ClickHouse server Rowsafe protects, as a **one-time copy** (no live sync):
 
 - **The connection string** is the source's HTTP interface with the database: `https://user:password@host:8443/database` (on ClickHouse Cloud: Connect > HTTPS).
 - Rowsafe creates the database and its tables here (ClickHouse Cloud's `Shared*` engines become their `MergeTree` equivalents), then streams each table's rows from the source through the agent into the new table, and compares row counts. Views come along; tables that read other systems (Kafka, S3, MySQL...) are created but not copied.

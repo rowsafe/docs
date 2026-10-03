@@ -13,6 +13,8 @@ Use a fork to:
 
 Production isn't touched. The fork is restored from the source's backups in your bucket, and it never writes into them.
 
+Forks work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [ClickHouse](#clickhouse) and [MongoDB](#mongodb) say what differs. Masking personal data on the way is PostgreSQL's; for the others, a [safe copy](/docs/guides/safe-copies) gives masked data.
+
 ## What you need
 
 - **Backups running** for the source database: it has at least one full backup. You can fork from any second between its oldest kept full backup and its last archived change.
@@ -296,19 +298,19 @@ MySQL and MariaDB databases can be forked too, from the same **Fork** page, at a
 
 - **The place** is an **empty** MySQL (or MariaDB) server of the **same version series** on the fork server, one Rowsafe may load data into: when the installer finds a server with no databases it asks whether to keep it ready for a standby or a fork; say yes (or install with `--mysql-standby`). A server with databases is never used.
 - The fork server's agent restores the source's backups and binary logs up to the moment in a **private copy** next to that server, then loads its databases, routines, triggers, events and logins into it. That server keeps running; nothing is restarted.
-- **No masking** yet for MySQL and MariaDB: the fork holds the real data. Don't share it with people who shouldn't see customer data.
+- **No masking**: the fork holds the real data. Don't share it with people who shouldn't see customer data.
 - Then Rowsafe protects the fork like any MySQL database. If the binary log is off on that server, its backup plan turns it on, which takes a restart there.
 
 ## ClickHouse
 
 ClickHouse databases can be forked from the same **Fork** page, into an **empty** ClickHouse server on the fork server, of the same version or newer. What differs:
 
-- ClickHouse keeps no log of its changes, so a fork is **as of a backup**: the newest one taken at or before the moment you pick, or a Mark's.
+- A fork is **as of a backup** (one every hour): the newest one taken at or before the moment you pick, or a Mark's.
 - The fork server's agent restores that backup **straight into** the empty server (ClickHouse's own `RESTORE`, read from your bucket through the agent's encrypting gateway on 127.0.0.1). The server keeps running.
 - Rowsafe's ClickHouse user there must be allowed to create databases: when the installer finds a ClickHouse server with no databases, it asks whether to keep it ready to receive clones; say yes (or install with `--clickhouse-clones`).
 - ClickHouse **users and grants** aren't in backups: create the fork's users on it. Tables that reach other systems (Kafka, S3 queues, MySQL...) and refreshable materialized views are left out, like in Rewind copies.
-- Databases or tables that use **ClickHouse Keeper** (`Replicated*`) can't be forked yet.
-- No masking for ClickHouse yet.
+- Databases or tables that use **ClickHouse Keeper** (`Replicated*`) can't be forked.
+- No masking: the fork holds the real data.
 
 ## MongoDB
 
@@ -318,7 +320,7 @@ MongoDB databases can be forked from the same **Fork** page, at any second of th
 - Rowsafe's MongoDB user there needs the `restore` role: when the installer finds a MongoDB server with no databases, it asks whether to keep it ready to receive clones; say yes (or install with `--mongodb-clones`).
 - **Users and roles** stay out (they belong to the server, and the source's include Rowsafe's own login): create the fork's users on it.
 - To protect the fork with restores to any second, that server must be a replica set (one member is enough): Rowsafe's plan for the fork's backups says so.
-- No masking for MongoDB yet.
+- No masking: the fork holds the real data.
 
 ## If it fails
 

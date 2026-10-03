@@ -48,12 +48,19 @@ You restore in the dashboard, on the database's **Rewind** tab, to:
 Two ways, both on your own server:
 
 - **Restore a copy** next to production, compare it with production and **bring back** the rows you lost. Production keeps running.
-- **Rewind the whole database** to that moment, for the worst case. PostgreSQL stops while Rowsafe restores it, and you can undo it for 7 days.
+- **Rewind the whole database** to that moment, for the worst case. You can undo it for 7 days.
 
 When the server itself is lost, you restore the backups by hand onto a new server with pgBackRest. [Restore a database](/docs/guides/restore) describes all three.
 
 Rowsafe proves every week that restoring works, with [Proof](/docs/concepts/restore-drills), the weekly restore test.
 
-<Callout title="PostgreSQL details">
-  On PostgreSQL the change log is the write-ahead log (WAL), and backups are taken with pgBackRest. See [How PostgreSQL backups work](/docs/concepts/postgresql).
-</Callout>
+## By database
+
+| | Backups | Change log | Restore to |
+|---|---|---|---|
+| PostgreSQL | pgBackRest: weekly full, daily differential | the WAL ([details](/docs/concepts/postgresql)) | any second, or a Mark |
+| MySQL, MariaDB | XtraBackup or mariadb-backup: weekly full, daily differential | the binary log ([details](/docs/concepts/mysql)) | any second, or a Mark |
+| MongoDB | `mongodump`: a full backup every day | the oplog ([details](/docs/guides/mongodb#what-rowsafe-does)) | any second, or a Mark |
+| ClickHouse | ClickHouse's own `BACKUP`: weekly full, hourly differential | none | a backup (one every hour), or a Mark ([details](/docs/guides/clickhouse)) |
+
+Rewinding the whole database stops PostgreSQL, MySQL and MariaDB briefly while the data is swapped; MongoDB and ClickHouse keep running.

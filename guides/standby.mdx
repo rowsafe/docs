@@ -11,6 +11,8 @@ A **standby** is a second server that stays in sync with your database. You can:
 
 Rowsafe sets it up from your backups and your bucket, keeps it in sync, watches how far behind it is, and makes sure the old primary stays stopped after a promotion.
 
+Standby servers work for PostgreSQL, MySQL, MariaDB and MongoDB, each with its own replication. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb) and [MongoDB](#mongodb) say what differs. ClickHouse has no standby servers.
+
 ## What you need
 
 - **Another server** in the same organization, with the Rowsafe agent installed natively (not in Docker).
@@ -236,8 +238,6 @@ MongoDB standbys use MongoDB's own replication: the standby becomes a member of 
 - **Promoting** hands over through MongoDB's own election: the standby gets a vote, the old primary steps down once the standby has every write, and keeps priority 0 from then on (also after a restart), as a secondary. When the old primary is down, the standby becomes the set's only voting member.
 - **Connect your apps** with both servers and the set's name (`mongodb://host1,host2/db?replicaSet=rs0`): MongoDB drivers find the primary themselves, also after a promotion.
 - **Removing** takes the standby out of the replica set; its copy of the data stays on that server.
-
-ClickHouse databases have no standby servers: ClickHouse keeps no log of its changes that a second server could follow; real ClickHouse replication needs ClickHouse Keeper and `Replicated*` tables, which Rowsafe doesn't set up.
 
 ## From a terminal and AI agents
 

@@ -1,13 +1,22 @@
 ---
 title: Connection pooling
-description: Put PgBouncer in front of PostgreSQL so many app connections share a few database connections, or chproxy in front of ClickHouse's HTTP interface to queue bursts of queries. Rowsafe installs it, configures it, watches it in Pulse and points it at the new primary after a failover.
+description: Put PgBouncer in front of PostgreSQL or ProxySQL in front of MySQL and MariaDB so many app connections share a few database connections, or chproxy in front of ClickHouse's HTTP interface to queue bursts of queries. Rowsafe installs it, configures it, watches it in Pulse and points it at the new primary after a failover.
 ---
 
-**Connection pooling** puts [PgBouncer](https://www.pgbouncer.org/) between your apps and PostgreSQL. Your apps open as many connections as they like to PgBouncer, and PgBouncer shares a small number of real PostgreSQL connections between them.
+**Connection pooling** puts a pooler between your apps and the database: [PgBouncer](https://www.pgbouncer.org/) for PostgreSQL, ProxySQL for MySQL and MariaDB, chproxy for ClickHouse. This page describes PgBouncer; the others follow the same steps.
+
+With PgBouncer, your apps open as many connections as they like to PgBouncer, and PgBouncer shares a small number of real PostgreSQL connections between them.
 
 Rowsafe can install PgBouncer on your server, configure it, show it in Pulse, and point it at the new primary after a failover. It does this only on servers where you allowed it during install, and only when someone turns pooling on.
 
 The examples use a database named `app` on a server named `db-1`.
+
+| Database | Pooler | Details |
+|---|---|---|
+| PostgreSQL | PgBouncer | this page |
+| MySQL, MariaDB | ProxySQL | [MySQL and MariaDB](#mysql-and-mariadb-proxysql) |
+| ClickHouse | chproxy (HTTP interface) | [ClickHouse](#clickhouse-chproxy) |
+| MongoDB | none needed | MongoDB's drivers keep their own pool in every app |
 
 ## When you need it
 
@@ -316,17 +325,19 @@ For MySQL and MariaDB, Rowsafe runs [ProxySQL](https://proxysql.com) the same wa
 - ProxySQL's admin password stays with root; the agent only reads its statistics.
 - **After a standby's promotion** ProxySQL follows the new primary. On the new primary's own server that is automatic; to send connections to another server, root on the ProxySQL server approves that address once with `sudo rowsafe-allow pooler-target ADDRESS PORT` (the Standby page shows the exact command as soon as the standby exists). Until then ProxySQL keeps pointing where it was.
 
-## Other engines
-
-MongoDB's drivers keep their own pool in every app, and ClickHouse handles many connections itself, so neither needs a pooler.
 ## ClickHouse (chproxy)
+
 For ClickHouse, the pooler is [chproxy](https://github.com/ContentSquare/chproxy), the usual proxy for ClickHouse's **HTTP interface** (port 8123, or 8443 with TLS). It doesn't share connections the way PgBouncer does: it limits how many queries each ClickHouse user runs at once and **queues the rest** (30 seconds at most), so a burst of dashboards or app requests waits a moment instead of failing with "too many simultaneous queries" or slowing every query down.
+
 - **HTTP only.** clickhouse-client and drivers that use the native protocol (port 9000) keep connecting to ClickHouse directly; the Connections tab says so.
 - **Your apps' own logins.** chproxy passes each request's user and password on to ClickHouse, which checks them: Rowsafe stores no credentials for it, and its configuration (`/etc/rowsafe/chproxy.yml`) holds no secrets.
 - **Installed from chproxy's release.** Root's helper (`rowsafe-chproxy-apply.service`, allowed with the same `sudo rowsafe-allow pooler`) downloads chproxy 1.30.0 for the server's architecture from GitHub, checks it against the SHA-256 pinned in the agent, and runs it as `rowsafe-chproxy.service` with a throwaway system user. There is no Debian package for chproxy.
 - **Settings.** *Queries at once* (per user; Rowsafe picks the server's number of cores, at least 4, within `max_concurrent_queries`), *Queue* (how many more may wait; 100) and the port (9090). Changing who can connect works as for PgBouncer: *This server only*, *Private network* (chproxy listens on every address but only accepts private networks) or *Anywhere* where root allowed it.
 - **Pointing it elsewhere** reloads chproxy's configuration: queries in flight finish, queued ones go to the new port.
 - **Pulse** shows the queries running and waiting in chproxy, read from its metrics.
+
+Apps connect to chproxy's port with their own user:
+
 ```
 http://USER:PASSWORD@db-1:9090/?database=DATABASE
 ```

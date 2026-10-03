@@ -227,11 +227,13 @@ While masking, triggers don't fire, so audit logs and webhooks in your schema st
 
 When the fork is done, it lists **every masked column** and how it was masked (`rowsafe forks app --json` too). **Read that list** before you give anyone access.
 
-Masking rules you save for Guard's safe copies will apply to forks too once that feature ships; until then, masking goes by column names only.
+The masking choices you save for Guard's [safe copies](/docs/guides/safe-copies#masking) (**Guard, Masking**) apply to forks too; columns no choice covers go by their names, as above.
+
+Masking works for every engine. For MySQL, MariaDB and MongoDB, Rowsafe masks the fork in its private copy on the fork's server, before anything is loaded, so the real values never reach the new server. ClickHouse restores straight into the new server, so the fork is masked there right after the restore (with ClickHouse mutations), before it is handed over; columns in a table's sorting, primary or partition key can't be changed that way and are listed as skipped. The same limits as for [safe copies](/docs/guides/safe-copies#other-engines) apply (MongoDB fields inside arrays aren't masked).
 
 <Callout type="warn" title="Know what masking doesn't do">
 
-- **The real data reaches the fork's server first.** Rowsafe restores it there, then masks it on that server. Files it deletes aren't wiped from the disk. If a server must never hold real personal data, don't fork to it.
+- **The real data reaches the fork's server first.** Rowsafe restores it there, then masks it on that server (in a private copy for MySQL, MariaDB and MongoDB; in the new server itself for PostgreSQL and ClickHouse). Files it deletes aren't wiped from the disk. If a server must never hold real personal data, don't fork to it.
 - **Detection goes by column names.** A column named `notes` or `data` that holds emails isn't found, and neither is personal data in free text. Check the list.
 - **JSON columns aren't masked field by field.** A JSON column whose name looks personal is emptied when it allows `NULL`, and left as it is otherwise. Personal data inside other JSON columns stays.
 - **If masking fails, the fork fails.** It is removed and never starts unmasked.

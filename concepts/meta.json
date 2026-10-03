@@ -5,6 +5,7 @@
     "backups-and-recovery",
     "postgresql",
     "mysql",
+    "sqlite",
     "restore-drills",
     "restore-points",
     "protection-status",

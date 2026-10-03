@@ -10,6 +10,7 @@
     "mysql",
     "mongodb",
     "clickhouse",
+    "sqlite",
     "move-in",
     "---Rewind: get data back---",
     "restore",

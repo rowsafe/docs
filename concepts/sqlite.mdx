@@ -1,0 +1,84 @@
+---
+title: How SQLite backups work
+description: How Rowsafe finds a SQLite file, gets access to it, copies it safely next to your app, copies every change in WAL mode, and restores it.
+---
+
+A SQLite database is one file that your app opens itself. There is no server process in between: your app reads and writes the file directly, and SQLite's own locks keep its connections from getting in each other's way. The Rowsafe agent joins in as one more careful reader on the same server. Nothing passes through Rowsafe's service. The setup steps are in [Protect SQLite](/docs/guides/sqlite).
+
+## One file, one database
+
+Rowsafe treats each SQLite file as one database, named when you add it (`app`, for example). A server often has several, one per app or per purpose (Rails 8 keeps its cache and job queue in files of their own): add each one you want back after a bad day.
+
+Next to the file, SQLite may keep two helper files with the same name and an ending:
+
+| File | What it is |
+|---|---|
+| `production.sqlite3` | The database. |
+| `production.sqlite3-wal` | In WAL mode: changes committed but not yet written into the database file. |
+| `production.sqlite3-shm` | In WAL mode: a small shared-memory index that every connection uses to find its way in the `-wal` file. |
+
+Rowsafe works with all three. You only ever name the database file.
+
+## Getting access, without changing ownership
+
+The agent runs as its own system user, `rowsafe`, not as root and not as your app. At install, root gives it read and write access to the file, its `-wal` and `-shm` files, and their folder:
+
+- with a **POSIX ACL** on each, plus a **default ACL** on the folder, so the `-wal` and `-shm` files your app creates later get the same access;
+- or, when the file belongs to the app user's own group, by adding `rowsafe` to that group.
+
+The installer prints exactly what it changed. It never changes the file's owner, and every other user's access stays as it was. In Docker, the agent runs as the same user as your app instead, so nothing changes at all.
+
+The agent needs write access, not only read access, because SQLite readers write too: they take locks and update the `-shm` index. It also lets Rowsafe checkpoint, bring rows back and rewind, only when someone asks.
+
+## Safe next to your app
+
+Rowsafe opens the file with SQLite's own locking: the same file locks and the same `-shm` file your app uses. To SQLite, the agent is one more connection, and it follows the same rules as your app's connections.
+
+- **Backups** use SQLite's **online backup API**, made for copying a database while it is in use. The copy is consistent: it is the file as it was at one moment, even while your app writes.
+- **In WAL mode**, readers never block writers, so your app's writes never wait for Rowsafe's reads.
+- **In rollback-journal mode** (the older default), a write can wait a moment while Rowsafe reads, as it would behind any other reader.
+- The agent's work runs at **low CPU and IO priority**. When the file is busy, the agent waits and tries again, and Pulse counts those moments.
+
+Network drives (NFS, SMB/CIFS, sshfs and similar) are refused: their file locks aren't reliable, and SQLite itself warns against them.
+
+## Backups
+
+Every day by default, the agent takes a full copy of the file through the online backup API, compresses it and encrypts it on your server with your repository passphrase (`ROWSAFE_REPO_CIPHER_PASS`), then uploads it to your bucket. The passphrase never leaves your server. Without it, no backup can be restored, so keep a copy in your secret manager.
+
+Each copy is checked before it counts: the agent runs SQLite's `quick_check` on it, and records how many rows each table has. Proof compares against those counts later.
+
+## Every change, in WAL mode
+
+In **WAL mode** (`journal_mode=WAL`, Rails 8's default), SQLite doesn't write a transaction into the database file right away. It adds it to the end of the `-wal` file first. Every so often, a **checkpoint** writes those changes into the database file and lets the `-wal` file start over.
+
+That makes continuous backups possible:
+
+1. Every few seconds, the agent copies the transactions newly committed to the `-wal` file, whole transactions only, into an encrypted, time-stamped piece in your bucket.
+2. It keeps a read transaction open, so a checkpoint by your app can't overwrite changes it hasn't copied yet.
+3. Once they are copied, it checkpoints the file itself, so the `-wal` file doesn't keep growing.
+
+So your bucket is usually a few seconds behind your app. The dashboard shows how far behind it is.
+
+### When the chain breaks
+
+A restore to a second needs every change since the last full copy, in order. Some things break that chain: the agent was stopped while your app reset its `-wal` file, your app ran `VACUUM` or a `TRUNCATE` or `RESTART` checkpoint, or the file was replaced with another one. Rowsafe notices and starts again with a fresh full copy, by itself, and restores to any second continue from that copy.
+
+If your app runs a `TRUNCATE` or `RESTART` checkpoint itself, Rowsafe lets go after about two seconds, so your app isn't kept waiting. It's better to leave checkpoints to Rowsafe: it does the same job without needing a new full copy.
+
+### Without WAL mode
+
+In **rollback-journal mode**, SQLite writes changes straight into the database file, and there is no stream of changes to copy. Rowsafe still takes the daily backups, but you can only restore to one of them, and Marks aren't available. Pulse offers **Turn on continuous backups**, which switches the database to WAL mode: your app keeps working, `-wal` and `-shm` files appear next to the database, and the change is permanent unless your app switches back.
+
+## Restoring to a second
+
+To restore to a moment, Rowsafe takes the newest backup before it and replays every transaction committed up to it, into a new file. To a Mark, it replays exactly up to the Mark. Each change is time-stamped when the agent sees it, within about a second of the commit, so restores are to the second.
+
+That restored file is what everything else uses:
+
+- **Proof**, every week, restores the newest backup plus every change since into a scratch file, runs `PRAGMA integrity_check` and `PRAGMA foreign_key_check`, and compares each table's row count with what was recorded at backup time. Then it deletes the file.
+- **A Rewind copy** is a restored file kept next to the live one on the same server. Rowsafe compares them table by table, by primary key (by row number for tables without one), and can put missing rows back into the live file in one transaction, never overwriting a row that exists.
+- **Rewinding the whole database** writes the restored file into the live one through the online backup API, while your app keeps running: its connections see the new content, and writes wait the few seconds it takes. The file as it was is kept on the server for 7 days, for **Undo**.
+
+## Health
+
+About every minute, the agent reads the file's size, the `-wal` file's size, how many pages are unused, the journal mode, and how far continuous backups are behind. It records the last integrity check (on each backup's copy, and in Proof) and the times it found the file busy. About every 30 minutes it asks SQLite which tables' query statistics are out of date. Only these numbers, the file's path and the tables' names reach Rowsafe, never what is in them. See [Protect SQLite](/docs/guides/sqlite#pulse-and-one-click-fixes) for the findings and their fixes.

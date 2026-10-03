@@ -65,12 +65,42 @@ Two things restart or stop PostgreSQL without a click, and only if you turn them
 - **MySQL 8.0 and 8.4, and MariaDB 10.6, 10.11 and 11.4**, supported: on the same servers and in Docker, with every Rowsafe feature. See [Protect MySQL or MariaDB](/docs/guides/mysql) and its limits.
 - **MongoDB 6.0, 7.0 and 8.0**, supported: replica sets (one member is enough) on the same servers and in Docker with the official `mongo` images; not sharded clusters. Every feature except connection pooling, which MongoDB's drivers do themselves. See [Protect MongoDB](/docs/guides/mongodb) and its limits.
 - **ClickHouse 24.8 and newer**, supported: single servers on the same systems and in Docker with the official `clickhouse/clickhouse-server` images (25.8 to 26.8). Every feature, restore to any second included (every part ClickHouse writes is copied as it appears). See [Protect ClickHouse](/docs/guides/clickhouse) and its limits.
+- **SQLite 3**, supported: the database files your apps open, on the local disk of the same servers, and in Docker volumes (the agent as a sidecar). Backups, restore to any second (in WAL mode), Marks, Proof, Rewind and Pulse; no features that need a database server, and a few others not yet. See [Protect SQLite](/docs/guides/sqlite) and its limits.
 - **Redis/Valkey** is planned, without a date.
+
+</Accordion>
+<Accordion title="Does Rowsafe slow down my SQLite app?">
+
+Barely. The agent opens the file with SQLite's own locking, as one more connection, and its work runs at low CPU and IO priority. Backups use SQLite's online backup API, made for copying a database while it is in use. In WAL mode, your app's writes never wait for Rowsafe's reads; in rollback-journal mode, a write can wait a moment while Rowsafe reads, as it would behind any other reader. Only two things you ask for make writes wait: rewinding the whole file (a few seconds) and **Give free space back** (`VACUUM`; the confirmation says about how long). See [Safe next to your app](/docs/guides/sqlite#safe-next-to-your-app).
+
+</Accordion>
+<Accordion title="Does Rowsafe change my SQLite file?">
+
+Not on its own. Backups only read it. Rowsafe checkpoints the `-wal` file once it has copied the changes in it, which is what SQLite does on its own anyway, so the `-wal` file doesn't keep growing. Everything else happens only when someone clicks and confirms: bring back rows, rewind the whole file, and the fixes Pulse offers.
+
+At install, root gives the agent access to the file, its `-wal` and `-shm` files and their folder (with an ACL, or a group), and prints what it changed. The file's owner never changes, and everyone else's access stays as it was.
+
+</Accordion>
+<Accordion title="Does my SQLite database need WAL mode?">
+
+For restores to any second and Marks, yes. WAL mode (`journal_mode=WAL`) is the default in Rails 8 and common elsewhere. Without it, Rowsafe takes a full backup every day and you can restore to those backups. Pulse offers **Turn on continuous backups**, which switches the file to WAL mode: your app keeps working, and `-wal` and `-shm` files appear next to the database. See [How SQLite backups work](/docs/concepts/sqlite#every-change-in-wal-mode).
+
+</Accordion>
+<Accordion title="My SQLite file is in a Docker volume. Does that work?">
+
+Yes. The installer on the host finds SQLite files that apps in containers have open. Or run the agent as a sidecar in your compose project, with the app's volume mounted read-write and the agent running as the same user as your app. See [Protect SQLite](/docs/guides/sqlite#docker).
+
+</Accordion>
+<Accordion title="Can Rowsafe protect a SQLite file on a network drive?">
+
+No. Rowsafe refuses SQLite files on NFS, SMB/CIFS, sshfs and similar network filesystems: their file locks aren't reliable, so neither SQLite nor Rowsafe can safely share the file with your app there. Keep the file on the server's local disk.
 
 </Accordion>
 <Accordion title="What counts as a database?">
 
 One PostgreSQL cluster: one server instance, on one host and port. Every database inside it is backed up and checked together.
+
+For SQLite, one database file. A server with several SQLite files has several databases in Rowsafe.
 
 </Accordion>
 <Accordion title="Which storage can I use?">

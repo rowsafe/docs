@@ -85,9 +85,12 @@ Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
 | MariaDB 10.6, 10.11, 11.4 | **Supported** | Debian 12/13, Ubuntu 22.04/24.04, and Docker. See [MySQL and MariaDB](/docs/guides/mysql) |
 | MongoDB 6.0, 7.0, 8.0 | **Supported** | Replica sets (one member is enough) on Debian 12/13, Ubuntu 22.04/24.04, and Docker (official `mongo` images); not sharded clusters. See [Protect MongoDB](/docs/guides/mongodb) |
 | ClickHouse 24.8 and newer | **Supported** | Single servers on Debian 12/13, Ubuntu 22.04/24.04, and Docker (official `clickhouse/clickhouse-server` images, 25.8 to 26.8). See [Protect ClickHouse](/docs/guides/clickhouse) |
+| SQLite 3 | **Supported** | Database files your apps open, on local disk: Debian 12/13, Ubuntu 22.04/24.04, and Docker (the agent as a sidecar). Restore to any second needs WAL mode. See [Protect SQLite](/docs/guides/sqlite) |
 | Redis / Valkey | Planned | |
 
 Every Rowsafe feature works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse, with a few exceptions: MongoDB needs no connection pooling (its drivers pool connections themselves). The examples on most pages use PostgreSQL; each guide says what differs per database, and each database's guide lists its limits: [MySQL and MariaDB](/docs/guides/mysql#limits), [MongoDB](/docs/guides/mongodb#limits), [ClickHouse](/docs/guides/clickhouse#limits).
+
+SQLite runs inside your app, with no database server, so it has backups, restore to any second, Marks, Proof, Rewind, Pulse with one-click fixes, files and a second copy, but no restart, standby, pooling, server updates, Databases & users or logs. Some features aren't available for SQLite yet: see [its limits](/docs/guides/sqlite#limits).
 
 ## Safety first
 
@@ -148,6 +151,7 @@ One line each, grouped by what you want to do. The [features page](/features) li
 - [Adopt a production database](/docs/guides/adopt): the careful, step-by-step setup for a server that matters.
 - [Run the agent in Docker](/docs/guides/docker): PostgreSQL in the official `postgres` image.
 - [MySQL and MariaDB](/docs/guides/mysql), [MongoDB](/docs/guides/mongodb) and [ClickHouse](/docs/guides/clickhouse): the same protection for each.
+- [SQLite](/docs/guides/sqlite): the database files your apps use, protected where they are.
 - [Move in from a managed database](/docs/guides/move-in): from RDS, Supabase, Neon, Atlas, ClickHouse Cloud, DigitalOcean and others onto your own server.
 - [Plans and limits](/docs/concepts/plans-and-limits): every plan has every feature.
 
@@ -157,4 +161,5 @@ One line each, grouped by what you want to do. The [features page](/features) li
 - [Hosts and agents](/docs/concepts/hosts-and-agents): how servers join, report in and update.
 - [How PostgreSQL backups work](/docs/concepts/postgresql): WAL archiving with pgBackRest, and the settings Rowsafe changes.
 - [How MySQL and MariaDB backups work](/docs/concepts/mysql): physical backups and the binary log.
+- [How SQLite backups work](/docs/concepts/sqlite): copies next to your app, and every change in WAL mode.
 - [Security model](/docs/security): what Rowsafe can and can't see or do.

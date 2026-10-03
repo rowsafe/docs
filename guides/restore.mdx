@@ -1,6 +1,6 @@
 ---
 title: Restore a database
-description: Rewind a PostgreSQL database to any second or to a Mark. Restore a copy and bring back rows, or rewind the whole database, in one click. By hand with pgBackRest when the server is lost.
+description: Rewind a database to any second or to a Mark. Restore a copy and bring back rows, or rewind the whole database, in one click. By hand with pgBackRest when the server is lost.
 ---
 
 **Rewind** saves every change your database makes, so you can go back to any second in your recovery window, or to a **Mark** you set before a risky change. You do it in the dashboard: open the database's **Rewind** tab, then **Rewind**.
@@ -11,6 +11,8 @@ There are two ways back:
 - **Rewind the whole database** to that moment. For the worst case, when too much is damaged to repair row by row. You can undo it.
 
 Everything happens on your server. Rowsafe never sees your data: only names, counts and sizes reach it.
+
+It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page uses PostgreSQL's words; what differs per database is in [By database](#by-database).
 
 ## Which one to use
 
@@ -146,6 +148,19 @@ Standby replicas that streamed from this server no longer match it after a rewin
 Until the kept data is deleted, the page shows **Undo rewind**. It swaps the data back the same way: stop PostgreSQL, swap the directories, start it. What was written after the rewind is kept aside in turn, so undoing loses nothing either. Only the latest rewind can be undone.
 
 The data from before the rewind is kept for **7 days**, then deleted by itself. It uses disk meanwhile: **Delete the old data now** frees it, and then the rewind can't be undone. **Health** reminds you while it's there.
+
+## By database
+
+The buttons and steps are the same; what happens underneath follows each database.
+
+| | Restore a copy to | Compare by | Bring back rows | Rewind the whole database |
+|---|---|---|---|---|
+| PostgreSQL | any second or a Mark | primary key | one transaction per database; triggers don't fire | stops PostgreSQL and swaps the data directory (needs `restart`) |
+| MySQL, MariaDB | any second or a Mark | primary key | one transaction per database; triggers run (MySQL can't turn them off) | stops the server and swaps the data directory's contents (needs `restart`; not in Docker, not with replicas) |
+| MongoDB | any second or a Mark | `_id` | not one transaction: running it again finishes the job | swaps each collection with a rename, MongoDB keeps running (not with time series collections) |
+| ClickHouse | a backup (one every hour) or a Mark | all columns (no unique key) | not one transaction; not into Summing, Aggregating or Collapsing tables | swaps data partition by partition, ClickHouse keeps running (not replicated tables) |
+
+Undo works the same everywhere: the data from before is kept on the server for 7 days. Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#rewind-the-whole-server), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse). The rest of this page (the copy's socket, the disk it needs, restoring by hand) describes PostgreSQL.
 
 ## Who can do this
 

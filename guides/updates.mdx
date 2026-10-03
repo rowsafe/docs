@@ -1,9 +1,9 @@
 ---
-title: Update and upgrade PostgreSQL
-description: Install PostgreSQL's bug and security releases with one click, keep the server's security updates current, and upgrade to a new major version after a rehearsal, with undo.
+title: Update and upgrade your database
+description: Install your database's bug and security releases with one click (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse), keep the server's security updates current, and upgrade to a new major version after a rehearsal, with undo.
 ---
 
-Rowsafe keeps PostgreSQL current on your own server. Everything happens there, through the agent, and only when someone clicks and confirms (or opted in to automatic minor updates). Rowsafe saves a [Mark](/docs/concepts/restore-points) before each change.
+Rowsafe keeps your database current on your own server. It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse; this page uses PostgreSQL, and [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse) says what differs. Everything happens there, through the agent, and only when someone clicks and confirms (or opted in to automatic minor updates). Rowsafe saves a [Mark](/docs/concepts/restore-points) before each change.
 
 | What | How long PostgreSQL stops | Undo |
 |---|---|---|
@@ -22,7 +22,7 @@ Rowsafe can only do what root allowed on the server. The installer asks once, on
 | `Install this server's security updates, when someone clicks Install? [y/N]` | `security-updates` |
 | `Reboot this server, when someone clicks Reboot? [y/N]` | `reboot` (asked after a yes to security updates) |
 
-They need restarts allowed too: updating PostgreSQL restarts it, and the same helper does both. To change your answers later, on the server:
+They need restarts allowed too: updating the database restarts it, and the same helper does both. On other databases the question names them (*Install MySQL updates and upgrades...*). To change your answers later, on the server:
 
 ```sh
 sudo rowsafe-allow restart updates        # allow PostgreSQL updates (and restarts)
@@ -61,8 +61,8 @@ rowsafe update app --auto on --timezone Europe/Berlin
 
 Pulse shows **12 security updates are waiting; a reboot is needed** with **Install security updates** and, if a reboot is needed, **Reboot the server**. The agent counts the upgrades that come from your distribution's security repository about every hour.
 
-- **Install security updates** installs only upgrades from the security repository. The database servers' own packages are left alone: PostgreSQL's go through [Update PostgreSQL](#minor-updates), which restarts it in a controlled way; MySQL's, MariaDB's, MongoDB's and ClickHouse's aren't installed from Rowsafe yet (their upgrade would restart them). Services aren't restarted by the installation (`needrestart` only lists them); some updates, like a new kernel, only take effect after a reboot.
-- **Reboot the server** saves a Mark on the database, then reboots the whole server: everything on it stops for a minute or two, PostgreSQL included. You type the server's name to confirm. The agent reports back once the server is up and PostgreSQL answers.
+- **Install security updates** installs only upgrades from the security repository. The database servers' own packages are left alone: they go through **Update** ([PostgreSQL](#minor-updates), [the others](#mysql-mariadb-mongodb-and-clickhouse)), which restarts the database in a controlled way. Services aren't restarted by the installation (`needrestart` only lists them); some updates, like a new kernel, only take effect after a reboot.
+- **Reboot the server** saves a Mark on the database, then reboots the whole server: everything on it stops for a minute or two, the database included. You type the server's name to confirm. The agent reports back once the server is up and the database answers.
 
 ### MySQL, MariaDB, MongoDB and ClickHouse
 

@@ -126,7 +126,7 @@ For each call you see its time, the documents it changed, the indexes it built a
 </Tab>
 <Tab value="ClickHouse">
 
-The copy is restored from your newest backup (ClickHouse keeps no log of its changes, so it has the data of that backup). Each statement runs on its own; mutations (`ALTER TABLE ... UPDATE`, `ALTER TABLE ... DELETE`, `MODIFY COLUMN`) run to the end on the copy so their time shows, and the report says when one was still running or failing at the end: on production a mutation keeps rewriting parts in the background after the migration returns.
+The copy is restored from your newest backup (one every hour), so it has the data of that backup. Each statement runs on its own; mutations (`ALTER TABLE ... UPDATE`, `ALTER TABLE ... DELETE`, `MODIFY COLUMN`) run to the end on the copy so their time shows, and the report says when one was still running or failing at the end: on production a mutation keeps rewriting parts in the background after the migration returns.
 
 Statements that reach outside the server (table functions such as `url()` or `s3()`, external dictionaries and table engines, files) and server statements (`SYSTEM`, `GRANT`, users and roles) aren't run on the copy; the report marks them.
 
@@ -136,7 +136,7 @@ Statements that reach outside the server (table functions such as `url()` or `s3
 ## How it works, and its limits
 
 - **Where it runs.** On the database's server, next to production, at low CPU and IO priority, listening on no network port, with no background jobs (pg_cron and friends don't run). It needs free disk for a copy: about 1.3 times the cluster's size plus 1 GB, and room for a clone of the database when a copy is reused. Previews need the Rowsafe agent to be running and at least one backup.
-- **How fresh the data is.** The copy has everything that reached your bucket: at most about a minute behind production. A copy is reused for up to an hour (`fresh_minutes` in the API, `--fresh` in the CLI).
+- **How fresh the data is.** The copy has everything that reached your bucket: at most about a minute behind production (ClickHouse: its newest backup). A copy is reused for up to an hour (`fresh_minutes` in the API, `--fresh` in the CLI).
 - **One transaction or as written.** A migration without its own `BEGIN`/`COMMIT` runs in one transaction, committed at the end, like most migration tools; locks then last until the end, and the report says so. SQL with its own transactions, or with statements that can't run in one (`CREATE INDEX CONCURRENTLY`, `VACUUM`), runs statement by statement as written. psql commands (`\set`, `\c`) are skipped.
 - **Never as a superuser (PostgreSQL).** The migration runs as a regular role that owns your tables, so it can't run programs or read files on the server. `CREATE EXTENSION` statements are run first, by Rowsafe, as a superuser. Statements that need a superuser on your server too (`ALTER SYSTEM`, untrusted languages, `COPY` to a file) fail in the preview and say why.
 - **Times are estimates.** The copy has a small cache and low priority, so production is usually faster, but production is also busy: a lock that takes a second on the copy waits behind running queries on production, and every query behind it waits too. That's why Rowsafe suggests `lock_timeout`.

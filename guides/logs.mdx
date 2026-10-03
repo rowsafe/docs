@@ -1,9 +1,9 @@
 ---
 title: "Logs: your database's own log in Pulse"
-description: See PostgreSQL's own log in the dashboard, with values removed on your server before anything is sent. Filter errors, slow queries, lock waits and failed logins, group repeated errors, watch it live, turn on useful logging with one click, and forward it to Datadog, Loki and others.
+description: See your database's own log in the dashboard (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse), with values removed on your server before anything is sent. Filter errors, slow queries, lock waits and failed logins, group repeated errors, watch it live, turn on useful logging with one click, and forward it to Datadog, Loki and others.
 ---
 
-**Logs** is part of **Pulse**. The agent reads the database's own log on your server (PostgreSQL's here; [other engines](#mysql-mariadb-mongodb-and-clickhouse) below), removes the values in statements and error messages **before anything leaves the server**, and sends the rest to Rowsafe within seconds. In the dashboard, open a database, then **Pulse → Logs**.
+**Logs** is part of **Pulse**. The agent reads the database's own log on your server (PostgreSQL's in the examples; [other databases](#mysql-mariadb-mongodb-and-clickhouse) below), removes the values in statements and error messages **before anything leaves the server**, and sends the rest to Rowsafe within seconds. In the dashboard, open a database, then **Pulse → Logs**.
 
 Logs start on their own once the agent has updated itself to a version that reads them; there is nothing to install. They are on for every database and every plan. You can turn them off per database, or for a whole server.
 
@@ -137,12 +137,12 @@ The agent reads each engine's own log the same way, removes values on your serve
 | MongoDB 4.4+ | The structured log: errors, slow operations (their shape, values replaced by `?`), failed logins, connections, restarts | `systemLog.path` |
 | ClickHouse | The error log: errors and warnings, with the query that failed | `logger.errorlog` in its configuration |
 
-When the agent can't read the log, the Logs page says why and what to change: a log that goes to the container's output (Docker), to the journal or syslog, or a file the agent's user may not read. **Turn on useful logging** is PostgreSQL's only: for MySQL, turn on the slow query log yourself (`slow_query_log = ON`, `long_query_time = 1`). MongoDB statements in slow operations are always shapes without values, even with **Send full query text** on.
+When the agent can't read the log, the Logs page says why and what to change: a log that goes to the container's output (Docker), to the journal or syslog, or a file the agent's user may not read. **Turn on useful logging** changes PostgreSQL's settings; for MySQL and MariaDB, **Turn on the slow query log** (Pulse) does the same for slow statements, without a restart. MongoDB's slow operations are logged by default; ClickHouse's error log is on by default. MongoDB statements in slow operations are always shapes without values, even with **Send full query text** on.
 
 ## Limits
 
 - MongoDB before 4.4 writes a plain-text log, which isn't read.
 - Classification and redaction of messages rely on English `lc_messages` (see above).
-- The agent reads the log as the `postgres` user; a log that user can't read (or a journal it may not read) needs the change above.
-- On Docker, the log files need `logging_collector = on` and a restart of the PostgreSQL container.
+- PostgreSQL: the agent reads the log as the `postgres` user; a log that user can't read (or a journal it may not read) needs the change above.
+- PostgreSQL on Docker: the log files need `logging_collector = on` and a restart of the PostgreSQL container.
 - Lines appear within about 5 to 10 seconds; the live view checks every 3 seconds.

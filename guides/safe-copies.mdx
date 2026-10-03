@@ -88,7 +88,7 @@ The same value is always masked the same way (with a key that stays on your serv
 
 - **Plans**: Free 1 live safe copy at a time, Pro 5, Business 20, across the organization. Each is deleted by itself after 24 hours by default, at most 7 days, even if Rowsafe is unreachable.
 - **It runs on the database server**, at low priority, and needs free disk: about 1.3 times the cluster's size plus 1 GB. Restoring takes about as long as a restore test. It runs inside the agent's service, so when the agent restarts (an update, a reboot) the copy restarts with it: open connections drop for a few seconds.
-- **The data is as fresh as your backups**: the latest backup and every change since, at most about a minute behind production.
+- **The data is as fresh as your backups**: the latest backup and every change since, at most about a minute behind production (ClickHouse: its newest backup).
 - **Masking covers the columns you mask.** Personal data inside other columns (free-text notes you keep, JSON you keep, logs) stays unless you mask those too, and large objects are not masked. Old versions of masked rows remain in the copy's files on your server, readable only by a superuser, which nobody connecting to the copy is.
 - **Docker sidecar agents can't make safe copies** (the copy would be unreachable from outside the container); previews work there.
 - **What reaches Rowsafe**: table and column names and types (for the masking review), counts and sizes. Never the data.
@@ -108,7 +108,7 @@ The copy is restored from your latest backup and the oplog since, masked while i
 </Tab>
 <Tab value="ClickHouse">
 
-The copy is restored from your newest backup (ClickHouse keeps no log of its changes, so the data is as of that backup), masked with one mutation per table, then opened with its plain ports closed: the native protocol over TLS on the copy's port. Production's users aren't in a copy at all; its only login is the copy's, from the allowed networks. Columns in a table's sorting, primary or partition key, and tables outside the MergeTree family, can't be changed in place by ClickHouse, so they aren't masked and the copy's masking report lists them. The copy also answers HTTPS (TLS) on a second, random port of the same address, for the agent.
+The copy is restored from your newest backup (one every hour), so the data is as of that backup, masked with one mutation per table, then opened with its plain ports closed: the native protocol over TLS on the copy's port. Production's users aren't in a copy at all; its only login is the copy's, from the allowed networks. Columns in a table's sorting, primary or partition key, and tables outside the MergeTree family, can't be changed in place by ClickHouse, so they aren't masked and the copy's masking report lists them. The copy also answers HTTPS (TLS) on a second, random port of the same address, for the agent.
 
 </Tab>
 </Tabs>

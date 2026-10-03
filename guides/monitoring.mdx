@@ -7,6 +7,8 @@ description: Pulse is Rowsafe's monitoring. The health score, fixing problems wi
 
 Pulse starts as soon as you add a database, before backups are switched on. It is included in every plan, including Free.
 
+It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. The metrics and fixes on this page are PostgreSQL's; [By database](#by-database) lists the others'.
+
 ## What the agent collects
 
 Every 60 seconds the agent opens one short session (`rowsafe-agent-monitor`) over the Unix socket and runs a few cheap catalog queries. Each query has a 2-second timeout, so on a struggling server you get a gap in the graphs, never a pile-up of monitoring queries. Monitoring never blocks a backup, a Proof run or a Mark.
@@ -78,6 +80,18 @@ When `pg_stat_statements` is installed but not loaded, Pulse shows **Turn on que
 
 Resolved alerts are kept 90 days, and sent notifications 30 days.
 
+### By database
+
+The health score, alerts, uptime, the disk forecast, slow queries and the weekly email work the same for every database; the agent reads each one's own statistics, and values are removed from statements before they leave your server.
+
+| | What Pulse watches | One-click fixes |
+|---|---|---|
+| MySQL, MariaDB | connections, queries per second, slow queries (`performance_schema`), row lock waits, the buffer pool, long transactions, replication delay | stop a query or end a blocking session, rebuild a table with a lot of free space (`OPTIMIZE TABLE`), turn on the slow query log |
+| MongoDB | connections, operations, queues, the WiredTiger cache, write conflicts, the oplog window, secondary lag, slow operations (the profiler) | stop an operation (`killOp`), turn on query statistics |
+| ClickHouse | queries, inserts, merges, memory, data parts per partition, mutations, replication, broken parts, the queries running now | stop a query (`KILL QUERY`), cancel a stuck mutation (`KILL MUTATION`) |
+
+All of them also get the fixes that aren't PostgreSQL's own: back up now, Restart, updates, security updates and reboots, Tune for this server, and dropping or creating the indexes [Recommendations](/docs/guides/recommendations) proposes. Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#what-you-get), [MongoDB](/docs/guides/mongodb#what-rowsafe-does), [ClickHouse](/docs/guides/clickhouse#what-rowsafe-does).
+
 ## Health score
 
 Every database gets a score from **0 to 100** and a short list of findings, worst first. Each finding says what's wrong in plain language, why it matters and what to do, and, when Rowsafe can do it for you, has a button that does it (see [Apply fix](#apply-fix)).
@@ -130,7 +144,7 @@ What Rowsafe can fix:
 | PostgreSQL uses default memory settings on a bigger server | **Tune for this server** | Applies the recommended settings, after saving a Mark. See [Tuning](/docs/guides/tuning). |
 | Query statistics are off (`pg_stat_statements` isn't loaded) | **Turn on query statistics** | Adds it to `shared_preload_libraries`; it starts after the next restart. |
 | Changed settings wait for a restart | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts during install. |
-| A newer PostgreSQL minor release is available | **Update to 16.10** | Saves a Mark, installs the release and restarts PostgreSQL, on servers where you allowed updates. See [Update and upgrade PostgreSQL](/docs/guides/updates). |
+| A newer PostgreSQL minor release is available | **Update to 16.10** | Saves a Mark, installs the release and restarts PostgreSQL, on servers where you allowed updates. See [Update and upgrade your database](/docs/guides/updates). |
 | A newer release is installed but not running yet | **Restart PostgreSQL** | Restarts it, on servers where you allowed restarts. |
 | Security updates are waiting | **Install security updates** | Saves a Mark, installs the server's security updates (not PostgreSQL's own packages), on servers where you allowed them. |
 | The server needs a reboot | **Reboot the server** | Saves a Mark and reboots the server (you type the name), on servers where you allowed reboots. |

@@ -9,6 +9,8 @@ Each recommendation says **what** to change, **why** (with the numbers behind it
 
 Recommendations don't change the health score. They are in every plan, including Free.
 
+They work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse).
+
 ## See them
 
 In the dashboard: open a database, then **Pulse**, **Recommendations**. They are grouped into **Schema**, **Queries**, **Capacity** and **Indexes**, most important first.
@@ -143,7 +145,7 @@ The query and capacity checks work for every engine, from each one's statement s
 |---|---|
 | MySQL, MariaDB | Queries that read far more rows than they return, queries that sort or group on disk, tables without a primary key, indexes nothing uses and indexes another index covers (with **Drop**, online, a Mark first). Index suggestions tested on a copy (samples from `performance_schema`, or the slow query log on MariaDB). |
 | MongoDB | Operations that read far more documents than they return, the profiler being off (with **Turn on query statistics**), indexes nothing used for a week and redundant indexes (with **Drop**), and index suggestions tested on a copy. |
-| ClickHouse | Large tables without a sorting key, tables split into too many partitions. |
+| ClickHouse | Large tables without a sorting key, tables split into too many partitions, and skipping indexes and projections tested on a copy ([above](#clickhouse)), with **Add** and **Drop**. |
 
 ## Limits
 

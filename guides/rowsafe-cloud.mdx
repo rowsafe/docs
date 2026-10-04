@@ -75,7 +75,7 @@ For now, traffic above the included amount isn't billed. When that changes, it w
 1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
 2. Under **Where should it run?**, choose **Rowsafe Cloud**.
 3. Pick a region (the region decides the cloud), a size, a name and the PostgreSQL version.
-4. Add the addresses that may connect, and your SSH key if you want to log in yourself.
+4. Add the addresses that may connect.
 5. Click **Create server**. The first time, an owner adds a card first.
 
 The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](/docs/guides/create-a-server#connect-your-app).
@@ -104,4 +104,4 @@ It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the datab
 - **PostgreSQL only**, versions 15 to 18.
 - **One server per database**: no standby or automatic failover comes with it.
 - **No resize in place yet.** Pick the size you'll need; for a bigger one later, create a larger Rowsafe Cloud server and [move the database there](/docs/guides/move) (about a minute of downtime).
-- SSH keys are set when you create the server.
+- **No SSH access.** Rowsafe runs the server, like other managed databases: every fix is a button in the dashboard. For a server you can log in to, create it in your own cloud account.

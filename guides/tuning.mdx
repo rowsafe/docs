@@ -1,11 +1,11 @@
 ---
 title: "Tuning: your database's settings"
-description: See the settings that matter for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse explained in plain words, let Rowsafe tune them for your server's memory, CPUs and disk, change one setting safely, and undo a change in one click.
+description: See the settings that matter for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey explained in plain words, let Rowsafe tune them for your server's memory, CPUs and disk, change one setting safely, and undo a change in one click.
 ---
 
 A fresh PostgreSQL uses settings meant for a tiny machine: 128 MB of memory for caching data, whatever your server has. **Tuning** shows the settings that matter for each database, what each one does, and what suits your server, and changes them for you when you click.
 
-Open a database and pick the **Tuning** tab, or use `rowsafe settings` and `rowsafe tune` in a terminal. It works for every database Rowsafe protects except Redis and Valkey (not yet); this page uses PostgreSQL's settings, and [MySQL and MariaDB](#mysql-and-mariadb) and [MongoDB and ClickHouse](#mongodb-and-clickhouse) say what differs.
+Open a database and pick the **Tuning** tab, or use `rowsafe settings` and `rowsafe tune` in a terminal. It works for every database Rowsafe protects; this page uses PostgreSQL's settings, and [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB and ClickHouse](#mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs.
 
 ## What you see
 
@@ -125,6 +125,34 @@ MongoDB and ClickHouse keep their settings in configuration files that only root
 - **MongoDB:** the WiredTiger cache, connections, the longest transaction, the slow operation threshold and the profiler, as keys of its configuration file (edited as YAML; a copy is kept). The cache size, the transaction limit and the slow threshold also change on the running server at once; the rest waits for MongoDB's next restart.
 
 Settings that need a restart wait for the next one, which you choose (**Restart** in the dashboard, where root allowed it). In Docker, set these in the container's configuration instead.
+
+## Redis and Valkey
+
+Every Redis and Valkey setting on the page changes on the running server at once (`CONFIG SET`), with no restart. Several settings change together or not at all: if the server refuses one value, nothing changes.
+
+- **Memory:** the memory limit (`maxmemory`), what happens when it is reached (`maxmemory-policy`), and defragmentation (`activedefrag`).
+- **Persistence on the server's disk:** snapshot rules (`save`), the append-only file (`appendonly`, `appendfsync`). The replication backlog and `min-replicas-to-write` are shown but locked: Rowsafe's link to the server depends on them (Pulse proposes a larger backlog when the link needs one).
+- **Connections:** maximum connections, closing idle connections (`timeout`), and keepalives (`tcp-keepalive`).
+- **Slow log and latency:** the slow command threshold and length, the latency monitor, latency per command.
+
+Passwords, the port, the address and the data folder aren't on the page; Rowsafe never reads the password settings.
+
+**Tune for this server** asks how the server is used: **Cache** (keys can be computed again), **Store or queue** (no key may be lost), or **Not sure**, where Rowsafe looks at how many keys have an expiry (almost all: a cache). It proposes:
+
+- A memory limit when there is none: about 75% of the server's memory, less when other databases Rowsafe protects run on the same server (shared equally between them). Without a limit the server grows until the operating system stops it; the rest leaves room for its snapshots, which copy memory that changes while they run. It proposes nothing when the data already needs more than that.
+- For a cache still on `noeviction`, `allkeys-lru`: when full, the least recently used keys make room instead of writes failing. For a store or a queue that evicts keys, `noeviction`: writes are refused rather than keys lost, and Pulse warns well before the limit.
+- For a store with nothing on its own disk, snapshots (Redis's default rules), so a restart doesn't empty it. Rowsafe never proposes turning persistence off, and never the append-only file: your backups already keep every change, so restores to any second don't need it.
+- Keepalives when off, the latency monitor at 100 ms, and the slow log at 10 ms when off, so Pulse can show what is slow.
+
+Rowsafe refuses a memory limit above 90% of the server's memory, below what the data uses now, or under 64 MB; closing idle connections after less than 10 seconds; a slow log that records every command; and fewer than 32 connections.
+
+**How a change is kept after a restart.** The page says before you change anything:
+
+- Where root allowed Tuning (`sudo rowsafe-allow tuning`, or yes at the installer's question), root's copy of the agent also writes the change into the server's configuration file (`redis.conf` or `valkey.conf`): only the settings above, with plain values, replacing the lines that set them (a copy of the file is kept first; undo puts the original lines back).
+- Otherwise the server keeps them in its configuration file itself (`CONFIG REWRITE`) when it may write it.
+- A server started without a configuration file (common in Docker) keeps the change until it restarts: put it in the container's command or in a configuration file it starts with. The page and the change's summary say so.
+
+Undo puts back the values from before the change. Rowsafe saves a Mark first, except on a server Rowsafe can't follow, which takes no Marks. A replica's settings are changed on its primary.
 
 ## Limits
 

@@ -104,6 +104,20 @@ How billing changes:
 
 Owners and admins can change the size; every change is in the audit log. AI assistants can't. Servers paid by the month (not offered today) keep their size.
 
+### A server with a standby
+
+On a server [with a standby](#with-a-standby), **Change size** (on either server's page) changes **both servers**, one at a time, so the database isn't offline for minutes:
+
+1. Rowsafe saves a Mark, then changes the **standby's** server. The primary keeps serving; reads on the standby pause meanwhile.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves; reads on the standby continue.
+3. The old primary becomes the standby again on its own data (no copy), then gets the new size, while the database keeps running.
+
+The two servers **swap roles**: the server that was the standby holds the database afterwards. That's fine, and Rowsafe doesn't switch back (it would only pause writes again). Both servers' pages show each step. The prices shown are for both servers (twice one server's), and each server is billed at its own size by the hour, so for a while one has the new size and the other the old.
+
+The standby must be running and in sync first; if it isn't, the size change is refused and nothing changes. If something fails **before the switchover** (the cloud can't change the standby's size, the standby doesn't catch up), the database stays where it was and keeps running. If the cloud refuses the **second** server after the switchover, both servers keep running, the database on the one that has the new size, and the page says which server has which size; click **Change size** again to change only the one that's left (the standby, so without another switchover). If the old primary can't stop cleanly or the standby can't take over, Rowsafe starts the old primary again by itself.
+
+Servers [in your own cloud account](/docs/guides/create-a-server) with a standby can't change size yet: remove the standby, change the size, then add the standby again.
+
 ## With a standby
 
 A standby is a **second server of the same size** that keeps a live, read-only copy of the database, a moment behind the primary. If the primary goes down, the standby takes over, and your apps reconnect to it on their own.
@@ -158,11 +172,17 @@ Java uses `targetServerType=primary`. Drivers that take one address (node-postgr
 
 The standby is the primary now, and the old primary is stopped. On the old primary's page, click **Make it the standby again**: Rowsafe reuses its data where it can (else restores the latest backup there) and keeps it in sync, so you have a standby again. Or click **Remove the standby** to delete that server.
 
+After a **planned** switchover (the maintenance window, or a size change, below), Rowsafe does this by itself: the old primary stopped cleanly, so it becomes the standby on its own data, in seconds, without copying the database.
+
+### Updates and size changes with a standby
+
+A pair is updated and resized **one server at a time**: the standby's server first, then a switchover of a few seconds, then the other server. Writes pause for a few seconds instead of the database being offline for a restart, a reboot or minutes of resizing. Afterwards the servers have swapped roles. See [Change the size](#a-server-with-a-standby) and [Updates and maintenance](#maintenance-with-a-standby).
+
 ### Remove the standby
 
 On either server's page, click **Remove the standby** and type the server's name. The standby server is deleted, its billing stops, automatic failover turns off, and the primary keeps running untouched. Deleting the primary asks to delete its standby too.
 
-While a server has a standby, **Take it with you** isn't offered: remove the standby first.
+While a server has a standby, **Take it with you** isn't offered, because a database has one standby at a time and the move goes through a standby on your server: first click **Remove the standby** (its server is deleted and its billing stops; the primary keeps running), then **Take it with you**.
 
 ## Your passphrase, only yours
 
@@ -202,6 +222,20 @@ Rowsafe saves a [Mark](/docs/concepts/restore-points) first, then does each step
 - **Postpone a week** skips the next window, once: the window after it can't be postponed again.
 - **Apply now** applies it right away, after you confirm with the server's name.
 
+### Maintenance with a standby
+
+A server [with a standby](#with-a-standby) is maintained **one server at a time**, in the same window (the standby server has the primary's window):
+
+1. Rowsafe saves a Mark, then applies what needs a restart to the **standby's** server (its own PostgreSQL update, restart or reboot). The primary keeps serving.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops cleanly and the standby takes over. Nothing is lost; reads on the standby continue, and apps using the connection strings that follow the primary reconnect by themselves.
+3. The old primary becomes the standby again on its own data (no copy), and gets the same updates.
+
+The email the day before says "a few seconds while Rowsafe switches to the standby" instead of a restart's or a reboot's downtime. The servers **swap roles** and stay that way; Rowsafe doesn't switch back. Automatic failover waits throughout, so planned maintenance never triggers a failover.
+
+If the standby isn't running and in sync at that moment, or something fails **before the switchover**, Rowsafe applies the updates **in place** instead, like on a server without a standby (a few seconds for a restart, a minute or two for a reboot), and the email after the window says why. If something fails **after** the switchover, the database runs on the updated server, the email says what's left, and the next window tries again.
+
+When only the **standby's server** needs a restart (a new kernel there, for example) and the primary doesn't, its window applies it to the standby alone: no Mark, no switchover, **no downtime for the database**; only reads on the standby pause.
+
 ### Critical security fixes
 
 Sometimes an update can't wait for whenever you get to it: a flaw that is being exploited, or one that lets anyone read your data. Rowsafe staff can mark such an update **critical** (a PostgreSQL release or an operating system package, with its CVE and why it matters). Then, for each Rowsafe Cloud server that doesn't have it yet:
@@ -221,7 +255,6 @@ AI assistants (MCP) can see the window, the next date and what's waiting, but ca
 
 All of this is for Rowsafe Cloud servers only. On [servers in your own cloud account](/docs/guides/create-a-server) and on your own servers, nothing patches, restarts or reboots on its own: updates are a button someone clicks (see [Update and upgrade your database](/docs/guides/updates)), or the [automatic minor updates](/docs/guides/updates#minor-updates) you can turn on per database.
 
-**With a standby.** The database is updated in place in the window, like one without a standby: a few seconds for a restart, a minute or two for a reboot. Automatic failover waits while an update, restart or reboot runs, so planned maintenance never triggers a failover. The standby server gets the same window and installs its own security updates.
 
 ## Take it with you
 
@@ -287,6 +320,6 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 - **PostgreSQL only**, versions 15 to 18.
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
 - **Private connections** are for servers on AWS, from VPCs in the same AWS region only.
-- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). A server with a standby can't change size yet: remove the standby, change the size, then add it again.
+- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). With a standby, both servers change one at a time and **writes pause for a few seconds** at the switchover instead; the servers swap roles. (A pair in your own cloud account can't change size yet.)
 - SSH keys are set when you create the server.
-- **Maintenance restarts the database in place**: a few seconds for a PostgreSQL update or a library, a minute or two when a new kernel needs the server to restart. Pick a window when that suits you.
+- **Maintenance restarts the database in place**: a few seconds for a PostgreSQL update or a library, a minute or two when a new kernel needs the server to restart. Pick a window when that suits you. With a standby that's in sync, **writes pause for a few seconds** at a switchover instead, and the servers swap roles; when it isn't, the window updates in place.

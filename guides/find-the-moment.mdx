@@ -59,6 +59,7 @@ The MCP tool `find_moment` does the same search, and it is read-only, so it is a
 | MySQL, MariaDB | the binary logs in your bucket, with the server's own `mysqlbinlog` | to the second; with `binlog_format = STATEMENT`, only TRUNCATEs and DROPs are found |
 | MongoDB | the oplog in your bucket | to the second; outside a multi-document transaction, deletes and updates are grouped by collection and second |
 | ClickHouse | the record of the parts ClickHouse wrote, in your bucket | to the microsecond; a mutation is one change at its first part; `UPDATE` rows are those of the parts it rewrote ("up to"); `TRUNCATE` and `DROP PARTITION` show as emptied tables |
+| Redis, Valkey | not yet | |
 
 Rows are only counted on your server: their contents never leave it. **To the second** means **Rewind to just before this** goes back to the second before the change: other changes earlier in that same second aren't in the copy. The notes below describe PostgreSQL.
 

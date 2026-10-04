@@ -62,5 +62,6 @@ Rowsafe proves every week that restoring works, with [Proof](/docs/concepts/rest
 | MySQL, MariaDB | XtraBackup or mariadb-backup: weekly full, daily differential | the binary log ([details](/docs/concepts/mysql)) | any second, or a Mark |
 | MongoDB | `mongodump`: a full backup every day | the oplog ([details](/docs/guides/mongodb#what-rowsafe-does)) | any second, or a Mark |
 | ClickHouse | ClickHouse's own `BACKUP`: weekly full, hourly differential | none | a backup (one every hour), or a Mark ([details](/docs/guides/clickhouse)) |
+| Redis, Valkey | a full snapshot (RDB), sent the way Redis sends one to a new replica | every change, from the agent attached as a replica ([details](/docs/concepts/redis)) | about a second, or exactly a Mark |
 
-Rewinding the whole database stops PostgreSQL, MySQL and MariaDB briefly while the data is swapped; MongoDB and ClickHouse keep running.
+Rewinding the whole database stops PostgreSQL, MySQL and MariaDB briefly while the data is swapped; MongoDB, ClickHouse, Redis and Valkey keep running.

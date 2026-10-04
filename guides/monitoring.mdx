@@ -7,7 +7,7 @@ description: Pulse is Rowsafe's monitoring. The health score, fixing problems wi
 
 Pulse starts as soon as you add a database, before backups are switched on. It is included in every plan, including Free.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. The metrics and fixes on this page are PostgreSQL's; [By database](#by-database) lists the others'.
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. The metrics and fixes on this page are PostgreSQL's; [By database](#by-database) lists the others'.
 
 ## What the agent collects
 
@@ -89,8 +89,9 @@ The health score, alerts, uptime, the disk forecast, slow queries and the weekly
 | MySQL, MariaDB | connections, queries per second, slow queries (`performance_schema`), row lock waits, the buffer pool, long transactions, replication delay | stop a query or end a blocking session, rebuild a table with a lot of free space (`OPTIMIZE TABLE`), turn on the slow query log |
 | MongoDB | connections, operations, queues, the WiredTiger cache, write conflicts, the oplog window, secondary lag, slow operations (the profiler) | stop an operation (`killOp`), turn on query statistics |
 | ClickHouse | queries, inserts, merges, memory, data parts per partition, mutations, replication, broken parts, the queries running now | stop a query (`KILL QUERY`), cancel a stuck mutation (`KILL MUTATION`) |
+| Redis, Valkey | memory against `maxmemory`, evictions, hit rate, commands per second, clients (blocked, rejected), fragmentation, persistence, replication and lag, the slow log (command names only), latency events; a server without a password is flagged | set an eviction policy, give memory back (`MEMORY PURGE`) or turn on active defragmentation, disconnect a stuck client, raise the replication backlog |
 
-All of them also get the fixes that aren't PostgreSQL's own: back up now, Restart, updates, security updates and reboots, Tune for this server, and dropping or creating the indexes [Recommendations](/docs/guides/recommendations) proposes. Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#what-you-get), [MongoDB](/docs/guides/mongodb#what-rowsafe-does), [ClickHouse](/docs/guides/clickhouse#what-rowsafe-does).
+All of them also get the fixes that aren't PostgreSQL's own: back up now, Restart, updates, security updates and reboots, Tune for this server, and dropping or creating the indexes [Recommendations](/docs/guides/recommendations) proposes. Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#what-you-get), [MongoDB](/docs/guides/mongodb#what-rowsafe-does), [ClickHouse](/docs/guides/clickhouse#what-rowsafe-does). Redis and Valkey get Restart; updates, Tune for this server and Recommendations aren't there for them yet ([Protect Redis or Valkey](/docs/guides/redis)#pulse)).
 
 ## Health score
 

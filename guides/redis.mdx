@@ -74,7 +74,7 @@ On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`
 | [Pulse](/docs/guides/monitoring) | Memory, evictions, clients, persistence, replication, slow log and latency, with one-click fixes ([below](#pulse)). |
 | Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm ([below](#restart)). |
 | [Files](/docs/guides/files) | Back up the folders that go with the database (uploads), restored to the same moment. |
-| [Second copy](/docs/guides/second-copy) | Your backups also go to a second bucket at another provider, encrypted with that bucket's own passphrase. |
+| [Second copy](/docs/guides/second-copy) | Weekly full snapshots and the stream of changes also go to a second bucket at another provider, encrypted with that bucket's own passphrase, so it can restore to any second too. Proof alternates between the two. |
 
 Before every temporary server (Proof, a Rewind copy), the agent checks there is enough free disk and memory on the server, and refuses with a plain message if there isn't. Temporary servers are capped in memory, so they can't take memory from production.
 

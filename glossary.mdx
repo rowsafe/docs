@@ -35,7 +35,7 @@ A place in cloud storage where your backups are kept: Cloudflare R2, Backblaze B
 
 ## Change log (WAL)
 
-The database's running diary of every change. Rowsafe copies it to your bucket continuously, at most about a minute behind, so it can replay changes up to any second. PostgreSQL calls it the write-ahead log, or WAL; MySQL and MariaDB the binary log; MongoDB the oplog. ClickHouse has none, so Rowsafe records the parts it writes instead (see [Protect ClickHouse](/docs/guides/clickhouse#how-restores-to-any-second-work)). See [How PostgreSQL backups work](/docs/concepts/postgresql#wal-archiving).
+The database's running diary of every change. Rowsafe copies it to your bucket continuously, at most about a minute behind, so it can replay changes up to any second. PostgreSQL calls it the write-ahead log, or WAL; MySQL and MariaDB the binary log; MongoDB the oplog. ClickHouse has none, so Rowsafe records the parts it writes instead (see [Protect ClickHouse](/docs/guides/clickhouse#how-restores-to-any-second-work)). Redis and Valkey send every change to Rowsafe's agent the way they send it to a replica (see [How Redis and Valkey backups work](/docs/concepts/redis)). See [How PostgreSQL backups work](/docs/concepts/postgresql#wal-archiving).
 
 ## Connection pooling
 
@@ -159,7 +159,7 @@ Every change saved, and restore to any second or to a [Mark](#mark), in one clic
 
 ## Rewind in place
 
-Rewinding the whole live database to a moment, for the worst case. PostgreSQL and MySQL stop briefly while Rowsafe swaps the data; MongoDB and ClickHouse keep running. What was written after that moment is kept aside for 7 days, so you can **undo** the rewind. See [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database).
+Rewinding the whole live database to a moment, for the worst case. PostgreSQL and MySQL stop briefly while Rowsafe swaps the data; MongoDB, ClickHouse, Redis and Valkey keep running. What was written after that moment is kept aside for 7 days, so you can **undo** the rewind. See [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database).
 
 ## Rowsafe service
 

@@ -136,6 +136,7 @@ The agent reads each engine's own log the same way, removes values on your serve
 | MySQL, MariaDB | The error log (errors, warnings, failed logins, deadlocks, restarts) and, when it is on, the slow query log (each slow statement with its time and rows examined) | `log_error` and `slow_query_log_file` |
 | MongoDB 4.4+ | The structured log: errors, slow operations (their shape, values replaced by `?`), failed logins, connections, restarts | `systemLog.path` |
 | ClickHouse | The error log: errors and warnings, with the query that failed | `logger.errorlog` in its configuration |
+| Redis, Valkey | not yet: Pulse shows their slow log (command names only) and latency events instead ([Protect Redis or Valkey](/docs/guides/redis)#pulse)) | |
 
 When the agent can't read the log, the Logs page says why and what to change: a log that goes to the container's output (Docker), to the journal or syslog, or a file the agent's user may not read. **Turn on useful logging** changes PostgreSQL's settings; for MySQL and MariaDB, **Turn on the slow query log** (Pulse) does the same for slow statements, without a restart. MongoDB's slow operations are logged by default; ClickHouse's error log is on by default. MongoDB statements in slow operations are always shapes without values, even with **Send full query text** on.
 

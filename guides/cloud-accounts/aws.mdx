@@ -1,0 +1,145 @@
+---
+title: Connect AWS
+description: Create an IAM user with a policy limited to the servers Rowsafe creates, and an access key for it, so Rowsafe can create database servers (EC2 instances) in your AWS account. The exact policy, what it allows, and how to revoke it.
+---
+
+<Callout type="info">
+  **New:** tell us if anything in these steps doesn't match what you see, at hello@rowsafe.sh.
+</Callout>
+
+To [create servers for you](/docs/guides/create-a-server) in AWS, Rowsafe needs the **access key of an IAM user** that has only the policy below. You create both in the AWS console and paste the key into the dashboard once. It takes about five minutes.
+
+## Create the user and its key
+
+<Steps>
+<Step>
+
+### Choose the AWS account
+
+Sign in to the [AWS console](https://console.aws.amazon.com). For the strongest separation, use an AWS account just for these databases (AWS Organizations creates one in a minute). Your usual account works too.
+
+</Step>
+<Step>
+
+### Create the policy
+
+Open **IAM**, then **Policies**, and click **Create policy**. Choose the **JSON** tab, replace what's there with the [policy below](#the-policy), click **Next**, name it `RowsafeServers` and click **Create policy**.
+
+</Step>
+<Step>
+
+### Create the user
+
+In IAM, open **Users** and click **Create user**. Name it `rowsafe` and leave console access off. On the permissions page choose **Attach policies directly**, tick `RowsafeServers`, and finish creating the user.
+
+</Step>
+<Step>
+
+### Create an access key
+
+Open the new user, go to **Security credentials** and click **Create access key**. Choose **Third-party service**, tick the confirmation and create it (leave the description empty). Copy the **access key ID** and the **secret access key**: AWS shows the secret only once.
+
+</Step>
+<Step>
+
+### Paste it into Rowsafe
+
+In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account**, choose **Amazon Web Services (AWS)**, paste the **Access key ID** (it starts with `AKIA`) and the **Secret access key**, give the account a name your team will recognize, and click **Connect**.
+
+</Step>
+</Steps>
+
+Rowsafe checks the key before it saves it: it asks AWS whether the key could start a server, create a firewall and an address, without doing any of it (a "dry run", which costs nothing). Your AWS account's root key is refused: it can do anything.
+
+## What access this gives Rowsafe
+
+### The policy
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RowsafeRead",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeImages",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeKeyPairs",
+        "ec2:DescribeAddresses"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RowsafeCreate",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:RunInstances",
+        "ec2:CreateSecurityGroup",
+        "ec2:ImportKeyPair",
+        "ec2:AllocateAddress"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RowsafeTagOnCreate",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "ec2:CreateAction": ["RunInstances", "CreateSecurityGroup", "ImportKeyPair", "AllocateAddress"]
+        }
+      }
+    },
+    {
+      "Sid": "RowsafeManageOwn",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:StartInstances",
+        "ec2:StopInstances",
+        "ec2:TerminateInstances",
+        "ec2:ModifyInstanceAttribute",
+        "ec2:AuthorizeSecurityGroupIngress",
+        "ec2:RevokeSecurityGroupIngress",
+        "ec2:DeleteSecurityGroup",
+        "ec2:DeleteKeyPair",
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress",
+        "ec2:ReleaseAddress"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": { "aws:ResourceTag/rowsafe": "1" }
+      }
+    }
+  ]
+}
+```
+
+In plain words, the key can:
+
+- **see** EC2 servers, images, networks, security groups, key pairs and addresses;
+- **create** servers, security groups (firewalls), key pairs and Elastic IP addresses, and tag them as it creates them;
+- **start, stop, resize, change the firewall of and delete only what is tagged `rowsafe=1`**, which Rowsafe tags at creation.
+
+It can't touch IAM, S3, databases or anything else in your account, and it can't stop, change or delete servers it didn't tag. It could start new ones, which is why an AWS account of its own is the strongest choice.
+
+Rowsafe itself creates, for each server, a Debian 12 instance with its disk, a security group that lets in only the addresses you chose, an Elastic IP address, and a key pair only if you give it your SSH public key (Rowsafe never adds its own). It creates them only when someone in your organization clicks and confirms. The key is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+
+## Revoke it
+
+- **In AWS:** IAM, **Users**, `rowsafe`, **Security credentials**: deactivate or delete the access key. Or delete the user.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the key; nothing in your AWS account changes. You can remove an account once its servers are deleted.
+
+After you revoke the key, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their firewall or delete them. Do that in the EC2 console.
+
+## Good to know
+
+- Prices in the dashboard are "about": estimates from AWS list prices, for the server, its disk and its public IPv4 address. Other regions differ, and your AWS bill is what counts.
+- Rowsafe offers the regions every AWS account has turned on. Each region needs its **default VPC**; if you deleted it, the dashboard says how to create it again.
+- AWS limits Elastic IP addresses (5 per region by default) and servers per region. If you reach a limit, Rowsafe says so: ask AWS for more in **Service Quotas**.
+- A server can only be resized to a size with the same kind of processor (ARM or x86).
+- AWS accepts only RSA and Ed25519 SSH keys.

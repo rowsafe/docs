@@ -11,7 +11,7 @@ In `agent.env`, values are single-quoted and must not contain single quotes or n
 
 | Variable | Default | |
 |---|---|---|
-| `ROWSAFE_STORAGE` | `own` | `rowsafe` for [Rowsafe Storage](/docs/guides/rowsafe-storage) (coming soon, not available yet): the location and short-lived credentials come from Rowsafe, and the `ROWSAFE_REPO_S3_*` settings below are not used (`ROWSAFE_REPO_CIPHER_PASS` still is). `own` for your bucket. |
+| `ROWSAFE_STORAGE` | `own` | `rowsafe` for [Rowsafe Storage](/docs/guides/rowsafe-storage): the location and short-lived credentials come from Rowsafe, and the `ROWSAFE_REPO_S3_*` settings below are not used (`ROWSAFE_REPO_CIPHER_PASS` still is). `own` for your bucket. |
 
 ## Bucket (repository)
 
@@ -194,6 +194,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `rse_...` | The enrollment token. `ROWSAFE_ENROLL_TOKEN=rse_...` in the environment works too. Without one, on a terminal, the installer prints a link to approve the server in your browser instead. |
 | `--protect NAME` | Set up the database without questions: register it as `NAME`, plan and apply. Never restarts the database. The storage settings must then be in the environment (`ROWSAFE_REPO_*`). |
 | `--no-setup` | Install the agent and set up storage only. Skip finding and protecting the database: add it later from the dashboard or with `rowsafe adopt`. |
+| `--install-postgres VERSION` | On a fresh Debian or Ubuntu server: install PostgreSQL `VERSION` (13 to 18) from the PostgreSQL project's repository (apt.postgresql.org, its signing key checked) and start it. Refuses if PostgreSQL is already installed; running the installer again keeps the one it installed. With `--protect`, that new PostgreSQL is restarted once if backups need it. What [Create a server for me](/docs/guides/create-a-server) runs on a new server. |
+| `--listen-public` | Make PostgreSQL reachable from the network: it listens on every address, with TLS (a self-signed certificate made on the server, in `/etc/ssl/rowsafe-postgresql`) and `scram-sha-256` passwords for every login from the network; local rules stay as they are. **Put a firewall in front: it decides who can connect.** Restarts PostgreSQL only if `--install-postgres` installed it or you say yes; otherwise the change waits for its next restart. |
 | `--files PATH` | Back up the folder `PATH` (uploads, media) with the database, without asking; repeat for several. Gives the agent's user read-only access to it (ACL) if it needs it. See [Back up and restore files](/docs/guides/files). |
 | `--allow-files` | Allow Rowsafe to put restored files back into the folders protected with `--files` (as the folder's owner), and those folders only: they are listed with their owner in `/etc/rowsafe/files-allowed`. A folder added later in the dashboard needs `--files` and that folder once more. Only when someone asks and confirms. |
 | `--no-allow-files` | Don't allow it, without asking. |
@@ -223,7 +225,7 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--allow-create-cluster` | Allow Rowsafe to create a new PostgreSQL cluster (on a free port in 5440-5499) when someone [forks a database](/docs/guides/fork) to this server and confirms, without asking. Debian and Ubuntu (`pg_createcluster`). |
 | `--no-allow-create-cluster` | Don't allow it, without asking. Clusters created earlier stay. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
-| `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage), coming soon; works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
+| `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage); works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |
 | `--no-prompt` | Never ask questions, even on a terminal. |
 | `--check-storage` | Test the backup storage in `agent.env` (your bucket, or Rowsafe Storage through the agent, and the second copy's, if there is one). Change nothing. |
 | `--add-storage` | Add a second copy in another bucket, with questions like the first storage, or move it to another bucket. Without a terminal, takes `ROWSAFE_REPO2_*` from the environment and tests it before saving. |

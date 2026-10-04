@@ -90,7 +90,7 @@ Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
 
 Every Rowsafe feature works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse, with a few exceptions: MongoDB needs no connection pooling (its drivers pool connections themselves). Redis and Valkey get backups, restores to any second, Marks, Proof, Rewind, Pulse with its fixes, restart, files and the second copy; the rest isn't there for them yet ([what's not yet](/docs/guides/redis#not-yet)). The examples on most pages use PostgreSQL; each guide says what differs per database, and each database's guide lists its limits: [MySQL and MariaDB](/docs/guides/mysql#limits), [MongoDB](/docs/guides/mongodb#limits), [ClickHouse](/docs/guides/clickhouse#limits), [Redis and Valkey](/docs/guides/redis#limits).
 
-SQLite runs inside your app, with no database server, so it has backups, restore to any second, Marks, Proof, Rewind, Pulse with one-click fixes, files and a second copy, but no restart, standby, pooling, server updates, Databases & users or logs. Some features aren't available for SQLite yet: see [its limits](/docs/guides/sqlite#limits).
+SQLite runs inside your app, with no database server, so it has backups, restore to any second, Marks, Proof, Rewind, Find the moment, Pulse with one-click fixes, security checks, recommendations, migration previews, safe copies, clones, files and a second copy, but no restart, standby, pooling, server updates, Databases & users, logs or tuning. Moving in from Turso or Cloudflare D1 isn't available yet: see [its limits](/docs/guides/sqlite#limits).
 
 ## Safety first
 

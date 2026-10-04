@@ -7,7 +7,7 @@ A database on your own server is only as safe as its settings: which addresses m
 
 It is part of **Pulse** (the database's **Pulse** tab, **Security**), starts as soon as you add a database, and is included in every plan. The database's **Overview** shows the grade and the most important thing to fix.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse; not yet for Redis and Valkey, where Pulse flags a server without a password ([Protect Redis or Valkey](/docs/guides/redis)#pulse)). This page describes PostgreSQL's checks; [the others](#mysql-mariadb-mongodb-and-clickhouse) have their own.
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and [SQLite](#sqlite); not yet for Redis and Valkey, where Pulse flags a server without a password ([Protect Redis or Valkey](/docs/guides/redis)#pulse)). This page describes PostgreSQL's checks; [the others](#mysql-mariadb-mongodb-and-clickhouse) have their own.
 
 ## Fix what it found
 
@@ -111,6 +111,17 @@ The same check runs for the other engines, every 15 minutes, with the check from
 - **Encryption**, **old password formats** (MySQL's `mysql_native_password`, MongoDB's SCRAM-SHA-1, ClickHouse's plaintext passwords), MySQL's sample `test` database and **versions out of support**.
 
 **Remove anonymous accounts** and **Remove the test database** (when it is empty) take one click on MySQL and MariaDB. Users without a password get one in [Databases & users](/docs/guides/databases-and-users). Everything that needs the server's configuration file and a restart (MongoDB's access control and `bindIp`, ClickHouse's `default` user, TLS) comes with the exact steps under **Do it yourself**. Where root allowed the firewall (`sudo rowsafe-allow firewall`), **Only allow your app servers** limits who can reach their port too, exactly like PostgreSQL's. The access-rule actions (`pg_hba.conf`) are PostgreSQL's.
+
+## SQLite
+
+A SQLite database has no port, users or encryption of its own: it is a file, so what matters is **who on the server can reach the file**. Nothing is checked from the internet, and the network actions don't apply (the Security page says so). Every 15 minutes, and when you click **Check again**, Rowsafe looks for:
+
+- **The file open to every user on the server:** the database file, or its `-wal`, `-shm` or `-journal` file, readable or writable by everyone.
+- **The file inside a folder a web server serves**, so anyone could download it: Rowsafe reads the nginx, Caddy and Apache settings it can (`root`, `alias`, `DocumentRoot`, `file_server`) and knows the usual web folders. Settings it can't read are listed, never an error.
+- **Its folder writable by everyone** (without the sticky bit), so anyone could replace or delete the file.
+- **Copies left next to it** that everyone can read: SQLite files named like the database with `.bak`, `.backup`, `.old`, a date and similar endings.
+
+**Close to other users** removes only other users' access (`o-rwx` on the files, `o-w` on the folder) after you confirm. The owner, the group and ACL entries never change, so your app and Rowsafe keep their access; the confirmation names any running program that would lose access. Rowsafe changes the app's files through a small root helper that root allows at install (`--allow-sqlite-modes`, or the installer's question, or later `sudo rowsafe-allow sqlite-modes`), and only in the folders of the listed SQLite files. Without it, the finding shows the `chmod` under **Do it yourself**. In Docker, where the agent runs as your app's user, it changes the files itself. A file inside a web server's folder has no button: move it out, or block SQLite files in the web server's settings (the finding shows how).
 
 ## Limits
 

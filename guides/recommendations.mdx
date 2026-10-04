@@ -9,7 +9,7 @@ Each recommendation says **what** to change, **why** (with the numbers behind it
 
 Recommendations don't change the health score. They are in every plan, including Free.
 
-They work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey: their Pulse findings and fixes are in [Protect Redis or Valkey](/docs/guides/redis)#pulse)). Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse).
+They work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and [SQLite](#sqlite) (not yet for Redis and Valkey: their Pulse findings and fixes are in [Protect Redis or Valkey](/docs/guides/redis)#pulse)). Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse).
 
 ## See them
 
@@ -146,6 +146,21 @@ The query and capacity checks work for every engine, from each one's statement s
 | MySQL, MariaDB | Queries that read far more rows than they return, queries that sort or group on disk, tables without a primary key, indexes nothing uses and indexes another index covers (with **Drop**, online, a Mark first). Index suggestions tested on a copy (samples from `performance_schema`, or the slow query log on MariaDB). |
 | MongoDB | Operations that read far more documents than they return, the profiler being off (with **Turn on query statistics**), indexes nothing used for a week and redundant indexes (with **Drop**), and index suggestions tested on a copy. |
 | ClickHouse | Large tables without a sorting key, tables split into too many partitions, and skipping indexes and projections tested on a copy ([above](#clickhouse)), with **Add** and **Drop**. |
+
+## SQLite
+
+SQLite keeps no query statistics, so there are no query, slow-query or unused-index checks: SQLite's recommendations come from the file's schema, read on your server about every 30 minutes and soon after the schema changes. Only table, column and index names reach Rowsafe.
+
+| Recommendation | What to do |
+|---|---|
+| A foreign key without an index on its columns | Rowsafe tests the index on a copy restored from your backups (for child tables of 1,000 rows or more): how long it takes to build, how big it is, and that SQLite uses it to look up the key. **Create index** saves a Mark, then runs `CREATE INDEX IF NOT EXISTS`. Your app's writes wait while it builds, about the time measured on the copy; reads go on in WAL mode. |
+| A table without a primary key | Add one in your next migration: Rewind compares and brings rows back by primary key, and a `VACUUM` can renumber the rows of a table without one. |
+| `AUTOINCREMENT` where it isn't needed | Advice only. `INTEGER PRIMARY KEY` already gives new ids; `AUTOINCREMENT` adds a write to `sqlite_sequence` on every insert. Changing it means rebuilding the table, so it's left to your migrations. |
+| No query planner statistics (`sqlite_stat1`) | The **Refresh statistics** fix in [Pulse](/docs/guides/sqlite#pulse-and-one-click-fixes). |
+| Many free pages and `auto_vacuum` off | The **Give free space back** fix in Pulse. |
+| Rollback-journal mode | The **Turn on continuous backups** fix in Pulse. |
+
+SQLite only checks foreign keys when your app turns them on (`PRAGMA foreign_keys`); an index on a foreign key's columns speeds up joins along it either way. Rowsafe can't measure how much a created index is used, only that it is still there, and the week-after report says so.
 
 ## Limits
 

@@ -83,6 +83,10 @@ That restored file is what everything else uses:
 
 The stream of changes in your bucket holds pages, not statements, so [Find the moment](/docs/guides/find-the-moment#sqlite) can't simply read "who deleted what". The agent restores the file as it was at the start of the range into a private scratch file on your server and replays the changes one transaction at a time. Before each one, it keeps the pages the transaction replaces; after it, it compares the rows on those pages, table by table, by primary key (or row number). Rows that are gone were deleted, rows that differ were changed, a table gone from the file was dropped. Rows are compared as hashes: nothing is decoded, and only table names, times and counts reach Rowsafe. "Just before" a change is the millisecond before Rowsafe copied it.
 
+## Copies for everything else
+
+Migration previews, safe copies and clones all start the same way: Rowsafe restores the file from your bucket into a new file on the server, never touching the live one. A preview runs your migration on a copy of that file; a safe copy masks it (or keeps only the schema) and leaves it in a private folder only the agent's user can read; a clone puts it in a folder root allowed for clones and protects it as a new database. Recommendations and index advice read only the live file's schema, and test an index on a restored copy before you create it.
+
 ## Health
 
 About every minute, the agent reads the file's size, the `-wal` file's size, how many pages are unused, the journal mode, and how far continuous backups are behind. It records the last integrity check (on each backup's copy, and in Proof) and the times it found the file busy. About every 30 minutes it asks SQLite which tables' query statistics are out of date. Only these numbers, the file's path and the tables' names reach Rowsafe, never what is in them. See [Protect SQLite](/docs/guides/sqlite#pulse-and-one-click-fixes) for the findings and their fixes.

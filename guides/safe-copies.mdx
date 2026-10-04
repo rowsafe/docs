@@ -7,7 +7,7 @@ Testing against production data finds the bugs that seed data hides, but it also
 
 Rowsafe restores a copy of the database on its own server, from your backups, replaces personal data with realistic fakes, and only then opens it on a network port for the addresses you choose. It deletes itself after a day unless you keep it longer.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey). What differs per engine is in [Other engines](#other-engines).
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and [SQLite](#sqlite) (not yet for Redis and Valkey). What differs per engine is in [Other engines](#other-engines).
 
 ## Make one
 
@@ -92,6 +92,17 @@ The same value is always masked the same way (with a key that stays on your serv
 - **Masking covers the columns you mask.** Personal data inside other columns (free-text notes you keep, JSON you keep, logs) stays unless you mask those too, and large objects are not masked. Old versions of masked rows remain in the copy's files on your server, readable only by a superuser, which nobody connecting to the copy is.
 - **Docker sidecar agents can't make safe copies** (the copy would be unreachable from outside the container); previews work there.
 - **What reaches Rowsafe**: table and column names and types (for the masking review), counts and sizes. Never the data.
+
+## SQLite
+
+A SQLite safe copy is a **new file on the database's server**, not a server: no port, no login, no password. Pick one:
+
+- **Masked copy:** the file as of the newest point in your bucket (in rollback-journal mode, the newest daily backup), with personal data masked by your [masking](#masking) rules and suggestions, in one transaction with the app's triggers set aside so they can't copy real values elsewhere, then rebuilt (`VACUUM`) so no original value is left in the file's free pages. If a masked value would break a column's constraint, the column is emptied instead.
+- **Structure only:** your tables, indexes, views and triggers in a new file, with no rows: for a laptop or CI that needs your schema and nothing else.
+
+**What protects it instead of a password:** the file stays on your server, in a private folder (`0700`) under `/var/lib/rowsafe/rewind/sqlite-copies`, readable only by the agent's user and root (`0600`). The copy's card shows its path, and under **Do it yourself** the command to bring it to your computer (`scp`, or `docker compose cp` for an agent in Docker): Rowsafe can't hand a file over end to end encrypted yet, so you copy it with your own server access. It is deleted when it expires (24 hours by default, at most 7 days), or when you click **Delete**.
+
+Full-text search tables (FTS5) are masked or rebuilt, and contentless ones are emptied; FTS3/4, R*Tree and your app's own extensions are removed from masked copies and left out of structure-only copies, with the triggers that use them. From a terminal: `rowsafe copies create app --schema-only`.
 
 ## Other engines
 

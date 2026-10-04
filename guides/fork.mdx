@@ -13,7 +13,7 @@ Use a fork to:
 
 Production isn't touched. The fork is restored from the source's backups in your bucket, and it never writes into them.
 
-Forks work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey). This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [ClickHouse](#clickhouse) and [MongoDB](#mongodb) say what differs. Masking personal data on the way is PostgreSQL's; for the others, a [safe copy](/docs/guides/safe-copies) gives masked data.
+Forks work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and SQLite (not yet for Redis and Valkey). This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [ClickHouse](#clickhouse), [MongoDB](#mongodb) and [SQLite](#sqlite) say what differs. Masking personal data on the way is PostgreSQL's; for the others, a [safe copy](/docs/guides/safe-copies) gives masked data.
 
 ## What you need
 
@@ -323,6 +323,17 @@ MongoDB databases can be forked from the same **Fork** page, at any second of th
 - **Users and roles** stay out (they belong to the server, and the source's include Rowsafe's own login): create the fork's users on it.
 - To protect the fork with restores to any second, that server must be a replica set (one member is enough): Rowsafe's plan for the fork's backups says so.
 - No masking: the fork holds the real data.
+
+## SQLite
+
+For SQLite, a fork is called a **clone**: a **new database file**, the source file as it was at any second of its window or at a Mark (now is a Mark Rowsafe saves first). It is registered as a new SQLite database in Rowsafe, with its own backups. Open the database, then **Clone**:
+
+- **Where.** On the same server (nothing moves) or another one (the bucket settings are sealed to that server's agent, after you confirm its fingerprint, as above). Pick a folder and a file name.
+- **Only in folders root allowed.** Root chooses, at install, the folders where Rowsafe may create new SQLite files: `--sqlite-clone-dir /srv/sqlite-clones` (repeat it for several), or say yes when the installer asks. The installer creates a missing folder and gives the agent write access with an ACL; it never changes the folder's owner. System folders are refused. In Docker, name folders inside a mounted volume in `ROWSAFE_SQLITE_CLONE_DIRS` (the compose example shows it). Until a server has one, the **Clone** page says so and shows the installer flag.
+- **It never overwrites anything.** The file, and its `-wal`, `-shm` or `-journal` file, must not exist. Rowsafe restores into a hidden temporary name next to it, then puts it in place in one step.
+- **The new file** keeps the source's journal mode (WAL when the source uses it), so it gets restores to any second too. Its mode is `0660` with the folder's default ACL (`0640` without one), so the folder's owner and your app can open it.
+- **No masking** for SQLite clones yet: the clone holds the real data. For masked data, make a [safe copy](/docs/guides/safe-copies#sqlite).
+- From a terminal: `rowsafe fork app app-staging --host db-2 --file /srv/sqlite-clones/staging.sqlite3`.
 
 ## If it fails
 

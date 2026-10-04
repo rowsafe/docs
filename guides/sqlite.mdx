@@ -71,6 +71,12 @@ Rowsafe opens the file the way your app does, with SQLite's own locking: the sam
 | [Pulse](/docs/guides/monitoring) | The file's size, the `-wal` file's size, free pages, the journal mode, how far continuous backups are behind, the last integrity check, the times Rowsafe found the file busy or locked, and tables whose query statistics are out of date. Most findings have a [fix](#pulse-and-one-click-fixes). |
 | [Files](/docs/guides/files) | Back up your app's folders (uploads, attachments), restored to the same moment as a backup. |
 | [Second copy](/docs/guides/second-copy) | Backups and every change also go to a second bucket, encrypted with that bucket's own passphrase. |
+| [Find the moment](/docs/guides/find-the-moment#sqlite) | When rows were deleted or changed, or a table dropped: the changes replayed on a private copy on your server and each table's rows compared, with the point just before each change to rewind to. Needs WAL mode. |
+| [Security](/docs/guides/security#sqlite) | Who on the server can reach the file: open to every user, inside a folder a web server serves, a folder anyone can write, readable copies left next to it. **Close to other users** with one click. |
+| [Recommendations](/docs/guides/recommendations#sqlite) | From the schema (SQLite keeps no query statistics): foreign keys without an index (tested on a copy, then **Create index**), tables without a primary key, `AUTOINCREMENT`, missing statistics. |
+| [Migration preview](/docs/guides/preview-migrations) | Your migration run on a restored copy: time, rows, rebuilt tables, indexes, how long your app's writes would wait. Also for AI agents through Guard. |
+| [Safe copies](/docs/guides/safe-copies#sqlite) | A masked copy or a structure-only copy, as a new file on the server only the agent's user can read. |
+| [Clone](/docs/guides/fork#sqlite) | The file as it was at any second or a Mark, as a new file in a folder root allowed, on this server or another, protected as a new database. |
 
 Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
 
@@ -192,7 +198,10 @@ docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 | [Databases & users](/docs/guides/databases-and-users) | A SQLite database is one file with no users or accounts of its own to manage. |
 | [Logs](/docs/guides/logs) | SQLite runs inside your app and keeps no log of its own; your app's logs have its errors. |
 
-**Not yet available for SQLite** (coming later): [tuning](/docs/guides/tuning), [security checks](/docs/guides/security), index advice and [recommendations](/docs/guides/recommendations), [Find the moment](/docs/guides/find-the-moment), [safe copies](/docs/guides/safe-copies), [migration preview](/docs/guides/preview-migrations), [cloning to another server](/docs/guides/fork) and [moving in](/docs/guides/move-in).
+**Not available for SQLite:**
+
+- [Tuning](/docs/guides/tuning) doesn't apply: there is no server to tune, and your app sets SQLite's options when it opens the file.
+- [Moving in](/docs/guides/move-in) from Turso or Cloudflare D1 isn't available yet.
 
 Also good to know:
 
@@ -202,3 +211,8 @@ Also good to know:
 - **A fresh full copy starts by itself** when the stream of changes breaks: the file is replaced, its page size changes, or your app reset its `-wal` file while the agent was stopped. Backups and changes from before the break stay restorable up to it; restores after it start from the fresh copy.
 - **Restores are to the second.** Rowsafe time-stamps each change when it sees it, within about a second of the commit.
 - **Virtual tables aren't compared** in Rewind, and tables without a primary key are matched by row number, which `VACUUM` can change.
+- **Find the moment, previews, safe copies and clones work on restored copies** on the same server: each needs about the file's size free under `/var/lib/rowsafe` (clones: in their folder).
+- **No query statistics:** SQLite keeps none, so there are no slow queries or unused-index checks; recommendations come from the schema.
+- **Safe copies have no password:** they are files only the agent's user and root can read, and you copy one to your computer with your own access to the server.
+- **Clones aren't masked yet**, and go only into folders root allowed at install (`--sqlite-clone-dir`). They never overwrite a file.
+- **Security fixes need root's permission** for the app's files (`--allow-sqlite-modes`), and only ever remove other users' access.

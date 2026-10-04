@@ -81,5 +81,6 @@ The agent connects to Redis from the server itself (`127.0.0.1`, or the Redis se
 | `CONFIG GET`, `CONFIG SET`, `CONFIG REWRITE` | reading settings, and the fixes someone applies |
 | `MEMORY PURGE`, `CLIENT KILL` | the fixes someone applies |
 | `BGSAVE` | scheduled snapshots, when Rowsafe can't follow the server |
+| `ACL LIST`, `GETUSER`, `USERS`, `SETUSER`, `DELUSER`, `SAVE` | [Databases & users](/docs/guides/databases-and-users#redis-and-valkey): listing users, and creating, changing and removing the ones someone asks for |
 
 The user never sees anything outside Redis. Pulse reads the slow log as command names only, never keys or values.

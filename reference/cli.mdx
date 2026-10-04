@@ -80,7 +80,7 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe db create DB` | Create a database owned by a new user named like it; the password is shown once. `--owner USER` gives it to an existing user, `--new-owner USER` names the new one, `--extension EXT` (repeatable) turns extensions on, `--locale L` and `--template template0`. |
 | `rowsafe db drop DB` | Remove a database and everything in it, after a Mark. Asks you to type the name; `--yes` skips that. |
 | `rowsafe db users` | Users, the databases they can connect to and how their password is stored. |
-| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. |
+| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. Redis and Valkey: `--keys PATTERN` instead of `--db` (`"*"` for every key). |
 | `rowsafe db user password USER` | A new password, shown once. |
 | `rowsafe db user remove USER` | Remove a user; `--reassign-to USER` gets what it owns. Asks first; `--yes` skips it. |
 | `rowsafe db ext on\|off DB EXTENSION` | Turn an extension on or off in one database. `--allow-untrusted` for extensions that can run programs on the server. |

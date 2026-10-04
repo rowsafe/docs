@@ -1,6 +1,6 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, changing the size, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, changing the size, a standby with automatic failover, taking it with you, and what Rowsafe can and can't reach.
 ---
 
 No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
@@ -104,6 +104,66 @@ How billing changes:
 
 Owners and admins can change the size; every change is in the audit log. AI assistants can't. Servers paid by the month (not offered today) keep their size.
 
+## With a standby
+
+A standby is a **second server of the same size** that keeps a live, read-only copy of the database, a moment behind the primary. If the primary goes down, the standby takes over, and your apps reconnect to it on their own.
+
+- **When you create a server**, turn on **With a standby**. **Fail over automatically** is ticked; untick it if you'd rather switch yourself.
+- **On a server you already have**, open its page and click **Add a standby**. The price is shown before you confirm. Nothing on the primary restarts.
+
+Rowsafe creates the second server right after the first one is ready, copies the database there from the latest backup, and keeps it in sync by streaming every change over an encrypted connection. The server's page shows the steps: **Creating the standby server**, **Installing PostgreSQL**, **Copying the database**, **Standby ready**. For a big database, copying takes longer.
+
+### Where the standby runs
+
+Rowsafe puts the standby somewhere else than the primary when the cloud has somewhere else in that region, and says plainly when it hasn't. The page shows where it is before you create it and once it runs.
+
+| Cloud | Where the standby runs |
+|---|---|
+| AWS | **Another availability zone** of the same region: a separate datacenter with its own power and network. |
+| DigitalOcean | In **New York** and **San Francisco**, the city's **other datacenter** (NYC1 and NYC3, SFO2 and SFO3). In the other regions, which have one datacenter, a **separate server in the same datacenter**. |
+| OVHcloud | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
+
+A standby in the same datacenter covers the primary's server failing (hardware, disk, a crash), not an outage of the whole datacenter.
+
+### Price
+
+The standby is billed like any Rowsafe Cloud server of its size, by the hour and never more than its monthly price: **twice the price** in total. A Small DigitalOcean server with a standby costs about $0.096 an hour, at most $70 a month. A server and its standby count as **one** server against your organization's Rowsafe Cloud limit. Remove the standby and its billing stops.
+
+### Automatic failover, and what it can lose
+
+Automatic failover only acts when **every** condition holds, and the server's page shows them:
+
+- the primary has been **unreachable for about 3 minutes**, both for Rowsafe and for the standby;
+- the standby is running and was in sync, **at most about a minute behind** when the primary was last heard from;
+- nothing on purpose is going on: no restart, update or other change that stops PostgreSQL. Rowsafe also holds failover while it powers off or deletes one of the two servers itself.
+
+Then Rowsafe stops the old primary for good (as soon as it can reach it again) and promotes the standby, and says so in an alert and in the activity log.
+
+- **Up to about a minute of the newest changes can be lost.** The standby copies changes as they happen, not in lockstep with every commit (asynchronous streaming), so the last changes before the primary died may not have reached it. Usually it's under a second behind; Rowsafe doesn't fail over when it was further behind than a minute.
+- **One case to know: a network cut.** If the primary is cut off from Rowsafe and from the standby but your apps can still reach it, both servers could accept writes until the old primary is back on the network, and then Rowsafe stops it. The writes made to the old primary in between aren't on the new one. Keeping your apps on the same network path as the standby, or connecting through a [Rowsafe pooler](/docs/guides/connection-pooling), avoids it. See [Standby](/docs/guides/standby) for the details.
+
+Turn automatic failover off or on any time on the database's **Standby** page. Without it, you switch with one click (**Promote**) when the primary is down.
+
+### Connect so your app follows a failover
+
+The server's page shows **connection strings that follow the primary**: both servers' addresses in one string, and the driver keeps the one that accepts writes, before and after a failover. For example, with libpq, psycopg or pgx:
+
+```
+postgresql://USER@PRIMARY_ADDRESS:5432,STANDBY_ADDRESS:5432/DBNAME?target_session_attrs=read-write
+```
+
+Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) need a [Rowsafe pooler](/docs/guides/connection-pooling) or a DNS name you move. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
+
+### After a failover
+
+The standby is the primary now, and the old primary is stopped. On the old primary's page, click **Make it the standby again**: Rowsafe reuses its data where it can (else restores the latest backup there) and keeps it in sync, so you have a standby again. Or click **Remove the standby** to delete that server.
+
+### Remove the standby
+
+On either server's page, click **Remove the standby** and type the server's name. The standby server is deleted, its billing stops, automatic failover turns off, and the primary keeps running untouched. Deleting the primary asks to delete its standby too.
+
+While a server has a standby, **Take it with you** isn't offered: remove the standby first.
+
 ## Your passphrase, only yours
 
 Backups are encrypted on the server with a passphrase made **on the server**. You save a copy through your browser, encrypted end to end; Rowsafe passes on only the encrypted message and never has the passphrase. Without it, nobody can restore your backups, Rowsafe included, so save it before you rely on the database. The dashboard keeps asking until you confirm you saved it.
@@ -126,6 +186,6 @@ It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the datab
 ## Limits
 
 - **PostgreSQL only**, versions 15 to 18.
-- **One server per database**: no standby or automatic failover comes with it.
-- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size).
+- **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
+- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). A server with a standby can't change size yet: remove the standby, change the size, then add it again.
 - SSH keys are set when you create the server.

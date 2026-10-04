@@ -86,7 +86,7 @@ Backups are encrypted on the server with a passphrase made **on the server**. Yo
 
 ## Nothing changes until you click
 
-No maintenance windows and no surprise restarts. Restarts, updates and deleting each wait for someone in your organization to click and confirm. Updates are a button you click: nothing patches or restarts on its own, so keeping up is yours to decide. AI assistants (MCP) can list servers and save Marks, but can't create, resize, restart or delete anything.
+No maintenance windows and no surprise restarts. Restarts, updates and deleting each wait for someone in your organization to click and confirm. There are no permission switches to set: Rowsafe hosts the server, so restarts, PostgreSQL and security updates, reboots and restored copies are all available, and each runs only after that click. Updates are a button you click: nothing patches or restarts on its own, so keeping up is yours to decide. AI assistants (MCP) can list servers and save Marks, but can't create, resize, restart or delete anything.
 
 ## Take it with you
 
@@ -104,4 +104,4 @@ It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the datab
 - **PostgreSQL only**, versions 15 to 18.
 - **One server per database**: no standby or automatic failover comes with it.
 - **No resize in place yet.** Pick the size you'll need; for a bigger one later, create a larger Rowsafe Cloud server and [move the database there](/docs/guides/move) (about a minute of downtime).
-- SSH keys and what Rowsafe may do on the server are set when you create it.
+- SSH keys are set when you create the server.

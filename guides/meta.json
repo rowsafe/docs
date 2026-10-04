@@ -10,6 +10,7 @@
     "mysql",
     "mongodb",
     "clickhouse",
+    "redis",
     "move-in",
     "---Rewind: get data back---",
     "restore",

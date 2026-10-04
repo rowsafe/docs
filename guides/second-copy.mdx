@@ -103,7 +103,7 @@ New backups and the change log then go to the first storage only (`archive_comma
 
 ## MySQL, MariaDB, MongoDB and ClickHouse
 
-The second copy works for the other engines with their own backups: weekly full backups go to the second storage too, encrypted with its own passphrase, and Proof alternates between the two storages. MySQL's and MariaDB's binary log and MongoDB's oplog are copied there as well, by a second copier on the server that reads the same files, so the second copy can also restore to any second. ClickHouse's second copy restores to its weekly full backups.
+The second copy works for the other engines with their own backups: weekly full backups go to the second storage too, encrypted with its own passphrase, and Proof alternates between the two storages. MySQL's and MariaDB's binary log and MongoDB's oplog are copied there as well, by a second copier on the server that reads the same files, so the second copy can also restore to any second. ClickHouse's second copy restores to its weekly full backups. For Redis and Valkey, weekly full snapshots and the stream of changes go to the second storage too, so it can also restore to any second.
 
 ## Limits
 

@@ -1,0 +1,85 @@
+---
+title: How Redis and Valkey backups work
+description: Snapshots sent over Redis's own replication, a replica that saves every change, restores to any second, Marks, temporary servers for Proof and Rewind, the rewind in place with SWAPDB, and Rowsafe's ACL user.
+---
+
+For Redis and Valkey, the Rowsafe agent does the work itself: it gets snapshots and every change from your server the way a replica would, encrypts them on your server and sends them to your bucket. Nothing passes through Rowsafe's service. Valkey works exactly like Redis here.
+
+## Backups
+
+A backup is a **full snapshot** of the server: an RDB file, Redis's own snapshot format. The agent asks Redis for it the same way a new replica asks for its first copy (this is what `redis-cli --rdb` does). Redis forks, writes the snapshot and sends it over the connection, as it does for its own snapshots and for any new replica.
+
+So the agent never reads Redis's files for a backup. That's why it works the same on a server and across containers in Docker.
+
+The agent encrypts the snapshot on your server and uploads it to your bucket. Every backup is a full snapshot.
+
+## Every change, as it happens
+
+After the snapshot, the agent stays connected as a **replica that never serves anything**. Redis sends it every change, as it does for its other replicas. The agent:
+
+- stamps every change with the moment it arrived;
+- cuts the stream into pieces about every minute;
+- encrypts each piece on your server and uploads it.
+
+So your bucket is about a minute behind your server. Redis shows the agent in its list of replicas (`INFO replication`) as `ip=rowsafe-agent`. Rowsafe leaves it out of its own replica counts.
+
+If the agent is away for a moment (a restart, a network blip), Redis continues the stream where it stopped, from its **replication backlog** (`repl-backlog-size`, 1 MB by default). If the agent is away longer than the backlog holds, Redis can't continue: it sends a whole new snapshot instead. That snapshot becomes a new backup by itself, and the time between the break and the new snapshot can't be restored to a second. If this happens often, [Pulse](/docs/guides/redis#pulse) proposes a larger backlog, with a button.
+
+## Restoring to a second
+
+A restore (Proof, a Rewind copy) takes the newest snapshot before the moment you chose and loads it into a **temporary server** of the same engine and version: your server's own `redis-server` or `valkey-server`, or in Docker the one inside the agent image. It then replays the changes up to that second.
+
+The second is the moment each change reached the agent, so a restore is precise to about a second. Keys whose expiry time has passed by the time of the restore are gone: Redis drops them itself, as it would have on your server.
+
+## Marks
+
+A **Mark** records the server's position in its stream of changes at that moment (its replication id and offset). A restore to a Mark replays exactly up to that position: not a second, an exact point.
+
+## When Rowsafe can't follow the server
+
+Rowsafe doesn't attach as a replica when:
+
+- the replication commands (`SYNC`, `PSYNC`) are renamed or not allowed for Rowsafe's user, so Redis refuses the link;
+- the server uses `min-replicas-to-write`: Rowsafe's link would count as one of those replicas and weaken the guarantee you set up.
+
+Then backups are snapshots on the schedule only. The agent asks Redis to save one (`BGSAVE`) and reads it from Redis's own file, so it needs read access to Redis's data folder (the installer gives it; in Docker, mount the data volume into the agent read only). Restores go back to those snapshots, not to any second. The dashboard says which mode the server is in, and why.
+
+## Temporary servers
+
+Proof and Rewind copies run as a separate, temporary `redis-server` (or `valkey-server`) on the same host. It listens only on a Unix socket in a private folder that only the agent can open: no network port. Before starting one, the agent checks that the server has enough free disk and memory, and refuses with a plain message if it doesn't. The temporary server is capped in memory, so it can't take memory from production.
+
+**Proof** restores the newest backup, checks that it loads and that every logical database (`db0`, `db1`...) has as many keys as when the backup was taken, then replays the changes since and compares with production. The temporary server is deleted afterwards, whether Proof passed or failed.
+
+**Rewind copies** stay up while you use them. A compare reports, per logical database, keys only in the copy, keys whose value differs and keys added since; large databases are sampled, and the result says how many keys were compared. Bringing keys back copies them from the copy to production (`DUMP` and `RESTORE`) with their remaining time to live, and never overwrites a key that exists unless you choose to.
+
+## Rewinding in place
+
+Rewinding the whole server goes through Redis itself, one logical database at a time:
+
+1. The restored keys are loaded into an **empty logical database** on your server.
+2. `SWAPDB` swaps it with the live one. The swap is instant: there is never a moment without data, and Redis doesn't restart.
+3. The old keys, now in the spare logical database, are freed in the background (`FLUSHDB ASYNC`).
+
+Before the first swap, the agent keeps a snapshot of the server as it is in your bucket, so the rewind can be undone. Writes your apps make to a logical database while it is being loaded are replaced by the swap, as with any rewind; restoring to a second still finds them.
+
+So it needs one empty logical database and enough free memory for one more copy of the largest logical database. The data from before is kept as a snapshot in your bucket for 7 days, for **Undo**.
+
+## Encryption
+
+Snapshots and pieces of the stream of changes are encrypted **on your server**, with your repository passphrase, before they leave it, the same way as [MySQL and MariaDB backups](/docs/concepts/mysql#encryption). Your bucket only ever holds ciphertext, so your key names and values never reach it, or Rowsafe, in the clear.
+
+## Rowsafe's ACL user
+
+The agent connects to Redis from the server itself (`127.0.0.1`, or the Redis service in Docker) as its own ACL user, `rowsafe`. The installer creates it with a random password that stays on the server, readable by the agent only, and keeps the user across restarts: in Redis's ACL file, or its config file. In Docker, `rowsafe-agent redis login` creates it once with an administrator's password that is never saved, and Redis keeps it in an ACL file in its data volume.
+
+| Commands | For |
+|---|---|
+| reading and inspecting the server | backups, Proof, compare and Pulse |
+| the replication handshake | snapshots, and following every change |
+| `DUMP`, `RESTORE` | bringing keys back, only when someone asks in the dashboard |
+| `SWAPDB`, `FLUSHDB`, `DEL` | rewinding the whole server in place, only when someone asks (`DEL` only for its own marker key) |
+| `CONFIG GET`, `CONFIG SET`, `CONFIG REWRITE` | reading settings, and the fixes someone applies |
+| `MEMORY PURGE`, `CLIENT KILL` | the fixes someone applies |
+| `BGSAVE` | scheduled snapshots, when Rowsafe can't follow the server |
+
+The user never sees anything outside Redis. Pulse reads the slow log as command names only, never keys or values.

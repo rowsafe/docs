@@ -65,7 +65,14 @@ Two things restart or stop PostgreSQL without a click, and only if you turn them
 - **MySQL 8.0 and 8.4, and MariaDB 10.6, 10.11 and 11.4**, supported: on the same servers and in Docker, with every Rowsafe feature. See [Protect MySQL or MariaDB](/docs/guides/mysql) and its limits.
 - **MongoDB 6.0, 7.0 and 8.0**, supported: replica sets (one member is enough) on the same servers and in Docker with the official `mongo` images; not sharded clusters. Every feature except connection pooling, which MongoDB's drivers do themselves. See [Protect MongoDB](/docs/guides/mongodb) and its limits.
 - **ClickHouse 24.8 and newer**, supported: single servers on the same systems and in Docker with the official `clickhouse/clickhouse-server` images (25.8 to 26.8). Every feature, restore to any second included (every part ClickHouse writes is copied as it appears). See [Protect ClickHouse](/docs/guides/clickhouse) and its limits.
-- **Redis/Valkey** is planned, without a date.
+- **Redis 7.0 and newer, and Valkey 7.2 and newer**, supported: standalone servers (with or without replicas) on Debian 12/13, Ubuntu 24.04 (on 22.04, with Redis's own packages) and in Docker with the official `redis` and `valkey/valkey` images; not Redis Cluster or servers managed by Sentinel. Backups, restore to any second, Marks, Proof, Rewind, Pulse with its fixes, restart, files and the second copy; standbys, updates, tuning and the other features aren't there yet. See [Protect Redis or Valkey](/docs/guides/redis) and its limits.
+
+</Accordion>
+<Accordion title="How does Rowsafe back up Redis or Valkey?">
+
+The agent connects to Redis the way a replica does. Redis sends it a full snapshot (Redis forks to make it, as it does for its own snapshots and for any new replica), then every change as it happens. The agent stamps each change with the second it arrived and uploads the changes about every minute, encrypted on your server. So you can restore to about a second, or exactly to a Mark. Redis lists the agent among its replicas as `rowsafe-agent`; it never serves anything.
+
+If the server refuses that link (replication not allowed for Rowsafe's user, or `min-replicas-to-write` in use), backups are scheduled snapshots only, and the dashboard says so. See [How Redis and Valkey backups work](/docs/concepts/redis).
 
 </Accordion>
 <Accordion title="What counts as a database?">
@@ -124,7 +131,7 @@ Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: 
 </Accordion>
 <Accordion title="Does it do replicas and failover?">
 
-Yes, for PostgreSQL. A [standby](/docs/guides/standby) is a second server that Rowsafe keeps in sync from your backups. You can read from it, and promote it when the primary dies, by hand or automatically (off by default). One standby per database, on Linux servers with systemd; the standby's agent is installed natively, not in Docker. To back up, adopt the primary: a standby can't be adopted on its own.
+Yes, for PostgreSQL. A [standby](/docs/guides/standby) is a second server that Rowsafe keeps in sync from your backups. You can read from it, and promote it when the primary dies, by hand or automatically (off by default). One standby per database, on Linux servers with systemd; the standby's agent is installed natively, not in Docker. To back up, adopt the primary: a standby can't be adopted on its own. Standby servers aren't available for Redis and Valkey yet.
 
 </Accordion>
 <Accordion title="Is it open source?">

@@ -93,6 +93,7 @@ The same page works for the other engines, in their own terms. Passwords are mad
 - **MySQL and MariaDB:** a database's "owner" is a user with every right on it (MySQL has no owners). New users may log in from any host (`'name'@'%'`); where the server listens and your firewall decide who reaches it. Removing a database also takes back users' rights on it.
 - **MongoDB:** users are created in `admin` (connect with `authSource=admin`) with `read`, `readWrite` or `dbOwner` on the databases you choose. A new database shows up in MongoDB once something is written to it.
 - **ClickHouse:** `CREATE DATABASE`, `CREATE USER` and `GRANT`. Users defined in ClickHouse's configuration files (like `default`) are listed but never changed. A server that keeps its users only in configuration files can't get new ones until SQL users are on: the page says so and shows the small file that turns them on.
+- **Redis and Valkey:** not yet. Rowsafe's own ACL user is the only one it creates ([Protect Redis or Valkey](/docs/guides/redis)).
 - **Rowsafe's own login** needs the rights to create users. Installs from before this feature can list but not change: the page shows the one command, for root on the server, that gives them.
 
 ## Who can do it

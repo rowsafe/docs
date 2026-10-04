@@ -76,16 +76,16 @@ Coming in the same release: change these with one click in the dashboard, signed
 
 The questions and names are the same; the installer asks only those that apply, in the database's own words ("Restart or stop MySQL...").
 
-| Name | PostgreSQL | MySQL, MariaDB | MongoDB | ClickHouse |
-|---|---|---|---|---|
-| `restart` | Restart, rewind in place | Restart, rewind in place | Restart | Restart |
-| `create-cluster` | new clusters for forks | | | |
-| `updates`, `security-updates`, `reboot` | yes | yes | yes | yes |
-| `pooler`, `pooler-public` | PgBouncer | ProxySQL | (drivers pool) | chproxy |
-| `firewall` | yes | yes | yes | yes |
-| `tuning` | (not needed) | (not needed) | `mongod.conf` | `config.d`, `users.d` |
+| Name | PostgreSQL | MySQL, MariaDB | MongoDB | ClickHouse | Redis, Valkey |
+|---|---|---|---|---|---|
+| `restart` | Restart, rewind in place | Restart, rewind in place | Restart | Restart | Restart |
+| `create-cluster` | new clusters for forks | | | | |
+| `updates`, `security-updates`, `reboot` | yes | yes | yes | yes | not yet |
+| `pooler`, `pooler-public` | PgBouncer | ProxySQL | (drivers pool) | chproxy | not yet |
+| `firewall` | yes | yes | yes | yes | not yet |
+| `tuning` | (not needed) | (not needed) | `mongod.conf` | `config.d`, `users.d` | not yet |
 
-MongoDB and ClickHouse rewind in place inside the database, without stopping it, so they don't need `restart` for it. PostgreSQL and MySQL change their settings through their own SQL, so they don't need `tuning`.
+MongoDB, ClickHouse, Redis and Valkey rewind in place inside the database, without stopping it, so they don't need `restart` for it. PostgreSQL and MySQL change their settings through their own SQL, so they don't need `tuning`.
 
 A few rights belong to the database's own account rather than to root, and the installer asks for them separately: standby servers for MySQL and MariaDB (`--mysql-standby`) and MongoDB (`--mongodb-standby`), and an empty server ready to receive clones for MongoDB (`--mongodb-clones`) and ClickHouse (`--clickhouse-clones`). Each database's guide lists them: [MySQL and MariaDB](/docs/guides/mysql#what-rowsafe-may-do), [MongoDB](/docs/guides/mongodb#what-rowsafe-may-do), [ClickHouse](/docs/guides/clickhouse#what-rowsafe-may-do).
 

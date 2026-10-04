@@ -101,6 +101,15 @@ See [Protect MongoDB](/docs/guides/mongodb).
 
 See [Protect ClickHouse](/docs/guides/clickhouse).
 
+### Redis and Valkey
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_REDIS_HOST` | `127.0.0.1` | Where Redis or Valkey is. Docker sidecars: the Redis service, e.g. `redis`. |
+| `ROWSAFE_REDIS_DATA_DIR` | Redis's own data folder | Where the agent reads Redis's snapshot file (read only), only when Rowsafe can't follow the server. Docker sidecars: where the data volume is mounted in the agent, e.g. `/srv/redis-data`. |
+
+See [Protect Redis or Valkey](/docs/guides/redis).
+
 ### Files
 
 | Variable | Default | |
@@ -255,7 +264,7 @@ What the installer does:
 4. Installs the agent, the systemd unit and a logrotate file.
 5. Sets up the storage if it isn't configured (questions below), and writes `agent.env`, keeping settings already in it.
 6. If settings are missing, enables the service without starting it and lists what's missing. Otherwise self-tests the new agent, and only then starts or restarts it.
-7. Unless you pass `--no-setup`, finds the database on the server (PostgreSQL, MySQL, MariaDB, MongoDB or ClickHouse) and protects it (questions below, or `--protect NAME`).
+7. Unless you pass `--no-setup`, finds the database on the server (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis or Valkey) and protects it (questions below, or `--protect NAME`).
 
 ### The questions it asks
 

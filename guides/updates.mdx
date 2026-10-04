@@ -1,9 +1,9 @@
 ---
 title: Update and upgrade your database
-description: Install your database's bug and security releases with one click (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse), keep the server's security updates current, and upgrade to a new major version after a rehearsal, with undo.
+description: Install your database's bug and security releases with one click (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey), keep the server's security updates current, and upgrade to a new major version after a rehearsal, with undo.
 ---
 
-Rowsafe keeps your database current on your own server. It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey); this page uses PostgreSQL, and [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse) says what differs. Everything happens there, through the agent, and only when someone clicks and confirms (or opted in to automatic minor updates). Rowsafe saves a [Mark](/docs/concepts/restore-points) before each change.
+Rowsafe keeps your database current on your own server. It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse, and for minor updates of Redis and Valkey; this page uses PostgreSQL, and [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs. Everything happens there, through the agent, and only when someone clicks and confirms (or opted in to automatic minor updates). Rowsafe saves a [Mark](/docs/concepts/restore-points) before each change.
 
 | What | How long PostgreSQL stops | Undo |
 |---|---|---|
@@ -77,6 +77,22 @@ Pulse shows **12 security updates are waiting; a reboot is needed** with **Insta
 **Undo** (for 7 days) puts the kept data and packages back; what was written since is kept aside on the server. Removing the kept version (or 7 days) frees the disk. It needs free disk about the data's size. In Docker, the check lists the image change to make in your compose file.
 
 On the server, root allows it with `sudo rowsafe-allow updates` (with restarts: the installer asks *Install MySQL updates and upgrades, when someone clicks Update?*); the allow list then holds `database`. In Docker, pull the newest image of the same version and recreate the container; Rowsafe notices the new version.
+
+### Redis and Valkey
+
+**Update** works the same way on a Debian or Ubuntu server: the helper installs only Redis's own packages (`redis-server`, `redis-tools`, `redis-sentinel` and `redis`, from packages.redis.io or your distribution) or Valkey's (`valkey-server`, `valkey-tools`, `valkey-sentinel`), at the newest release of the series you run (8.2, 7.4, 8.1...), restarts the server if the packages didn't, and waits until it answers and has loaded its data. Apps are disconnected for a few seconds. Automatic minor updates on Sundays work too. Root allows it with `sudo rowsafe-allow updates` (the installer asks *Install Redis updates, when someone clicks Update?*); the allow list then holds `database`.
+
+- **Your distribution's fixes.** Debian and Ubuntu ship fixes of their Redis and Valkey without changing the version number (Debian 12's Redis stays 7.0.15). Rowsafe compares the packages themselves: Pulse shows **A security update of Redis 7.0.15 is available** (or just *an update*) and **Install the update** installs it.
+- **The October 2025 security releases.** Redis 8.2.2, 8.0.4, 7.4.6, 7.2.11 and 6.2.20, and Valkey 8.1.4, 8.0.6 and 7.2.11, fix CVE-2025-49844 (a flaw in Lua scripts that lets anyone who can sign in and run a script take over the server) and CVE-2025-46817, CVE-2025-46818 and CVE-2025-46819. When an update brings that fix, Pulse calls it a security update and marks it critical. Rowsafe goes by the version number, so it can't see a fix your distribution added without changing it.
+- **A Mark first, when there can be one.** On a server Rowsafe can't follow (scheduled snapshots only), there are no Marks: the update runs without one, and the confirmation says so.
+- **Major upgrades** (Redis 7.4 to 8.2, Valkey 8.1 to 9.0) aren't available from Rowsafe yet; the **Updates** tab says so. Upgrade as usual; Rowsafe notices the new version.
+- **In Docker**, Rowsafe can't replace your Redis or Valkey image. The agent image is built on the official image of your series (`redis8.2`, `valkey8.1`), so it knows that series' newest release when it was built, and Pulse shows when yours is older, with the step to run yourself:
+
+```sh
+docker compose pull redis && docker compose up -d redis
+```
+
+Redis restarts: apps are disconnected for a few seconds. A tag pinned to a release (`redis:8.2.1`) needs changing to the series (`redis:8.2`) first. Rowsafe notices the new version by itself.
 
 ## Major upgrades
 

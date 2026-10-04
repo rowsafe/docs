@@ -11,6 +11,7 @@
     "mongodb",
     "clickhouse",
     "redis",
+    "sqlite",
     "move-in",
     "---Rewind: get data back---",
     "restore",

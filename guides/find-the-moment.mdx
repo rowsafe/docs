@@ -5,7 +5,7 @@ description: Find out exactly when rows were deleted or changed, or a table was 
 
 Something went missing: customers are gone, orders all say "closed", a table is empty. Before you can [rewind](/docs/guides/restore), you need the moment it happened. **Find the moment** tells you: it lists each big delete, update, `TRUNCATE` and `DROP`, with the exact second it happened, the table, how many rows, and its transaction ID.
 
-It only reads. Nothing in the database changes, and your data never leaves your server: the Rowsafe agent reads the database's change log in your storage (PostgreSQL's WAL, MySQL's binary log, MongoDB's oplog) on your server, and only names, times and counts reach Rowsafe.
+It only reads. Nothing in the database changes, and your data never leaves your server: the Rowsafe agent reads the database's change log in your storage (PostgreSQL's WAL, MySQL's binary log, MongoDB's oplog, SQLite's WAL pages) on your server, and only names, times and counts reach Rowsafe.
 
 ## In the dashboard
 
@@ -59,6 +59,7 @@ The MCP tool `find_moment` does the same search, and it is read-only, so it is a
 | MySQL, MariaDB | the binary logs in your bucket, with the server's own `mysqlbinlog` | to the second; with `binlog_format = STATEMENT`, only TRUNCATEs and DROPs are found |
 | MongoDB | the oplog in your bucket | to the second; outside a multi-document transaction, deletes and updates are grouped by collection and second |
 | ClickHouse | the record of the parts ClickHouse wrote, in your bucket | to the microsecond; a mutation is one change at its first part; `UPDATE` rows are those of the parts it rewrote ("up to"); `TRUNCATE` and `DROP PARTITION` show as emptied tables |
+| SQLite | the WAL pages in your bucket, replayed on a private copy on your server | to the millisecond Rowsafe copied each change; a `DELETE` without `WHERE` shows as every row deleted (SQLite has no `TRUNCATE`); needs WAL mode ([details](#sqlite)) |
 | Redis, Valkey | not yet | |
 
 Rows are only counted on your server: their contents never leave it. **To the second** means **Rewind to just before this** goes back to the second before the change: other changes earlier in that same second aren't in the copy. The notes below describe PostgreSQL.
@@ -74,3 +75,14 @@ Rows are only counted on your server: their contents never leave it. **To the se
 - **Limits.** One search covers at most 7 days, lists the 100 biggest transactions, and reads at most about 8 GB of stored change log; over that, it searches the most recent part and says so. It can only look back as far as your oldest kept backup. `VACUUM FULL`, `CLUSTER` and table rewrites are not reported: they don't lose rows.
 - **ClickHouse.** The search reads the record of the parts ClickHouse wrote that Rowsafe keeps for restores to any second (see [Protect ClickHouse](/docs/guides/clickhouse#how-restores-to-any-second-work)), so it is quick and needs no extra disk. A `DELETE` (lightweight or `ALTER ... DELETE`) is counted exactly; an `UPDATE` shows the rows of the parts it rewrote ("up to"), since ClickHouse doesn't count the rows it changed; `TRUNCATE` and `DROP PARTITION` both show as an emptied table. Times are when ClickHouse wrote a change's first part, with microseconds.
 - **Cost on the server.** The search runs at low CPU and IO priority, downloads the change log for the range from your storage a few pieces at a time (16 MB each, deleted as soon as they are read), and needs about 1 GB of free disk under `/var/lib/rowsafe`.
+
+## SQLite
+
+SQLite's change log holds pages, not statements: each transaction is the pages it wrote. So the agent works differently:
+
+- **It replays, then compares.** The agent restores the file as it was at the start of your range into a private scratch file on your server (the newest backup before it plus every change up to it), then replays the range one transaction at a time. Before each transaction, it keeps the pages it will replace; after, it compares the rows on the pages that changed, table by table, by primary key (or row number). Rows that are gone were deleted, rows whose content changed were updated, and a table gone from the file was dropped. Values are compared as hashes on your server, never read out, and the scratch file is deleted when the search ends.
+- **Times are when Rowsafe copied each change**, within a second of its commit, to the millisecond. **Rewind to just before this** goes back one millisecond: when Rowsafe copied other changes in that same millisecond, the result says so, because the copy leaves them out too.
+- **What it lists.** Deleted rows, changed rows and dropped tables, counted exactly. A `DELETE` without `WHERE` shows as every row deleted (SQLite has no `TRUNCATE`). Added rows aren't listed. A `VACUUM` moves rows to other pages without changing them, so it isn't listed; a table rebuilt by a migration (create, copy, rename) is, with a note. A transaction too big to compare (it rewrote more than about 512 MB, a `VACUUM` of a large file for example) is listed as such, without counts.
+- **Needs WAL mode.** In rollback-journal mode there is no record of each change to read: Pulse offers to [turn WAL on](/docs/guides/sqlite#turn-on-continuous-backups).
+- **Cost on the server.** It needs about the database file's size free under `/var/lib/rowsafe`, for the scratch file, and stops after 10 minutes of replay: a busy week may need a few searches over shorter ranges, and the result says how far it got.
+- There is one database per file, so the database filter doesn't apply.

@@ -1,19 +1,25 @@
 ---
 title: Create a server for me
-description: No server yet? Rowsafe creates one in your own cloud account (Hetzner, DigitalOcean, AWS, Google Cloud or Azure) with PostgreSQL, backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, SSH, resizing and deleting.
+description: No server yet? Rowsafe creates one in your own cloud account (DigitalOcean, AWS or OVHcloud) with PostgreSQL, backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, SSH, resizing and deleting.
 ---
 
 No server yet? Rowsafe can create one for you **in your own cloud account**, install PostgreSQL on it and protect it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), and Pulse watching its health.
 
 It's your server. It runs in your account, your cloud bills you for it, and you can log in to it yourself. Everything else in these docs works on it exactly as on a server you set up yourself.
 
+<Callout title="Which clouds">
+  **DigitalOcean, AWS and OVHcloud** work today: each has been run end to end against a real account (create, first boot, SSH key, firewall, resize, delete). **Hetzner, Google Cloud and Azure are coming soon**: the dashboard shows them, but you can't connect them yet.
+
+  No cloud account? [Rowsafe Cloud](/docs/guides/rowsafe-cloud) runs the same server in Rowsafe's account, billed by the hour.
+</Callout>
+
 ## What it costs
 
 - **Your cloud provider bills you for the server, directly**, for as long as it exists. Rowsafe adds nothing to that bill.
 - Before you create anything, the dashboard shows each size's monthly price:
-  - **Hetzner**: "from", Hetzner's price in its cheapest location, before VAT.
   - **DigitalOcean**: DigitalOcean's own price.
-  - **AWS, Google Cloud and Azure**: "about", an estimate from list prices Rowsafe keeps (the server, its disk and its public address). Prices differ between regions.
+  - **AWS**: "about", an estimate from list prices Rowsafe keeps (the server, its disk and its public address). Prices differ between regions.
+  - **OVHcloud**: "about", OVHcloud's hourly price from its public catalog times 730 hours, in your OVHcloud account's currency (a month of 31 days costs a little more).
 
   Your cloud's bill is what counts. Traffic and taxes can add to it.
 - The server counts as one of your [plan's](/pricing) servers, like any other. Its backups go to [Rowsafe Storage](/docs/guides/rowsafe-storage) and count toward your plan's storage.
@@ -22,11 +28,9 @@ It's your server. It runs in your account, your cloud bills you for it, and you 
 
 - You are an **owner or admin** of your organization in Rowsafe.
 - You have an account at one of the clouds, with billing turned on, and you have **connected it to Rowsafe** once. It takes a couple of minutes: you create a token (or key) in your cloud, limited to what Rowsafe needs, and paste it into the dashboard. Step by step for each cloud:
-  - [Hetzner](/docs/guides/cloud-accounts/hetzner)
   - [DigitalOcean](/docs/guides/cloud-accounts/digitalocean)
   - [AWS](/docs/guides/cloud-accounts/aws)
-  - [Google Cloud](/docs/guides/cloud-accounts/google-cloud)
-  - [Azure](/docs/guides/cloud-accounts/azure)
+  - [OVHcloud](/docs/guides/cloud-accounts/ovh)
 
 You can connect an account in the middle of creating a server, too.
 
@@ -77,7 +81,7 @@ The same choices the installer asks on a server you set up yourself ([what Rowsa
 | Install PostgreSQL updates and upgrades | On |
 | Install the server's security updates | Off |
 | Reboot the server | Off |
-| Change the server's own firewall | Off. Your cloud's firewall already decides who can connect, so most people leave it off. |
+| Change the server's own firewall | Off. Your cloud's firewall already decides who can connect, so most people leave it off. Where Rowsafe puts the firewall on the server itself (some OVHcloud projects, see [who can connect](#who-can-connect)), it's turned on for that. |
 | Create PostgreSQL clusters (for a fork or a restored copy on this server) | Off |
 
 Choose carefully: changing them later needs root on the server, like on any server ([see and change it later](/docs/guides/permissions#see-and-change-it-later)), so it needs the SSH access above.
@@ -96,7 +100,7 @@ The summary on the right says what happens, the size, the region and the monthly
 
 The server's page shows the progress. It takes about 5 minutes, and you can leave the page: it carries on, and the server shows up under **Servers**.
 
-1. **Creating the server.** Your cloud creates a Debian 12 server of the size you chose, with a cloud firewall that only lets in the addresses you added. Everything Rowsafe creates is labelled `rowsafe=1`.
+1. **Creating the server.** Your cloud creates a Debian server (Debian 13 where the cloud offers it, else 12) of the size you chose, with a firewall that only lets in the addresses you added. Everything Rowsafe creates is tagged `rowsafe` (`rowsafe=1` on AWS; on OVHcloud, which has no tags, its name and description say so).
 2. **Starting up.** At its first boot, the server runs the Rowsafe installer once, by itself. It carries a one-time token that works only for this server and expires soon, and no other secret.
 3. **Installing PostgreSQL.** The version you picked, from the PostgreSQL project's own repository (its signing key checked), reachable from the network only with encryption (TLS, with a certificate made on the server) and a password. Then the Rowsafe agent, with the choices you made.
 4. **Turning on backups.** The first backup goes to Rowsafe Storage, encrypted on the server with a passphrase made on the server.
@@ -132,10 +136,10 @@ When the server is ready, its page shows **Connect your app**: the host (the ser
 
 Two locks keep the database private:
 
-- **Your cloud's firewall.** Only the addresses you added can reach the database's port (5432). Everything else is closed before it reaches the server, SSH included unless you opened it.
+- **A firewall.** Only the addresses you added can reach the database's port (5432). Everything else is closed, SSH included unless you opened it. It's your cloud's firewall, except on OVHcloud projects whose quota allows no security groups (new projects): there Rowsafe sets the firewall **on the server itself** (nftables, kept across reboots). See [OVHcloud](/docs/guides/cloud-accounts/ovh#the-firewall).
 - **PostgreSQL itself.** Logins from the network need encryption and a password (`scram-sha-256`).
 
-Change the addresses on the server's page, under **Who can connect**, and click **Save**: the firewall changes within a few seconds. You can add up to 50 addresses or ranges, IPv4 or IPv6 (like `203.0.113.4` or `203.0.113.0/24`). Adding `0.0.0.0/0` lets anyone on the internet try to connect: they'd still need a password, and the dashboard warns you.
+Change the addresses on the server's page, under **Who can connect**, and click **Save**: the firewall changes within a few seconds (on a server whose firewall is on the server itself, as soon as its agent is online; the page says when it's applied). You can add up to 50 addresses or ranges, IPv4 or IPv6 (like `203.0.113.4` or `203.0.113.0/24`). Adding `0.0.0.0/0` lets anyone on the internet try to connect: they'd still need a password, and the dashboard warns you.
 
 The [security check](/docs/guides/security) watches the server like any other.
 
@@ -147,9 +151,9 @@ To look around yourself, add up to 10 SSH public keys (the line that starts with
 
 | Cloud | User |
 |---|---|
-| Hetzner, DigitalOcean | `root` |
+| DigitalOcean | `root` |
 | AWS | `admin` (Debian's default) |
-| Google Cloud, Azure | `rowsafe` |
+| OVHcloud | `debian` (`ubuntu` where the region only has Ubuntu) |
 
 Rowsafe adds keys only when it creates the server. To add one later, use your cloud provider's own tools, as for any server in your account.
 
@@ -167,7 +171,7 @@ The server keeps its data and its addresses. Resizing needs the agent online and
 
 On the server's page, click **Delete server** and type its name to confirm.
 
-- **Deleted in your cloud account:** the server, its disk and its firewall (and its public address, where Rowsafe created one). The database on it goes too, and billing for the server stops.
+- **Deleted in your cloud account:** the server, its disk and its firewall, if it has one in the cloud (and its public address, where Rowsafe created one). The database on it goes too, and billing for the server stops.
 - **Kept:** the backups, in Rowsafe Storage. You can restore them on another server later with your backup passphrase. That's why you must save the passphrase before you can delete a server.
 
 The backups are deleted only if you remove the database from Rowsafe, after 30 days and with an email a week before ([when backups are deleted](/docs/guides/rowsafe-storage#when-backups-are-deleted)).
@@ -177,7 +181,7 @@ If Rowsafe can't delete something (for example, the token was revoked), the page
 ## What Rowsafe does with your cloud account
 
 - It creates a server **only when someone in your organization clicks Create**, and resizes, changes the firewall of or deletes one only when someone confirms. Nothing else, and never on its own.
-- It **labels everything it creates** (`rowsafe=1`), so you can always see what's ours, and never touches anything else.
+- It **tags everything it creates** (`rowsafe`, or `rowsafe=1` on AWS), so you can always see what's ours, and never touches anything else.
 - It keeps the credentials **encrypted**, never shows them again, and records every change in the [audit log](/docs/guides/teams#audit-log): `cloud.account.connect`, `cloud.server.create`, `cloud.server.resize`, `cloud.server.firewall`, `cloud.server.delete` and more.
 - It **never sees your data**: database passwords and the backup passphrase are made on the server and reach only your browser, encrypted.
 
@@ -193,4 +197,5 @@ Only **owners and admins** create, resize and delete servers, connect cloud acco
 - **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To use your own bucket instead, [move to it](/docs/guides/rowsafe-storage#move-to-your-own-bucket) on the server; that needs SSH. A [second copy](/docs/guides/second-copy) in your own bucket works too.
 - **One server per database.** A [standby](/docs/guides/standby) isn't available on Rowsafe Storage yet: move to your own bucket first.
 - The choices of what Rowsafe may do, and SSH keys, are set when the server is created. Changing them later needs you to log in to the server.
+- **DigitalOcean, AWS and OVHcloud** only, for now. Hetzner, Google Cloud and Azure are coming soon.
 - The connect steps for each cloud are new: [tell us](mailto:hello@rowsafe.sh) if anything doesn't match what you see.

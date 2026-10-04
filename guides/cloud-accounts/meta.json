@@ -1,4 +1,12 @@
 {
   "title": "Connect a cloud account",
-  "pages": ["hetzner", "digitalocean", "aws", "google-cloud", "azure"]
+  "pages": [
+    "digitalocean",
+    "aws",
+    "ovh",
+    "---Coming soon---",
+    "hetzner",
+    "google-cloud",
+    "azure"
+  ]
 }

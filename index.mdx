@@ -71,7 +71,7 @@ Your S3-compatible bucket
 ```
 
 1. A small open-source **agent** runs next to your database. It only makes outbound HTTPS requests. Nothing on your server listens for Rowsafe.
-2. The agent encrypts backups **on your server** and sends them to **your own bucket**. ([Rowsafe Storage](/docs/guides/rowsafe-storage), a bucket run by Rowsafe, is coming soon.) Rowsafe never sees your data, your bucket keys or your encryption passphrase.
+2. The agent encrypts backups **on your server** and sends them to **your own bucket**. (Or to [Rowsafe Storage](/docs/guides/rowsafe-storage), a bucket run by Rowsafe, if you'd rather not set one up.) Rowsafe never sees your data, your bucket keys or your encryption passphrase.
 3. The hosted **Rowsafe service** schedules backups and the weekly Proof, keeps the history, watches for problems and alerts you.
 
 Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
@@ -146,9 +146,11 @@ One line each, grouped by what you want to do. The [features page](/features) li
 ### Set up
 
 - [Set up backup storage](/docs/guides/storage): a bucket at Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces or any S3-compatible storage.
-- [Rowsafe Storage](/docs/guides/rowsafe-storage) (coming soon): a bucket run by Rowsafe, so you don't set one up.
+- [Rowsafe Storage](/docs/guides/rowsafe-storage): a bucket run by Rowsafe, so you don't set one up.
 - [Keep a second copy](/docs/guides/second-copy): your backups in a second bucket at another provider.
 - [Adopt a production database](/docs/guides/adopt): the careful, step-by-step setup for a server that matters.
+- [Create a server for me](/docs/guides/create-a-server): no server yet? Rowsafe creates one in your DigitalOcean, AWS or OVHcloud account.
+- [Rowsafe Cloud](/docs/guides/rowsafe-cloud): no cloud account? A server in Rowsafe's, billed by the hour, never more than the monthly price.
 - [Run the agent in Docker](/docs/guides/docker): PostgreSQL in the official `postgres` image.
 - [MySQL and MariaDB](/docs/guides/mysql), [MongoDB](/docs/guides/mongodb) and [ClickHouse](/docs/guides/clickhouse): the same protection for each.
 - [Redis and Valkey](/docs/guides/redis): backups, restore to any second, Proof, Rewind and Pulse.

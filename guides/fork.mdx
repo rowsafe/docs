@@ -81,6 +81,14 @@ The page shows each step live:
 
 When it's done, the fork is an ordinary database in your list. The source lists the forks made from it, and the fork shows which database it was forked from, and when.
 
+## Clone to a new server
+
+No server to put the copy on? On a PostgreSQL database's **Fork** tab, click **Clone**. In one dialog, pick the moment (now, any second, or a Mark), where the new server runs ([Rowsafe Cloud](/docs/guides/rowsafe-cloud), billed by the hour, or one of your [connected cloud accounts](/docs/guides/create-a-server)), its region and size, and **Delete after**: 4 hours, 1 day, 7 days or never. Then click **Clone**.
+
+Rowsafe creates the server, installs the source's PostgreSQL version on it and forks the database onto it: the steps are **Creating the server**, **Installing PostgreSQL**, **Copying your data** and **Ready**. When it's ready, the clone is a database like any fork, and the **Delete after** time starts counting. An hour before, the person who made it gets an email; then Rowsafe deletes the clone's server (never the source). You can change **Delete after** or delete it yourself at any time. If something fails, the server Rowsafe made is deleted again, and the page offers **Try again**.
+
+Owners, admins and read-write API keys can clone, and each clone is in the [audit log](/docs/guides/teams#audit-log). AI assistants can't: a clone is a new server that costs money.
+
 ## Fork with the CLI
 
 ```sh

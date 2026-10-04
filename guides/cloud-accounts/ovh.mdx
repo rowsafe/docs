@@ -1,0 +1,94 @@
+---
+title: Connect OVHcloud
+description: Create OVHcloud API keys limited to one Public Cloud project, so Rowsafe can create database servers (instances) there for you. What the keys let Rowsafe do, the firewall on the server itself for new projects, quotas, and how to revoke them.
+---
+
+<Callout type="info">
+  **New:** tell us if anything in these steps doesn't match what you see, at hello@rowsafe.sh.
+</Callout>
+
+To [create servers for you](/docs/guides/create-a-server) in OVHcloud, Rowsafe needs **API keys limited to one Public Cloud project**. You create them on OVHcloud's API site and paste them into the dashboard once, with the project's ID. It takes about five minutes.
+
+## Create the keys
+
+<Steps>
+<Step>
+
+### Open a Public Cloud project just for Rowsafe
+
+Sign in to the [OVHcloud Control Panel](https://www.ovh.com/manager/), open **Public Cloud** and create a project for the databases Rowsafe creates (or open an existing one). Add a payment method if OVHcloud asks for one. The keys reach only this project, so a project of its own keeps everything else out of reach.
+
+Copy the **project ID**: the 32 letters and digits under the project's name.
+
+</Step>
+<Step>
+
+### Create the API keys
+
+Open the createToken page for your OVHcloud account's region and sign in:
+
+- Europe and the rest of the world: `https://eu.api.ovh.com/createToken`
+- Canada: `https://ca.api.ovh.com/createToken`
+- United States: `https://api.us.ovhcloud.com/createToken`
+
+Name the application `Rowsafe`, set **Validity** to **Unlimited**, and add these three rights, with your project ID in place of `PROJECT_ID`. Leave out everything else.
+
+```text
+GET    /cloud/project/PROJECT_ID/*
+POST   /cloud/project/PROJECT_ID/*
+DELETE /cloud/project/PROJECT_ID/*
+```
+
+Click **Create keys** and copy the **application key**, the **application secret** and the **consumer key**.
+
+</Step>
+<Step>
+
+### Paste them into Rowsafe
+
+In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account** and choose **OVHcloud Public Cloud**. Paste the project ID and the three keys, give the account a name your team will recognize, and click **Connect**. Leave **OVHcloud region** empty: Rowsafe finds whether your account is on the eu, ca or us API by itself.
+
+</Step>
+</Steps>
+
+Rowsafe checks the keys before it saves them: that they work, that they can read this project, and that the project is active (not suspended, deleted or still being created). If something is wrong, it says what to do.
+
+## What access this gives Rowsafe
+
+The three rights above, on **this Public Cloud project only**: nothing else in your OVHcloud account (no orders, no billing, no other services).
+
+Rowsafe itself only touches what it creates for your servers:
+
+- **instances** (Debian 13, else Debian 12 or Ubuntu 24.04, as the region offers them), created, resized and deleted only when someone in your organization clicks and confirms;
+- **security groups**, one per server, named `rowsafe-` and the instance's ID, that let in only the addresses you chose, where the project's quota allows them ([the firewall](#the-firewall));
+- **SSH keys**, only the public keys you give it when you create a server. Rowsafe never adds its own. A key is kept in the project after the server is deleted, so the next server can reuse it;
+- one **project user** described "Rowsafe firewall", with network roles only, which it uses to set the security groups. Nobody keeps its password, Rowsafe included: Rowsafe gives it a new one each time and trades it for a short-lived token, held in memory.
+
+OVHcloud instances have no labels, so Rowsafe finds its servers by their ID and name. The keys are stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+
+## The firewall
+
+A new OVHcloud Public Cloud project allows **no security groups and no firewall rules** until OVHcloud support raises its quota. Rather than fail, Rowsafe then sets the firewall **on the server itself**:
+
+- The Rowsafe agent sets the rules (nftables, IPv4 and IPv6, kept across reboots) as soon as it's installed, and again whenever you change **Who can connect**. The server's page says when they're applied.
+- Until then, during the first minutes after the server starts, OVHcloud's default rules let everything in. That matters only for SSH, which accepts only the keys you gave (the images have no passwords; without keys nobody can log in at all). PostgreSQL can't be reached in that time: it isn't installed yet when the server boots, and the installer closes its port to everyone but the server itself before PostgreSQL listens on the network.
+- The server's [permission](/docs/guides/permissions) to change its own firewall is turned on, because that's how Rowsafe applies **Who can connect** there.
+
+Rowsafe decides this when it creates each server and keeps to it: a server made with the firewall on the server keeps it there, even after OVHcloud raises the quota. Servers created after the quota is raised get a security group.
+
+## Quotas
+
+Each Public Cloud project has quotas per region (instances, CPUs, memory, security groups). When a new server doesn't fit, Rowsafe says so: raise the quota in the OVHcloud Control Panel (**Public Cloud**, **Quota and regions**), delete a server you don't use, or pick another region. A brand-new project often starts with small quotas.
+
+## Revoke it
+
+- **In OVHcloud:** delete the `Rowsafe` application's keys in the OVHcloud Control Panel (your account's API keys), or with `DELETE /me/api/credential/{id}`. They stop working at once.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the keys; nothing in your OVHcloud project changes. You can remove an account once its servers are deleted.
+
+After you revoke the keys, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their cloud firewall or delete them. Do that in the OVHcloud Control Panel. On a server whose firewall is on the server itself, **Who can connect** keeps working, because the agent applies it.
+
+## Good to know
+
+- Prices in the dashboard are "about": OVHcloud's hourly price from its public catalog times 730 hours, in your account's currency (EUR, CAD or USD). OVHcloud bills by the hour, so a month of 31 days costs a little more. Your OVHcloud bill is what counts.
+- Local zones (regions named `-LZ-`) aren't offered: they have their own prices and fewer features.
+- Log in over SSH as the image's default user, `debian` (or `ubuntu` where the region only has Ubuntu), with the key you added. OVHcloud puts the first key on the server; Rowsafe adds the others for that user at first boot.

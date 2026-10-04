@@ -1,0 +1,79 @@
+---
+title: Connect DigitalOcean
+description: Create a DigitalOcean personal access token, with Full Access or only the scopes Rowsafe needs, so Rowsafe can create database servers (Droplets) there for you. What the token lets Rowsafe do, and how to revoke it.
+---
+
+<Callout type="info">
+  **New:** tell us if anything in these steps doesn't match what you see, at hello@rowsafe.sh.
+</Callout>
+
+To [create servers for you](/docs/guides/create-a-server) in DigitalOcean, Rowsafe needs a **personal access token**. You create it in DigitalOcean and paste it into the dashboard once. It takes about two minutes.
+
+## Create the token
+
+<Steps>
+<Step>
+
+### Choose the team
+
+Sign in to [DigitalOcean](https://cloud.digitalocean.com). A token reaches everything in its team, so if you like, create a new team just for the databases Rowsafe creates: nothing else is then in reach.
+
+</Step>
+<Step>
+
+### Generate the token
+
+Open **API** in the left menu, then **Tokens**, and click **Generate New Token**. Name it `Rowsafe` and pick an expiration: **No expiry**, or a date you'll remember to renew.
+
+Choose **Custom Scopes** with the scopes listed [below](#what-access-this-gives-rowsafe), or **Full Access**.
+
+</Step>
+<Step>
+
+### Paste it into Rowsafe
+
+Click **Generate Token** and copy it right away: DigitalOcean shows it only once. In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account**, choose **DigitalOcean**, paste the token into **Personal access token**, give the account a name your team will recognize, and click **Connect**.
+
+</Step>
+</Steps>
+
+Rowsafe checks the token before it saves it: that it works, that the account is active, and that it can write, without creating anything that costs money (it adds the free tag `rowsafe`). A read-only token is refused, with what to do.
+
+## What access this gives Rowsafe
+
+With **Custom Scopes**, these are all Rowsafe needs:
+
+```text
+account:read
+actions:read
+droplet:create, droplet:read, droplet:update, droplet:delete
+firewall:create, firewall:read, firewall:update, firewall:delete
+regions:read
+sizes:read
+image:read
+ssh_key:create, ssh_key:read
+tag:create, tag:read
+```
+
+They apply to the whole team: DigitalOcean doesn't limit a token to one project. With **Full Access**, the token could do anything in the team.
+
+Rowsafe itself only touches what it creates for your servers, all tagged `rowsafe`:
+
+- **Droplets** (Debian 13, or 12 where 13 isn't offered), created, resized and deleted only when someone in your organization clicks and confirms;
+- **cloud firewalls**, one per server, that let in only the addresses you chose;
+- **SSH keys**, only the public keys you give it when you create a server. Rowsafe never adds its own.
+
+The token is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+
+## Revoke it
+
+- **In DigitalOcean:** **API**, **Tokens**, and delete the `Rowsafe` token. It stops working at once.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the token; nothing in your DigitalOcean account changes. You can remove an account once its servers are deleted.
+
+After you revoke the token, or when it expires, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their firewall or delete them. Do that in the DigitalOcean control panel.
+
+## Good to know
+
+- Prices in the dashboard are DigitalOcean's own. Your DigitalOcean bill is what counts.
+- DigitalOcean limits how many Droplets an account can have. If you reach the limit, Rowsafe says so: delete one you don't use, or ask DigitalOcean support to raise it.
+- DigitalOcean can't make a Droplet's disk smaller, so resizing offers only sizes with at least the same disk.

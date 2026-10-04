@@ -1,0 +1,107 @@
+---
+title: Rowsafe Cloud
+description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, taking it with you, and what Rowsafe can and can't reach.
+---
+
+No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
+
+It's the same server as [Create a server for me](/docs/guides/create-a-server), with one difference: **Rowsafe holds the cloud account and bills you**, by the hour, with Rowsafe included.
+
+<Callout title="What Rowsafe can and can't reach">
+  Your server runs in Rowsafe's cloud account (DigitalOcean, AWS or OVHcloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
+</Callout>
+
+## Sizes and prices
+
+Prices are in USD and include Rowsafe. Each size is billed **by the hour** (the monthly price divided by 730 hours, rounded up to a tenth of a cent) and **never more than the monthly price** in a month.
+
+### DigitalOcean
+
+| Size | Server | Per hour | At most a month |
+|---|---|---|---|
+| Small | 2 vCPU, 4 GB memory, 80 GB disk | $0.048 | $35 |
+| Medium | 4 vCPU, 8 GB memory, 160 GB disk | $0.09 | $65 |
+| Large | 8 vCPU, 16 GB memory, 320 GB disk | $0.172 | $125 |
+
+Regions: New York, San Francisco, Toronto, London, Amsterdam, Frankfurt, Singapore, Bangalore, Sydney.
+
+### AWS
+
+| Size | Server | Per hour | At most a month |
+|---|---|---|---|
+| Small | 2 vCPU, 4 GB memory, 40 GB disk | $0.062 | $45 |
+| Medium | 2 vCPU, 8 GB memory, 80 GB disk | $0.117 | $85 |
+| Large | 4 vCPU, 16 GB memory, 160 GB disk | $0.227 | $165 |
+
+Regions: N. Virginia, Oregon, Frankfurt, Ireland, Singapore.
+
+### OVHcloud
+
+| Size | Server | Per hour | At most a month |
+|---|---|---|---|
+| Small | 2 vCPU, 4 GB memory, 50 GB disk | $0.029 | $21 |
+| Medium | 4 vCPU, 8 GB memory, 50 GB disk | $0.054 | $39 |
+| Large | 4 vCPU, 16 GB memory, 100 GB disk | $0.15 | $109 |
+
+Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
+
+**Every size includes** PostgreSQL 15 to 18 on a server of its own, backups in [Rowsafe Storage](/docs/guides/rowsafe-storage) (encrypted on the server), Rewind, Proof, Pulse and Guard, and a firewall that lets in only the addresses you add. A Rowsafe Cloud server doesn't count against your Rowsafe [plan](/pricing).
+
+## How billing works
+
+- **Add a card once.** The first Rowsafe Cloud server asks an owner for a card: one pay-as-you-go subscription for the whole organization, through Polar, our merchant of record (it handles sales tax and VAT). An admin can create the server, and an owner adds the card under **Settings → Billing**. After that, new servers are created right away.
+- **Billed for every hour a server exists**, from when it's ready until you delete it, and never more than its monthly price in a month. Polar invoices the hours at the end of each month.
+- **Delete a server and its billing stops.**
+- **If a payment fails or you cancel**, nothing is deleted right away: you get emails first, your servers keep running for a grace period, and then they are powered off (powered-off hours aren't billed) before they are deleted, after a further notice. Your backups stay in Rowsafe Storage for as long as the database stays in Rowsafe.
+
+### Copies for a test or an AI agent
+
+[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a database (as it is now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click. It's billed by the hour like any Rowsafe Cloud server, and you can have Rowsafe delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud size cost about $0.09.
+
+## Bandwidth
+
+Every Rowsafe Cloud server comes with outbound traffic included. Inbound traffic is free, and backups to Rowsafe Storage never count.
+
+| Cloud | Small | Medium | Large |
+| --- | --- | --- | --- |
+| DigitalOcean | 4 TB a month | 5 TB a month | 6 TB a month |
+| OVHcloud | Unlimited | Unlimited | Unlimited |
+| AWS | Not included | Not included | Not included |
+
+For now, traffic above the included amount isn't billed. When that changes, it will be billed per GB at a price shown here and in the dashboard, and we'll email you before it starts.
+
+## Create a Rowsafe Cloud server
+
+1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
+2. Under **Where should it run?**, choose **Rowsafe Cloud**.
+3. Pick a region (the region decides the cloud), a size, a name and the PostgreSQL version.
+4. Add the addresses that may connect, and your SSH key if you want to log in yourself.
+5. Click **Create server**. The first time, an owner adds a card first.
+
+The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](/docs/guides/create-a-server#connect-your-app).
+
+## Your passphrase, only yours
+
+Backups are encrypted on the server with a passphrase made **on the server**. You save a copy through your browser, encrypted end to end; Rowsafe passes on only the encrypted message and never has the passphrase. Without it, nobody can restore your backups, Rowsafe included, so save it before you rely on the database. The dashboard keeps asking until you confirm you saved it.
+
+## Nothing changes until you click
+
+No maintenance windows and no surprise restarts. Restarts, updates and deleting each wait for someone in your organization to click and confirm. Updates are a button you click: nothing patches or restarts on its own, so keeping up is yours to decide. AI assistants (MCP) can list servers and save Marks, but can't create, resize, restart or delete anything.
+
+## Take it with you
+
+Move your database to your own server whenever you like, with about a minute of downtime:
+
+1. Install Rowsafe on your server ([Quickstart](/docs/quickstart)).
+2. On the Rowsafe Cloud server's page, click **Take it with you** and pick your server.
+3. Your server gets a copy from the latest backup and keeps it in sync while the database keeps running. Then apps are disconnected for about a minute while your server takes over. Nothing is lost.
+4. Check your app works with the new address. The Rowsafe Cloud server is stopped, as a way back, and deleted only when you confirm; its billing stops then.
+
+It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
+
+## Limits
+
+- **PostgreSQL only**, versions 15 to 18.
+- **One server per database**: no standby or automatic failover comes with it.
+- **No resize in place yet.** Pick the size you'll need; for a bigger one later, create a larger Rowsafe Cloud server and [move the database there](/docs/guides/move) (about a minute of downtime).
+- SSH keys and what Rowsafe may do on the server are set when you create it.

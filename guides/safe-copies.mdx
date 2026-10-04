@@ -7,7 +7,7 @@ Testing against production data finds the bugs that seed data hides, but it also
 
 Rowsafe restores a copy of the database on its own server, from your backups, replaces personal data with realistic fakes, and only then opens it on a network port for the addresses you choose. It deletes itself after a day unless you keep it longer.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey). What differs per engine is in [Other engines](#other-engines).
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey; Redis and Valkey copies can also be **structure only** (every key, no data). What differs per engine is in [Other engines](#other-engines).
 
 ## Make one
 
@@ -49,9 +49,9 @@ It waits until the copy is ready and prints the connection string once. By defau
 psql "postgresql://rowsafe_sc_5k2m9x7q4t1v:PASSWORD@10.0.4.12:55440/app?sslmode=require"
 ```
 
-The connection string is in your engine's own form: `mysql://...?ssl-mode=REQUIRED` for MySQL and MariaDB, `mongodb://...?authSource=admin&tls=true` for MongoDB, `clickhouse://...?secure=true` for ClickHouse.
+The connection string is in your engine's own form: `mysql://...?ssl-mode=REQUIRED` for MySQL and MariaDB, `mongodb://...?authSource=admin&tls=true` for MongoDB, `clickhouse://...?secure=true` for ClickHouse, `rediss://...` for Redis and Valkey.
 
-- **The password is made on your computer** (in your browser, by the CLI, or by a local `rowsafe mcp`) and never reaches Rowsafe: Rowsafe only passes on its verifier, what the database checks logins against: a SCRAM-SHA-256 verifier for PostgreSQL and MongoDB, a `caching_sha2_password` hash for MySQL, a `mysql_native_password` hash for MariaDB, a SHA-256 hash for ClickHouse. Passwords are random (24 characters), so a hash can't be guessed back. Rowsafe never makes a password: the API refuses a copy without a verifier, except from the remote MCP endpoint, whose copies start with no password (nobody can log in until one is set).
+- **The password is made on your computer** (in your browser, by the CLI, or by a local `rowsafe mcp`) and never reaches Rowsafe: Rowsafe only passes on its verifier, what the database checks logins against: a SCRAM-SHA-256 verifier for PostgreSQL and MongoDB, a `caching_sha2_password` hash for MySQL, a `mysql_native_password` hash for MariaDB, a SHA-256 hash for ClickHouse and for Redis and Valkey (what their ACLs keep). Passwords are random (24 characters), so a hash can't be guessed back. Rowsafe never makes a password: the API refuses a copy without a verifier, except from the remote MCP endpoint, whose copies start with no password (nobody can log in until one is set).
 - **Lost it, or the copy has none yet?** Click **Set password** (or **Reset password**) on the copy: your browser makes a new one and shows it once. It works within a few seconds; the old one stops working. From a terminal: `rowsafe copies password app ID`.
 - **TLS is required** for every engine. Each copy has its own self-signed certificate, so the connection strings don't check it (`sslmode=require` and its equivalents); save the certificate to check it. Set `ROWSAFE_COPY_TLS_CERT` and `ROWSAFE_COPY_TLS_KEY` on the server to use your own.
 - **Only the allowed addresses get in.** Everything else is refused before a password is asked.
@@ -95,7 +95,7 @@ The same value is always masked the same way (with a key that stays on your serv
 
 ## Other engines
 
-<Tabs items={["MySQL and MariaDB", "MongoDB", "ClickHouse"]}>
+<Tabs items={["MySQL and MariaDB", "MongoDB", "ClickHouse", "Redis and Valkey"]}>
 <Tab value="MySQL and MariaDB">
 
 The copy is restored from your latest backup and every binary log since, masked while it has no network port, then opened over TLS only (`require_secure_transport`). Every account production had is locked on the copy; the copy's login exists only for the allowed addresses (IPv4 ranges or single IPv6 addresses), with every privilege on your databases and none on the server. Masking runs one `UPDATE` per masked column through a mapping of its values, so tables without a primary key are masked too. Triggers on the masked tables run during masking.
@@ -109,6 +109,12 @@ The copy is restored from your latest backup and the oplog since, masked while i
 <Tab value="ClickHouse">
 
 The copy is restored from your newest backup (one every hour), so the data is as of that backup, masked with one mutation per table, then opened with its plain ports closed: the native protocol over TLS on the copy's port. Production's users aren't in a copy at all; its only login is the copy's, from the allowed networks. Columns in a table's sorting, primary or partition key, and tables outside the MergeTree family, can't be changed in place by ClickHouse, so they aren't masked and the copy's masking report lists them. The copy also answers HTTPS (TLS) on a second, random port of the same address, for the agent.
+
+</Tab>
+
+<Tab value="Redis and Valkey">
+
+The copy is the newest point in your bucket (the latest backup and every change since), restored into a temporary server that listens only on a private Unix socket. Masking replaces values per key pattern and field (a hash's fields, a string's value), by your rules, by what the names suggest, and wherever a value looks like an email, a phone number, a token or JSON; times to live are kept. **Structure only** keeps every key with its type and time to live and replaces every value with a placeholder (`rowsafe copies create --structure`, or the checkbox under More options). Redis can't limit logins by address, so Rowsafe's agent listens on the copy's port, lets in only the allowed addresses, speaks TLS, and passes connections to the copy. The default user is off; the copy's login can't run administration commands. Keys of module types (RedisJSON, search) are removed.
 
 </Tab>
 </Tabs>

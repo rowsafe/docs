@@ -19,6 +19,11 @@ Valkey is a fork of Redis that speaks the same language and keeps the same files
 | [Pulse](/docs/guides/monitoring) | Memory, evictions, hit rate, clients, persistence, replication, the slow log and latency, with fixes you apply in one click. |
 | Restart | **Restart** in the dashboard, after you confirm. |
 | [Files](/docs/guides/files) and [second copy](/docs/guides/second-copy) | Back up the folders that go with your app, and keep your backups in a second bucket too. |
+| [Find the moment](/docs/guides/find-the-moment) | Type a key or a pattern (`user:*`) and see when it was written or deleted, with the moment to rewind to. |
+| [Safe copies](/docs/guides/safe-copies) | A masked copy, or one with every key's type and time to live but no data, for development and AI agents. |
+| [Clones](/docs/guides/fork) | The database as it was at any moment, in a new server on the same or another host. |
+| [Standby servers](/docs/guides/standby) | A replica Rowsafe sets up on another server, with promotion and a planned [move to a new server](/docs/guides/move). |
+| [Move in](/docs/guides/move-in) | Bring a database in from ElastiCache, MemoryDB, Upstash, Redis Cloud, Azure, DigitalOcean, Aiven or any Redis. |
 
 ## Before you start
 
@@ -105,6 +110,58 @@ All of this is in the dashboard, for owners and admins. See [Restore a database]
 
 It needs one empty logical database on the server, and enough free memory for one more copy of your largest logical database. The data from before is kept as a snapshot in your bucket for 7 days: **Undo rewind** puts it back.
 
+## Find the moment
+
+**Find the moment** shows when keys were written or deleted. Type an exact key name (`user:42`) or a pattern (`session:*`, Redis's own patterns), pick a time range, and Rowsafe reads the changes it saved in your bucket, on your server. Each change comes with **Rewind to just before this**.
+
+- Changes are grouped by logical database, pattern and second; a `MULTI`/`EXEC` is one change. `FLUSHDB` and `FLUSHALL` show as emptied databases.
+- Only what you typed reaches Rowsafe: results count the keys each change touched under your pattern, never the key names a pattern matched. Values are never read.
+- Redis restores to the second, so "just before" a change is the second before it.
+- Keys that expired show as deleted (Redis records an expiry as a delete).
+- It reads the changes Rowsafe follows: a server [Rowsafe can't follow](#when-rowsafe-cant-follow-the-server) has none to search.
+
+## Safe copies
+
+A [safe copy](/docs/guides/safe-copies) is a copy of the newest point in your bucket, opened for developers or AI agents on a port of the server, over TLS, for the addresses you allow:
+
+- **Masked**: values are replaced by your rules, per key pattern and field (a hash's fields, a string's value), by what the names suggest (email, phone, name, token...), and wherever a value looks like an email, a phone number, a token or a JSON document. Times to live are kept. Review the rules under **Guard > Masking**.
+- **Structure only**: every key with its type and time to live, and no data: strings are empty, hashes keep their field names with empty values, lists, sets, sorted sets and streams keep one empty element.
+
+Redis can't limit logins by address, so Rowsafe's agent listens on the copy's port itself, lets in only the addresses you allowed, speaks TLS, and passes each connection to the copy. On the copy, the only login is the copy's, with the password made in your browser (Rowsafe never sees it), and it can't run administration commands (`CONFIG`, `MODULE`, `DEBUG`, `SAVE`, `REPLICAOF`, `MIGRATE`...). Clients connect with `rediss://` (the certificate is self-signed unless you set your own). Keys of module types (RedisJSON, search indexes) are removed from a copy: their values can't be masked.
+
+## Clones
+
+A [clone](/docs/guides/fork) is the database as it was at any second (or a Mark), in its own server. The moment is restored privately on the target host (Unix socket only), masked first if you ask, then copied key by key into the target, with times to live.
+
+The target is a server Rowsafe may fill: run the Rowsafe installer on that host with `--redis-clones`. Rowsafe then creates a new Redis server there when you pick the host (its own service, `rowsafe-redis@PORT`, ports 6390 to 6399), or takes an empty server handed to it (`sudo -u rowsafe rowsafe-agent redis login --port PORT --target clones`). The bucket settings and passphrase reach the target host sealed to its agent's key, and are only used for the restore.
+
+Users aren't part of the data: a clone has none of the source's. A server Rowsafe created starts with its default user without a password, which Redis's protected mode lets in from that host only, until you add users.
+
+## Standby servers
+
+A [standby](/docs/guides/standby) is a real Redis replica that Rowsafe sets up on another server and watches:
+
+1. Run the installer with `--redis-standby` on both servers. On the primary, it lets Rowsafe's user create and remove users (the standby's replication login) and list them; on Redis that amounts to administrator rights, used only when someone adds, promotes or removes a standby. On the standby's server, it lets Rowsafe create a Redis server for it (or hand it an empty one).
+2. **Standby > Add a standby** in the dashboard, pick the server and confirm its key fingerprint.
+
+The primary gets a replication login made for that standby, whose password reaches the standby's agent sealed to its key, with the primary's users (names, rules and password hashes) so your apps can sign in to the standby once it is promoted. The standby then copies the data straight from the primary, the way any Redis replica starts (one snapshot), and follows every change, read-only. Pulse shows its lag; Rowsafe's own link never counts as a replica.
+
+- **Promote** makes the standby the primary (`REPLICAOF NO ONE`).
+- **Move to a new server** is a planned switchover: the old primary is made to refuse writes for good (fenced: kept in its config file, client connections ended, and its agent keeps it so), the standby gets every last change, then it is promoted. The old server can follow the new one afterwards (**Rebuild as standby**) or let you switch back.
+- After a switch, Rowsafe follows the new primary: its first snapshot is a **new base** for restores to any second. Moments before the switch restore from the old server's history, in the same bucket; the minute or so between the switch and that first snapshot can't be restored to a second.
+- The primary must listen on an address the standby reaches, and its default user needs a password (protected mode refuses other servers otherwise). Users created on the primary later aren't copied: add them on the standby too.
+
+## Move in
+
+[Move in](/docs/guides/move-in) brings a database from a managed provider (ElastiCache, MemoryDB, Upstash, Redis Cloud, Azure Cache for Redis, DigitalOcean or Aiven for Valkey) or any Redis into the server Rowsafe protects, which must be empty. Paste the connection string (`rediss://default:password@host:6379`); it is encrypted in your browser to a key the agent made for this move, and only your server can read it.
+
+The check answers in plain words: whether Rowsafe reaches the source, versions (this server must run the same version or newer), modules the source uses that this server lacks, whether the data fits `maxmemory`, the eviction policy, the number of logical databases, and whether live sync is possible.
+
+- **One-time copy**: every key is read from the source and written here with its time to live, a batch at a time (memory stays low, and a copy that stops continues where it was). Managed providers don't let anyone make their database read-only, so stop your apps' writes for the copy; the check says about how long it takes. Key counts are compared at the end.
+- **Live sync**: where the source lets replicas connect (a self-hosted Redis, over a plain connection; managed providers don't allow it), this server follows the source until you switch over, so your apps keep writing during the copy. The switchover waits until every change arrived and compares key counts.
+
+Afterwards Rowsafe can make a login for your apps (with `--redis-standby` on this server) and shows its connection string once.
+
 ## Pulse
 
 Pulse reads Redis's own statistics every minute (the detailed status every 5 minutes): memory against `maxmemory`, evictions, the hit rate, commands per second, clients (blocked and rejected), fragmentation, persistence (whether snapshots and the append-only file are working), replication (replicas and their lag), the slow log and the latency monitor's events. The slow log reaches Rowsafe as command names only, never keys or values.
@@ -137,6 +194,8 @@ A server without a password is flagged: anyone who can reach its port can read a
 - `CONFIG GET`, `CONFIG SET` and `CONFIG REWRITE`, `MEMORY PURGE` and `CLIENT KILL`: the fixes;
 - `BGSAVE`: scheduled snapshots, when Rowsafe can't follow the server.
 
+With `--redis-standby` (standby servers, the apps' login after a move-in) it may also create, list and remove users and run `REPLICAOF`. On a server handed to Rowsafe for a standby or a clone, it has every right: that server is Rowsafe's to fill.
+
 It never sees anything outside Redis.
 
 **Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`):
@@ -144,6 +203,7 @@ It never sees anything outside Redis.
 | Permission | Lets Rowsafe |
 |---|---|
 | `restart` | restart Redis (**Restart**) |
+| `--redis-standby`, `--redis-clones` (installer) | create a new Redis server for a standby or a clone, on ports 6390 to 6399, as its own service (`rowsafe-redis@PORT`, running as `redis`), and remove it when the standby or clone goes |
 
 Rewinding the whole server in place needs no root permission: it swaps data inside Redis.
 
@@ -211,12 +271,10 @@ Put the file in an empty server's data folder (its `dir`, with `appendonly no`) 
 
 These Rowsafe features aren't available for Redis and Valkey yet. The dashboard says so where you would look for them.
 
-- Standby servers, forks (clones) and moving a database in.
 - Connection pooling.
 - Minor updates and major upgrades of Redis.
 - Tuning, security checks and logs.
-- Find the moment.
-- Safe copies and migration previews.
+- Migration previews.
 - Databases & users.
 
 ## Limits
@@ -231,4 +289,9 @@ These Rowsafe features aren't available for Redis and Valkey yet. The dashboard 
 - **Rewinding the whole server** needs an empty logical database and enough free memory for one more copy of the largest logical database.
 - **Temporary servers** (Proof, Rewind copies) need free disk and memory on the server; the agent checks first and refuses if there isn't enough.
 - **Fixes** last only until the next restart when Redis can't write its config file; the result says so.
+- **Standby servers and clones** need the agent installed on the server itself (not as a Docker sidecar); a Redis server in Docker can still hold one, with the agent on the host ([example](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.redis-standby.example.yml)). A standby starts with a full copy from the primary (one snapshot, as for any replica), not from the backup.
+- **After a switch to a standby**, restores to any second start again from the new primary's first snapshot.
+- **Move in** copies one standalone database (not a Redis Cluster). Live sync only works from a source that lets replicas connect, over a plain connection; from managed providers it is a one-time copy while writes are stopped.
+- **Safe copies and clones** remove keys of module types (RedisJSON, search): they can't be masked or always copied. A clone and a safe copy have none of the source's users.
+- **Find the moment** groups writes by second and pattern; keys that expired show as deleted.
 - **In Docker**, restart the container yourself unless you add the container control service; for updates, pull the newest agent image of the same version and recreate its container.

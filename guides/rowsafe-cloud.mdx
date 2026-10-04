@@ -236,6 +236,10 @@ It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the datab
 
 ## Private connection from your AWS network
 
+<Callout title="Coming soon">
+Private connections are built and being switched on. Until then the server's page doesn't offer them; this section describes how they will work.
+</Callout>
+
 If your apps run in AWS, they can reach a Rowsafe Cloud server on AWS **without going over the internet**. This uses **AWS PrivateLink**: AWS carries the traffic from your own network (your VPC) to the server, privately, and only the AWS accounts you name can connect.
 
 - **Price:** $20 a month at most, billed by the hour ($0.028) while it's on, on the same pay-as-you-go subscription as your servers. Turn it off and billing stops.
@@ -286,7 +290,7 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 
 - **PostgreSQL only**, versions 15 to 18.
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
-- **Private connections** are for servers on AWS, from VPCs in the same AWS region only.
+- **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.
 - **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). A server with a standby can't change size yet: remove the standby, change the size, then add it again.
 - SSH keys are set when you create the server.
 - **Maintenance restarts the database in place**: a few seconds for a PostgreSQL update or a library, a minute or two when a new kernel needs the server to restart. Pick a window when that suits you.

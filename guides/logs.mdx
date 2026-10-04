@@ -1,9 +1,9 @@
 ---
 title: "Logs: your database's own log in Pulse"
-description: See your database's own log in the dashboard (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse), with values removed on your server before anything is sent. Filter errors, slow queries, lock waits and failed logins, group repeated errors, watch it live, turn on useful logging with one click, and forward it to Datadog, Loki and others.
+description: See your database's own log in the dashboard (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey), with values removed on your server before anything is sent. Filter errors, slow queries, lock waits and failed logins, group repeated errors, watch it live, turn on useful logging with one click, and forward it to Datadog, Loki and others.
 ---
 
-**Logs** is part of **Pulse**. The agent reads the database's own log on your server (PostgreSQL's in the examples; [other databases](#mysql-mariadb-mongodb-and-clickhouse) below), removes the values in statements and error messages **before anything leaves the server**, and sends the rest to Rowsafe within seconds. In the dashboard, open a database, then **Pulse → Logs**.
+**Logs** is part of **Pulse**. The agent reads the database's own log on your server (PostgreSQL's in the examples; [other databases](#mysql-mariadb-mongodb-clickhouse-redis-and-valkey) below), removes the values in statements and error messages **before anything leaves the server**, and sends the rest to Rowsafe within seconds. In the dashboard, open a database, then **Pulse → Logs**.
 
 Logs start on their own once the agent has updated itself to a version that reads them; there is nothing to install. They are on for every database and every plan. You can turn them off per database, or for a whole server.
 
@@ -127,7 +127,7 @@ Past the daily limit, new lines aren't kept until midnight UTC; the Logs page sh
 - Destinations must be public HTTPS or TLS addresses; private networks are refused.
 - An organization can have up to 10 destinations.
 
-## MySQL, MariaDB, MongoDB and ClickHouse
+## MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey
 
 The agent reads each engine's own log the same way, removes values on your server, and sends the rest within seconds. The filters, groups, live view, alerts and forwarding are the same.
 
@@ -136,12 +136,22 @@ The agent reads each engine's own log the same way, removes values on your serve
 | MySQL, MariaDB | The error log (errors, warnings, failed logins, deadlocks, restarts) and, when it is on, the slow query log (each slow statement with its time and rows examined) | `log_error` and `slow_query_log_file` |
 | MongoDB 4.4+ | The structured log: errors, slow operations (their shape, values replaced by `?`), failed logins, connections, restarts | `systemLog.path` |
 | ClickHouse | The error log: errors and warnings, with the query that failed | `logger.errorlog` in its configuration |
+| Redis, Valkey | The server's log: errors and warnings, saves to disk (and failed ones), replication, restarts, a crash (only that it crashed and why). Slow commands aren't in this log: Pulse shows the slow log (command names only) in Monitoring | `logfile` (relative to `dir`) |
 
 When the agent can't read the log, the Logs page says why and what to change: a log that goes to the container's output (Docker), to the journal or syslog, or a file the agent's user may not read. **Turn on useful logging** changes PostgreSQL's settings; for MySQL and MariaDB, **Turn on the slow query log** (Pulse) does the same for slow statements, without a restart. MongoDB's slow operations are logged by default; ClickHouse's error log is on by default. MongoDB statements in slow operations are always shapes without values, even with **Send full query text** on.
+
+### Redis and Valkey
+
+- **Native install**: Debian's and Ubuntu's packages write `/var/log/redis/redis-server.log` (or `/var/log/valkey/...`), which only the `adm` group may read. The installer lets the agent's user read that folder with an access rule (read only; owners, groups and modes stay as they are). A log in a shared folder such as `/var/log` itself is left alone, and the Logs page says how to let the agent read it.
+- **`logfile` empty** (the server's output goes to the journal): set `logfile` in `redis.conf` (or `valkey.conf`), then restart the server when it suits you.
+- **Docker**: the official images write the log to the container's output, which the sidecar can't read. Add `--logfile /data/redis.log` to the server's command (the file lands in the data volume the sidecar already mounts read only), then recreate the container. `docker logs` is then empty, and the file isn't rotated by Docker.
+- **What's removed**: client addresses keep no port, quoted text is removed. Lines your Lua scripts write with `redis.log()`, and modules' lines, can hold anything, so they keep only their plain words (numbers, quoted text and names like `user:42` or `bob@example.com` are replaced by `…`). A crash report quotes the command being run, so it stays on the server: Rowsafe sends only that the server crashed and the signal or assertion.
+- Failed logins aren't in Redis's log (Redis keeps them in `ACL LOG`), so the Failed logins filter isn't offered.
 
 ## Limits
 
 - MongoDB before 4.4 writes a plain-text log, which isn't read.
+- Valkey with `log-format logfmt` isn't read; the default (`legacy`) is.
 - Classification and redaction of messages rely on English `lc_messages` (see above).
 - PostgreSQL: the agent reads the log as the `postgres` user; a log that user can't read (or a journal it may not read) needs the change above.
 - PostgreSQL on Docker: the log files need `logging_collector = on` and a restart of the PostgreSQL container.

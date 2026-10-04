@@ -126,7 +126,7 @@ The files helper runs in its own systemd unit, `rowsafe-files-helper.service` (s
 
 ## Every engine
 
-Folders work the same next to MySQL, MariaDB, MongoDB and ClickHouse: snapshots on a schedule and at every Mark, restores to the same moment as the database. Restoring **the files a table column points to** reads PostgreSQL tables, so it's PostgreSQL's; for the others restore the missing files or the paths you choose. The engines' own data folders (`/var/lib/mysql`, `/var/lib/mongodb`, `/var/lib/clickhouse`) are never offered or accepted.
+Folders work the same next to MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey: snapshots on a schedule and at every Mark, restores to the same moment as the database. Restoring **the files a table column points to** reads PostgreSQL tables, so it's PostgreSQL's; for the others restore the missing files or the paths you choose. The engines' own data folders (`/var/lib/mysql`, `/var/lib/mongodb`, `/var/lib/clickhouse`) are never offered or accepted.
 
 ## Limits
 

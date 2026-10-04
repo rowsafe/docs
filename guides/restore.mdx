@@ -12,7 +12,7 @@ There are two ways back:
 
 Everything happens on your server. Rowsafe never sees your data: only names, counts and sizes reach it.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page uses PostgreSQL's words; what differs per database is in [By database](#by-database).
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. This page uses PostgreSQL's words; what differs per database is in [By database](#by-database).
 
 ## Which one to use
 
@@ -159,8 +159,10 @@ The buttons and steps are the same; what happens underneath follows each databas
 | MySQL, MariaDB | any second or a Mark | primary key | one transaction per database; triggers run (MySQL can't turn them off) | stops the server and swaps the data directory's contents (needs `restart`; not in Docker, not with replicas) |
 | MongoDB | any second or a Mark | `_id` | not one transaction: running it again finishes the job | swaps each collection with a rename, MongoDB keeps running (not with time series collections) |
 | ClickHouse | any second (to the microsecond) or a Mark | all columns (no unique key) | not one transaction; not into Summing, Aggregating or Collapsing tables | swaps data partition by partition, ClickHouse keeps running (not replicated tables) |
+| Redis, Valkey | about a second (when each change reached the agent), or exactly a Mark | key, per logical database (large databases are sampled) | keys for a pattern, with their remaining time to live; existing keys only overwritten if you choose | loads each logical database into an empty one and swaps it in (`SWAPDB`), Redis keeps running (needs an empty logical database and free memory for one more copy of the largest) |
+| SQLite | any second or a Mark (WAL mode); a backup otherwise | primary key (row number without one) | one transaction; never overwrites a row | writes the restored file into the live one, your app keeps running (writes wait a few seconds) |
 
-Undo works the same everywhere: the data from before is kept on the server for 7 days. Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#rewind-the-whole-server), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse). The rest of this page (the copy's socket, the disk it needs, restoring by hand) describes PostgreSQL.
+Undo works the same everywhere: the data from before is kept for 7 days (on the server; for Redis and Valkey, as a snapshot in your bucket). Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#rewind-the-whole-server), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse), [Redis and Valkey](/docs/guides/redis#rewind), [SQLite](/docs/guides/sqlite#restore). The rest of this page (the copy's socket, the disk it needs, restoring by hand) describes PostgreSQL.
 
 ## Who can do this
 

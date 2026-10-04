@@ -7,7 +7,7 @@ A migration that is instant on your laptop can lock a busy production table for 
 
 Rowsafe restores a copy of the database on its own server, from your backups and every change since, runs the migration there, and tells you what happened. Production is never touched.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. What a preview can tell differs a little per engine: see [Other engines](#other-engines).
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and SQLite (not yet for Redis and Valkey). What a preview can tell differs a little per engine: see [Other engines](#other-engines).
 
 ## What you get
 
@@ -99,7 +99,7 @@ rowsafe preview app drizzle/0007_add_reference.sql
 
 ## Other engines
 
-<Tabs items={["MySQL and MariaDB", "MongoDB", "ClickHouse"]}>
+<Tabs items={["MySQL and MariaDB", "MongoDB", "ClickHouse", "SQLite"]}>
 <Tab value="MySQL and MariaDB">
 
 The copy is restored from your latest backup and every binary log since, on a private server with no network port, like a restore test. Each statement runs on its own, as MySQL and MariaDB run them: schema changes commit one by one there, so a migration that fails halfway leaves the earlier changes applied on production. The preview shows that as **Dangerous**, with the changes that would stay.
@@ -129,6 +129,17 @@ For each call you see its time, the documents it changed, the indexes it built a
 The copy is restored from your newest backup (one every hour), so it has the data of that backup. Each statement runs on its own; mutations (`ALTER TABLE ... UPDATE`, `ALTER TABLE ... DELETE`, `MODIFY COLUMN`) run to the end on the copy so their time shows, and the report says when one was still running or failing at the end: on production a mutation keeps rewriting parts in the background after the migration returns.
 
 Statements that reach outside the server (table functions such as `url()` or `s3()`, external dictionaries and table engines, files) and server statements (`SYSTEM`, `GRANT`, users and roles) aren't run on the copy; the report marks them.
+
+</Tab>
+<Tab value="SQLite">
+
+The copy is the file restored from your latest backup and every change since, in a private folder on the same server. Rowsafe keeps it for an hour so the next preview starts at once, and runs each migration on a fresh copy of it. The migration runs in one transaction, the way most migration tools run it, unless your SQL opens its own (`BEGIN`/`COMMIT`) or has statements that can't run in one (`VACUUM`, `PRAGMA journal_mode`, `PRAGMA foreign_keys`): then each statement runs as written.
+
+For each statement you see its time, the rows it changed, the indexes it built and the tables it dropped, with their sizes. SQLite's table rebuilds (create a new table, copy, drop, rename, as Rails and Django do for most `ALTER TABLE`s) and `DROP COLUMN` show as rewrites, not drops. **Locks:** SQLite has one write lock for the whole file, so your app's writes wait for the whole migration (in one transaction) or for each statement (as written). In WAL mode reads go on; in rollback-journal mode reads wait too while it commits. A `VACUUM` blocks writes and needs about the file's size free, and the preview says whether there is room.
+
+Findings flag index builds and `VACUUM` with how long writes would wait, a `NOT NULL` column added without a default, `PRAGMA foreign_keys` inside a transaction (it does nothing there), rows the migration leaves without a parent (`foreign_key_check` before and after), and a failure that would leave earlier statements applied.
+
+The migration runs with foreign keys off, the default for SQLite connections. `ATTACH`, `VACUUM INTO`, `load_extension` and `sqlite3` shell commands (`.read`, `.import`) aren't run on the copy; the report marks them. Functions or collations your app registers in its own code don't exist on the copy, so statements that use them fail there, and the error says why. The [Guard hook](/docs/guides/ai-agents) also recognizes the `sqlite3` and `litecli` command lines.
 
 </Tab>
 </Tabs>

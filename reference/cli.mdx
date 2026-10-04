@@ -47,7 +47,7 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | `rowsafe ls` | Your databases. |
 | `rowsafe show [NAME]` | One database in detail. |
 | `rowsafe status [NAME]` | With a name: is it [protected](/docs/concepts/protection-status)? Without: fleet health. `--json` for details. |
-| `rowsafe adopt NAME` | Register an existing PostgreSQL (or, with `--engine`, MySQL, MariaDB, MongoDB or ClickHouse) and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
+| `rowsafe adopt NAME` | Register an existing PostgreSQL (or, with `--engine`, MySQL, MariaDB, MongoDB, ClickHouse, Redis or Valkey) and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
 | `rowsafe plan [NAME]` | Run the read-only plan again. |
 | `rowsafe apply [NAME]` | Apply the plan. Never restarts PostgreSQL. |
 | `rowsafe verify [NAME]` | Check now that changes reach your bucket. Rowsafe also does this by itself once it notices the restart. Activates the schedules and queues the first full backup. |
@@ -60,8 +60,8 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | Flag | Default | |
 |---|---|---|
 | `--host HOST` | | Host name or ID. Can be left out when the organization has one host. |
-| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MySQL's and MariaDB's (`3306`); MongoDB's port (`27017` by default); ClickHouse's HTTP port (`8123` by default). |
-| `--engine ENGINE` | `postgresql` | `mysql` or `mariadb` ([Protect MySQL or MariaDB](/docs/guides/mysql)), `mongodb` ([Protect MongoDB](/docs/guides/mongodb)), `clickhouse` ([Protect ClickHouse](/docs/guides/clickhouse)). |
+| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MySQL's and MariaDB's (`3306`); MongoDB's port (`27017` by default); ClickHouse's HTTP port (`8123` by default); Redis's or Valkey's port (`6379` by default). |
+| `--engine ENGINE` | `postgresql` | `mysql` or `mariadb` ([Protect MySQL or MariaDB](/docs/guides/mysql)), `mongodb` ([Protect MongoDB](/docs/guides/mongodb)), `clickhouse` ([Protect ClickHouse](/docs/guides/clickhouse)), `redis` or `valkey` ([Protect Redis or Valkey](/docs/guides/redis)). |
 | `--socket-dir DIR` | `/var/run/postgresql` | PostgreSQL's Unix socket directory. |
 | `--retention-full N` | `2` | Full backups to keep, 1 to 52 (MongoDB: `7`, one a day). |
 | `--no-wait` | | Return without waiting for the plan. |
@@ -80,7 +80,7 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe db create DB` | Create a database owned by a new user named like it; the password is shown once. `--owner USER` gives it to an existing user, `--new-owner USER` names the new one, `--extension EXT` (repeatable) turns extensions on, `--locale L` and `--template template0`. |
 | `rowsafe db drop DB` | Remove a database and everything in it, after a Mark. Asks you to type the name; `--yes` skips that. |
 | `rowsafe db users` | Users, the databases they can connect to and how their password is stored. |
-| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. |
+| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. Redis and Valkey: `--keys PATTERN` instead of `--db` (`"*"` for every key). |
 | `rowsafe db user password USER` | A new password, shown once. |
 | `rowsafe db user remove USER` | Remove a user; `--reassign-to USER` gets what it owns. Asks first; `--yes` skips it. |
 | `rowsafe db ext on\|off DB EXTENSION` | Turn an extension on or off in one database. `--allow-untrusted` for extensions that can run programs on the server. |

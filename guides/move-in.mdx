@@ -1,13 +1,13 @@
 ---
 title: Move in from a managed database
-description: Move a PostgreSQL, MySQL, MongoDB or ClickHouse database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
+description: Move a PostgreSQL, MySQL, MongoDB, ClickHouse, Redis or Valkey database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
 ---
 
 Leave your managed database, keep the safety net. **Move in** copies a database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
 
 Everything runs on your server. Its Rowsafe agent connects to the old database with the credentials you give it; the data goes straight from the old database to your server, never through Rowsafe.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb) and [ClickHouse](#clickhouse) say what differs. ClickHouse moves as a one-time copy; the others can also keep a live sync until you switch over.
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb), [ClickHouse](#clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs. ClickHouse moves as a one-time copy; Redis and Valkey from a managed provider too; the others can also keep a live sync until you switch over.
 
 ## Before you start
 
@@ -214,3 +214,13 @@ ClickHouse databases move in from ClickHouse Cloud, Altinity, Aiven or any Click
 - **Replication slots cost the old database disk** while the sync runs: if your server stops following for long, WAL piles up at the source. Cancelling removes the slot. Some providers drop inactive slots on their own (Neon after about 40 hours).
 - **Docker sidecar agents** need `pg_dump` and `pg_restore` of the server's PostgreSQL version next to the agent; the check says when they're missing.
 - AI assistants on [MCP](/docs/reference/mcp) can't start or change a move in.
+
+## Redis and Valkey
+
+Move a Redis or Valkey database from ElastiCache, MemoryDB, Upstash, Redis Cloud, Azure Cache for Redis, DigitalOcean or Aiven (Valkey), or any Redis, into an **empty** Redis or Valkey server Rowsafe protects. Paste `rediss://default:password@host:6379` (`redis://` without TLS; add `?skip_verify=true` only if the provider's certificate isn't trusted on your server).
+
+- **The check** says whether Rowsafe reaches the source (ElastiCache and MemoryDB only from inside their VPC), whether the versions fit (your server must run the same version or newer), which modules the source uses that your server lacks, whether the data fits `maxmemory`, how each evicts keys, and whether live sync is possible.
+- **One-time copy** (every managed provider): every key is copied with its time to live, a batch at a time; a copy that stops continues where it was. Providers don't let anyone make their database read-only, so stop your apps' writes for the copy; the check estimates how long. Key counts are compared at the end.
+- **Live sync**: only from a Redis that lets replicas connect (usually one you run yourself), over a plain connection. Your server follows the source, your apps keep writing, and the switchover waits until every change arrived.
+- Rowsafe can make a login for your apps afterwards when `--redis-standby` was given at install. Redis Cluster sources aren't supported.
+

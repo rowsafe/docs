@@ -129,6 +129,70 @@ It can't touch IAM, S3, databases or anything else in your account, and it can't
 
 Rowsafe itself creates, for each server, a Debian 12 instance with its disk, a security group that lets in only the addresses you chose, an Elastic IP address, and a key pair only if you give it your SSH public key (Rowsafe never adds its own). It creates them only when someone in your organization clicks and confirms. The key is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
 
+### For private connections (optional)
+
+To let Rowsafe create the endpoint of a [private connection](/docs/guides/rowsafe-cloud#private-connection-from-your-aws-network) in your VPC for you (**Create the endpoint for me**), the policy also needs these statements (the policy the dashboard shows when you connect AWS already has them). Add them to `RowsafeServers`, or attach them as a second policy; without them, everything else keeps working and the dashboard shows the steps to do it in your AWS console instead.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RowsafePrivateConnectionRead",
+      "Effect": "Allow",
+      "Action": ["ec2:DescribeVpcEndpoints", "ec2:DescribeVpcs", "ec2:DescribeSubnets", "ec2:DescribeSecurityGroups"],
+      "Resource": "*"
+    },
+    {
+      "Sid": "RowsafePrivateConnectionEndpoint",
+      "Effect": "Allow",
+      "Action": "ec2:CreateVpcEndpoint",
+      "Resource": "arn:aws:ec2:*:*:vpc-endpoint/*",
+      "Condition": { "StringEquals": { "aws:RequestTag/rowsafe": "1" } }
+    },
+    {
+      "Sid": "RowsafePrivateConnectionEndpointUsing",
+      "Effect": "Allow",
+      "Action": "ec2:CreateVpcEndpoint",
+      "Resource": [
+        "arn:aws:ec2:*:*:vpc/*",
+        "arn:aws:ec2:*:*:subnet/*",
+        "arn:aws:ec2:*:*:security-group/*",
+        "arn:aws:ec2:*:*:vpc-endpoint-service/*"
+      ]
+    },
+    {
+      "Sid": "RowsafePrivateConnectionFirewall",
+      "Effect": "Allow",
+      "Action": "ec2:CreateSecurityGroup",
+      "Resource": ["arn:aws:ec2:*:*:security-group/*", "arn:aws:ec2:*:*:vpc/*"]
+    },
+    {
+      "Sid": "RowsafePrivateConnectionTagOnCreate",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "*",
+      "Condition": { "StringEquals": { "ec2:CreateAction": ["CreateVpcEndpoint", "CreateSecurityGroup"] } }
+    },
+    {
+      "Sid": "RowsafePrivateConnectionManageOwn",
+      "Effect": "Allow",
+      "Action": ["ec2:DeleteVpcEndpoints", "ec2:AuthorizeSecurityGroupIngress", "ec2:DeleteSecurityGroup"],
+      "Resource": "*",
+      "Condition": { "StringEquals": { "aws:ResourceTag/rowsafe": "1" } }
+    },
+    {
+      "Sid": "RowsafePrivateConnectionFirewallRules",
+      "Effect": "Allow",
+      "Action": "ec2:AuthorizeSecurityGroupIngress",
+      "Resource": "arn:aws:ec2:*:*:security-group-rule/*"
+    }
+  ]
+}
+```
+
+In plain words: Rowsafe can create an endpoint and a security group tagged `rowsafe=1` in a VPC you pick, open port 5432 on that security group to the VPC's own addresses, and delete only what it tagged. It can't change your other endpoints, security groups or networks.
+
 ## Revoke it
 
 - **In AWS:** IAM, **Users**, `rowsafe`, **Security credentials**: deactivate or delete the access key. Or delete the user.

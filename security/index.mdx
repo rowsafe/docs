@@ -106,7 +106,7 @@ On the server itself:
 
 **Know the trade-off.** A cloud credential that can create and delete servers is powerful. Someone who controlled the Rowsafe service could use it to create servers your cloud bills you for, resize or delete the servers in that project, team, account or resource group, change who can reach them, and, with your cloud's own tools (resetting a password, a rescue system, changing what runs at boot), get into them and read the database. Rowsafe never does any of that on its own. If it matters to you, revoke the credential once the server is ready: the server, its backups, Proof and Pulse keep working, and only resizing, firewall changes and deleting from the dashboard stop.
 
-**[Rowsafe Cloud](/docs/guides/rowsafe-cloud)** servers run in Rowsafe's own cloud accounts instead. Everything above about the server holds (no Rowsafe SSH key, a passphrase only you have, nothing changes until someone clicks), but Rowsafe holds the cloud account, so it could reach the server's disk. If you need that ruled out, create the server in your own cloud account.
+**[Rowsafe Cloud](/docs/guides/rowsafe-cloud)** servers run in Rowsafe's own cloud accounts instead. Everything above about the server holds (no Rowsafe SSH key, a passphrase only you have), except that Rowsafe keeps it patched: security updates install by themselves without restarting PostgreSQL, and what needs a restart is applied in a weekly [maintenance window](/docs/guides/rowsafe-cloud#updates-and-maintenance) you can change or turn off (critical security fixes are applied after 7 days' notice even then). Rowsafe holds the cloud account, so it could reach the server's disk. If you need that ruled out, create the server in your own cloud account.
 
 ## Credentials
 

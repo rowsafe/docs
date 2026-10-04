@@ -58,6 +58,9 @@ Rewinding the whole server goes through Redis itself, one logical database at a 
 
 1. The restored keys are loaded into an **empty logical database** on your server.
 2. `SWAPDB` swaps it with the live one. The swap is instant: there is never a moment without data, and Redis doesn't restart.
+3. The old keys, now in the spare logical database, are freed in the background (`FLUSHDB ASYNC`).
+
+Before the first swap, the agent keeps a snapshot of the server as it is in your bucket, so the rewind can be undone. Writes your apps make to a logical database while it is being loaded are replaced by the swap, as with any rewind; restoring to a second still finds them.
 
 So it needs one empty logical database and enough free memory for one more copy of the largest logical database. The data from before is kept as a snapshot in your bucket for 7 days, for **Undo**.
 
@@ -74,7 +77,7 @@ The agent connects to Redis from the server itself (`127.0.0.1`, or the Redis se
 | reading and inspecting the server | backups, Proof, compare and Pulse |
 | the replication handshake | snapshots, and following every change |
 | `DUMP`, `RESTORE` | bringing keys back, only when someone asks in the dashboard |
-| `SWAPDB`, `FLUSHDB` | rewinding the whole server in place, only when someone asks |
+| `SWAPDB`, `FLUSHDB`, `DEL` | rewinding the whole server in place, only when someone asks (`DEL` only for its own marker key) |
 | `CONFIG GET`, `CONFIG SET`, `CONFIG REWRITE` | reading settings, and the fixes someone applies |
 | `MEMORY PURGE`, `CLIENT KILL` | the fixes someone applies |
 | `BGSAVE` | scheduled snapshots, when Rowsafe can't follow the server |

@@ -12,7 +12,7 @@ Valkey is a fork of Redis that speaks the same language and keeps the same files
 | | |
 |---|---|
 | Backups | A full snapshot of the server, encrypted on your server, in your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)). |
-| Restore to any second | Every change is saved, stamped with the second it happened, and uploaded about every minute. |
+| Restore to any second | Every change is saved, stamped with the moment it reached Rowsafe's agent, and uploaded about every minute. |
 | [Marks](/docs/concepts/restore-points) | Name a moment before a risky change; a restore to it stops exactly there. |
 | [Proof](/docs/concepts/restore-drills) | Every week, your newest backup is restored into a temporary server and checked. |
 | [Rewind](/docs/guides/restore) | Restore a copy at any second, compare it with production, bring keys back, or rewind the whole server in place, with **Undo** for 7 days. |
@@ -106,7 +106,7 @@ It needs one empty logical database on the server, and enough free memory for on
 
 ## Pulse
 
-Pulse reads Redis's own statistics about every 5 minutes: memory against `maxmemory`, evictions, the hit rate, commands per second, clients (blocked and rejected), fragmentation, persistence (whether snapshots and the append-only file are working), replication (replicas and their lag), the slow log and the latency monitor's events. The slow log reaches Rowsafe as command names only, never keys or values.
+Pulse reads Redis's own statistics every minute (the detailed status every 5 minutes): memory against `maxmemory`, evictions, the hit rate, commands per second, clients (blocked and rejected), fragmentation, persistence (whether snapshots and the append-only file are working), replication (replicas and their lag), the slow log and the latency monitor's events. The slow log reaches Rowsafe as command names only, never keys or values.
 
 Fixes come with **Apply fix** and a confirmation:
 
@@ -132,7 +132,7 @@ A server without a password is flagged: anyone who can reach its port can read a
 - read and inspect the server: backups, Proof, compare and Pulse;
 - the replication handshake: the snapshot for backups, and following every change;
 - `DUMP` and `RESTORE`: bring keys back from a copy;
-- `SWAPDB` and `FLUSHDB`: rewind the whole server in place;
+- `SWAPDB`, `FLUSHDB` and `DEL`: rewind the whole server in place (only into and out of an empty logical database, and `DEL` only for its own marker key);
 - `CONFIG GET`, `CONFIG SET` and `CONFIG REWRITE`, `MEMORY PURGE` and `CLIENT KILL`: the fixes;
 - `BGSAVE`: scheduled snapshots, when Rowsafe can't follow the server.
 
@@ -164,10 +164,11 @@ services:
     hostname: db-1
     environment:
       ROWSAFE_REDIS_HOST: redis
+      ROWSAFE_REDIS_DATA_DIR: /srv/redis-data   # only used when Rowsafe can't follow the server
     env_file: rowsafe-agent.env
     volumes:
       - rowsafe-state:/var/lib/rowsafe
-      - redisdata:/data:ro          # read only: only used when Rowsafe can't follow the server
+      - redisdata:/srv/redis-data:ro            # read only
 ```
 
 Start Redis with an ACL file in its data volume, as the full example does, so Rowsafe's user is still there after Redis restarts. The full example is [`deploy/docker/compose.redis.example.yml`](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.redis.example.yml). Then, once:
@@ -193,6 +194,17 @@ docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 Name the service: a plain `docker compose pull` also downloads a newer Redis image if there is one, and `docker compose up -d` then restarts Redis to use it. With the container control service, **Update now** in the dashboard does it for you: see [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard).
 
 On a server, the agent updates itself: see [Updating the agent](/docs/guides/agent-updates).
+
+## Restore without Rowsafe
+
+Your backups don't need Rowsafe to be restored. With your bucket settings and passphrase in the environment (as in `agent.env`), the agent lists a database's snapshots and decrypts one into a `dump.rdb` that any server of the same version loads at startup:
+
+```bash
+rowsafe-agent redis download-backup --stanza cache
+rowsafe-agent redis download-backup --stanza cache --label 20261003-235013F --to ./dump.rdb
+```
+
+Put the file in an empty server's data folder (its `dir`, with `appendonly no`) and start it. This brings back a snapshot; restoring to a second in between needs Rowsafe.
 
 ## Not yet
 

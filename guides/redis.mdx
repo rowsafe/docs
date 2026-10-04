@@ -86,6 +86,7 @@ Some servers refuse Rowsafe's link: the replication commands (`SYNC`, `PSYNC`) a
 
 - backups are snapshots on the schedule only: Rowsafe asks Redis to save one (`BGSAVE`) and reads it from Redis's own file;
 - restores go back to those snapshots, not to any second;
+- Marks aren't available (a Mark is a position in the stream of changes Rowsafe can't follow);
 - the dashboard says so plainly, and why.
 
 For this the agent needs read access to Redis's data folder: the installer gives it, and in Docker you mount Redis's data volume into the agent, read only.

@@ -183,9 +183,58 @@ Move your database to your own server whenever you like, with about a minute of 
 
 It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
 
+## Private connection from your AWS network
+
+If your apps run in AWS, they can reach a Rowsafe Cloud server on AWS **without going over the internet**. This uses **AWS PrivateLink**: AWS carries the traffic from your own network (your VPC) to the server, privately, and only the AWS accounts you name can connect.
+
+- **Price:** $20 a month at most, billed by the hour ($0.028) while it's on, on the same pay-as-you-go subscription as your servers. Turn it off and billing stops.
+- **AWS only, same region only.** It works for Rowsafe Cloud servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean and OVHcloud servers don't have it.
+- **With a standby, it follows the database.** Turn it on on the primary's page. After a failover, the same endpoint reaches the server that holds the database now, with nothing to change on your side; if you then remove the old primary, the private connection stays.
+
+### Turn it on
+
+1. Open the server's page (**Servers**, then the server) and find **Private connection from your AWS network**.
+2. Click **Turn on**, type the IDs of the AWS accounts your apps run in (12 digits, shown at the top right of the AWS console), tick the price and confirm. Owners and admins can do this.
+3. After a few minutes Rowsafe shows the **service name** (it starts with `com.amazonaws.vpce.`), the region, and the **zones** your endpoint can use. Zones are shown as AWS zone IDs (like `euc1-az2`), which are the same in every AWS account; your console shows them next to the zone names.
+
+### Connect from your VPC
+
+Your apps connect through an **endpoint** in your VPC.
+
+**If your AWS account is connected to Rowsafe** ([Connect AWS](/docs/guides/cloud-accounts/aws)), click **Create the endpoint for me**, pick the VPC and a subnet in each zone your apps use, and Rowsafe creates the endpoint with a security group that lets that VPC reach port 5432. Accounts connected before this feature need the [updated policy](/docs/guides/cloud-accounts/aws#the-policy) for this button.
+
+**Otherwise, in your AWS console:**
+
+1. Sign in with the account your apps run in, and switch to the server's region (top right).
+2. Open the **VPC** console and choose **Endpoints**, then **Create endpoint**.
+3. Name it, and under **Type** choose **Endpoint services that use NLBs and GWLBs**.
+4. Paste the service name Rowsafe shows under **Service name** and click **Verify service**.
+5. Choose the VPC your apps run in, then a subnet in each zone your apps use (only the zones Rowsafe lists work).
+6. Choose a security group that lets your apps reach port **5432** (for example, one that allows your VPC's own addresses on 5432).
+7. Click **Create endpoint**. When it's **Available**, copy its first DNS name.
+
+Connections from the accounts you named are accepted right away: AWS lets only those accounts create an endpoint to it, so there's nothing to approve. If you remove an account, its endpoints are disconnected at once.
+
+### Connect your app
+
+Use the endpoint's DNS name as the host, port 5432, and `sslmode=require`, with a user from [Databases & users](/docs/guides/databases-and-users):
+
+```
+postgresql://USER:PASSWORD@<your endpoint's DNS name>:5432/postgres?sslmode=require
+```
+
+Connections stay encrypted. The server's certificate is its own (made when it was set up), so it doesn't carry your endpoint's name: use `sslmode=require`, not `verify-full`, which checks the name and refuses it.
+
+**Only private connections:** once your apps connect privately, you can close the database's port to the internet with one switch (it empties **Who can connect**, after a confirmation). Backups and Rowsafe keep working.
+
+### Turn it off
+
+Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, with the endpoints it created in your accounts, and billing stops. Endpoints you made yourself stop working; delete them in your VPC console. Deleting the server turns its private connection off too.
+
 ## Limits
 
 - **PostgreSQL only**, versions 15 to 18.
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
+- **Private connections** are for servers on AWS, from VPCs in the same AWS region only.
 - **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). A server with a standby can't change size yet: remove the standby, change the size, then add it again.
 - SSH keys are set when you create the server.

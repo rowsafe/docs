@@ -9,7 +9,7 @@ Each recommendation says **what** to change, **why** (with the numbers behind it
 
 Recommendations don't change the health score. They are in every plan, including Free.
 
-They work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey: their Pulse findings and fixes are in [Protect Redis or Valkey](/docs/guides/redis)#pulse)). Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse).
+They work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey).
 
 ## See them
 
@@ -147,6 +147,33 @@ The query and capacity checks work for every engine, from each one's statement s
 | MongoDB | Operations that read far more documents than they return, the profiler being off (with **Turn on query statistics**), indexes nothing used for a week and redundant indexes (with **Drop**), and index suggestions tested on a copy. |
 | ClickHouse | Large tables without a sorting key, tables split into too many partitions, and skipping indexes and projections tested on a copy ([above](#clickhouse)), with **Add** and **Drop**. |
 
+## Redis and Valkey
+
+Redis and Valkey have no tables, queries or indexes, so their recommendations are about keys, memory and commands. **Your key names and values never leave your server**: Rowsafe only receives key-name patterns, counts and sizes.
+
+About every 30 minutes, the agent looks at a sample of the keys on a connection of its own, slowly:
+
+- at most 10,000 keys per logical database, 100 at a time (`SCAN`), with each key's type, expiry and memory (`TYPE`, `PTTL`, `MEMORY USAGE`). None of these change a key or its place in the eviction order;
+- after each batch it pauses at least four times as long as the batch took, so it takes a small share of the server's time, and less when the server is busy. It stops after 90 seconds per logical database and 5 minutes in all, and says when it sampled only part;
+- the command statistics (`INFO commandstats`) and the slow log, by command name only, and a few settings (`maxmemory`, the eviction policy, `save`, `appendonly`, `appendfsync`).
+
+Key names become patterns on your server, before anything is sent: every part of a name that looks like an id becomes `*` (anything with a digit, long hex strings, emails, long or random-looking words), so `user:4821:cart` and `session:9f1c...` become `user:*:cart` and `session:*`. Words with many different values at the same place (user names, customer names) become `*` too, and a pattern is only reported when it covers at least 10 of the sampled keys (and 0.5% of them). Keys no pattern covers are only counted. Words that name a kind of key, like `session` or `cart`, stay: they are what makes a pattern useful. The control plane checks every pattern again when it arrives and drops anything that doesn't look like one.
+
+| Recommendation | When |
+|---|---|
+| **Big keys** | Sampled keys of 10 MB or more, with the patterns they belong to. Reading one whole, deleting it or letting it expire blocks every other client meanwhile. |
+| **Where the memory goes** | The pattern with the most memory holds at least 20% of the data (on servers with at least 64 MB): the five biggest patterns, with their estimated size, number of keys and how many have no expiry. |
+| **Keys that never expire** | A pattern whose name says it is temporary (`cache`, `session`, `lock`, `tmp`, `otp`, rate limits...) where most keys have no expiry. |
+| **Eviction that can't free memory** | A `volatile-*` eviction policy, with a memory limit, while fewer than half of the keys have an expiry: once those are gone, writes fail. |
+| **No memory limit** | `maxmemory` is not set (when most of the server's memory is already used, Pulse says so in Health instead). |
+| **KEYS** | Something called `KEYS` at least 10 times since the server started (or once for 10 ms or more): it goes through every key at once. Use `SCAN`. |
+| **Commands that go through a whole key** | `HGETALL`, `SMEMBERS`, `LRANGE`, `ZRANGE`, `SORT`, `SUNION` and the like, called at least 100 times and taking over 1 ms per call on average; a `FLUSHALL` or `FLUSHDB` that blocked for over 100 ms. |
+| **Many logical databases** | Three or more logical databases hold keys: they share one server and can't be scaled apart, and Redis Cluster (and Valkey Cluster before 9.0) only has database 0. |
+| **A restart empties the server** | Snapshots and the append-only file are both off on a primary. Fine for a cache the app can fill again (dismiss it as on purpose); otherwise Rowsafe's backups still have the data, but the app sees an empty server until you restore. |
+| **Writes reach the disk only when the system decides** | `appendfsync no`: a power loss can lose about 30 seconds of writes. |
+
+These need an app change or a setting, so they come with a plan and, where it helps, the command under **Do it yourself** rather than a button. What Health already reports (memory nearly full, fragmentation, slow commands in the last hour) isn't repeated here. The **Queries** and **Insights** pages are about SQL statements, tables and indexes, so they don't show for Redis and Valkey.
+
 ## Limits
 
 - Estimates are estimates: index sizes, rewrite times and the date an id runs out come from sizes and rates, not measurements of your disks.
@@ -154,3 +181,4 @@ The query and capacity checks work for every engine, from each one's statement s
 - On a replica, recommendations that need write statistics (autovacuum, time-series, timestamps) are left out; fixes run on the primary.
 - An agent older than the recommendations feature doesn't send the schema facts; update it to see them.
 - Indexes proven on a copy need PostgreSQL 12 or later, `pg_stat_statements` and backups on. They are b-tree indexes on plain columns (no expression, GIN or GiST indexes, none on partitioned tables), from the busiest 40 statements of the last week. Timings come from the copy, which has your data but not your production load; the week-after report says what happened in practice. A build estimated to take over 2 hours is left to you (its definition is under **Do it yourself**).
+- Redis and Valkey figures come from a sample of at most 10,000 keys per logical database, scaled up to the whole database: estimates, not measurements. Patterns that cover few keys are left out, so small databases may show none.

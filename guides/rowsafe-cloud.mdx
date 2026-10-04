@@ -76,7 +76,7 @@ For now, traffic above the included amount isn't billed. When that changes, it w
 1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
 2. Under **Where should it run?**, choose **Rowsafe Cloud**.
 3. Pick a region (the region decides the cloud), a size, a name and the PostgreSQL version.
-4. Add the addresses that may connect, and your SSH key if you want to log in yourself.
+4. Add the addresses that may connect.
 5. Click **Create server**. The first time, an owner adds a card first.
 
 The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](/docs/guides/create-a-server#connect-your-app).
@@ -325,5 +325,5 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
 - **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.
 - **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). With a standby, both servers change one at a time and **writes pause for a few seconds** at the switchover instead; the servers swap roles. (A pair in your own cloud account can't change size yet.)
-- SSH keys are set when you create the server.
+- **No SSH access.** Rowsafe runs the server, like other managed databases: every fix is a button in the dashboard. For a server you can log in to, create it in your own cloud account.
 - **Maintenance restarts the database in place**: a few seconds for a PostgreSQL update or a library, a minute or two when a new kernel needs the server to restart. Pick a window when that suits you. With a standby that's in sync, **writes pause for a few seconds** at a switchover instead, and the servers swap roles; when it isn't, the window updates in place.

@@ -1,6 +1,6 @@
 ---
 title: One-click permissions with a passkey
-description: Change what Rowsafe may do on a server from the dashboard, each change signed with a passkey that root paired at the server, and checked by the server itself.
+description: Change what Rowsafe may do on a server from the dashboard. Allowing more is signed with a passkey root paired at the server and checked by the server itself; turning one off takes one click.
 ---
 
 Root on each server decides what Rowsafe may do there when someone clicks it in the dashboard: restart the database, install updates and security updates, reboot, change the firewall, run a connection pooler, change settings files, create clusters. The [permissions guide](/docs/guides/permissions) explains each one and how root changes them with `sudo rowsafe-allow`.
@@ -53,6 +53,12 @@ Where something isn't allowed, the dashboard says so with a button such as **All
 
 Each change is for one server, expires after a few minutes and works once: a replay is refused. The request and the server's answer are in the [audit log](/docs/guides/teams#audit-log).
 
+## Turn one off without a passkey
+
+Turning a permission off needs no passkey: an owner or admin turns it off on the server's page, confirms, and the server applies it. It works before anyone pairs a passkey. Taking power away from Rowsafe can't hurt the server: nothing running stops (a pooler keeps running for your apps, settings stay), Rowsafe just can't do it anymore. The server's helper checks the server and the names itself, and the change is in the [audit log](/docs/guides/teams#audit-log).
+
+Two stay passkey-signed even to turn off, because they change what can reach the server: the **firewall** (turning it off removes Rowsafe's rule) and the **pooler on public addresses**.
+
 To see or remove paired passkeys, on the server:
 
 ```sh
@@ -73,7 +79,7 @@ Rowsafe's own MCP server has no tool that changes permissions: AI apps connected
 ## Limits
 
 - **The pairing trusts the page you see while pairing.** Whoever controls the dashboard's code at that moment could show you a different passkey. That's why the server shows the fingerprint and asks you to compare it at the terminal: the codes only match for the passkey your browser made. Attestation statements from authenticators aren't used; the comparison is the check.
-- **After pairing, Rowsafe can't change permissions without your passkey.** The control plane only relays the signed request; it can't make or alter one.
+- **After pairing, Rowsafe can't allow more without your passkey.** The control plane only relays the signed request; it can't make or alter one. It can ask the server to turn permissions off (all but the firewall and the public pooler), as an owner or admin can without a passkey.
 - **The passkey prompt doesn't show the change.** Your device signs what the dashboard page asks it to sign. Someone who controls the dashboard's code at the moment you click could ask for a different change; the server still checks the signature, the server and the expiry, and logs who asked.
 - **The agent can delay or block a change, not forge one.** The agent's user hands the signed request to root's helper and can't change it.
 - **Once a change is verified, root's installer applies it** with write access to the server's files (its sandbox blocks the network and new privileges only).

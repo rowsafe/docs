@@ -1,6 +1,6 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, changing the size, taking it with you, and what Rowsafe can and can't reach.
 ---
 
 No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
@@ -51,6 +51,7 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 - **Add a card once.** The first Rowsafe Cloud server asks an owner for a card: one pay-as-you-go subscription for the whole organization, through Polar, our merchant of record (it handles sales tax and VAT). An admin can create the server, and an owner adds the card under **Settings → Billing**. After that, new servers are created right away.
 - **Billed for every hour a server exists**, from when it's ready until you delete it, and never more than its monthly price in a month. Polar invoices the hours at the end of each month.
+- **Change the size and the price follows** from the next full hour; a month never costs more than the monthly price of the biggest size the server had that month. See [Change the size](#change-the-size).
 - **Delete a server and its billing stops.**
 - **If a payment fails or you cancel**, nothing is deleted right away: you get emails first, your servers keep running for a grace period, and then they are powered off (powered-off hours aren't billed) before they are deleted, after a further notice. Your backups stay in Rowsafe Storage for as long as the database stays in Rowsafe.
 
@@ -80,6 +81,29 @@ For now, traffic above the included amount isn't billed. When that changes, it w
 
 The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](/docs/guides/create-a-server#connect-your-app).
 
+## Change the size
+
+A Rowsafe Cloud server can move to another size of its cloud, bigger or smaller, in place: same server, same address, same database.
+
+1. Open the server's page and click **Change size**.
+2. Pick the new size. Each one shows its price per hour and the most a month costs.
+3. Read what happens and click **Change size now**.
+
+What to expect:
+
+- **The database is offline for a few minutes** while the server restarts with the new size. Most apps reconnect by themselves. Rowsafe saves a [Mark](/docs/concepts/restore-points) first, so you can get back to that exact moment.
+- **The disk can grow, never shrink.** Moving to a size with a bigger disk grows the disk, and that can't be undone: afterwards the server can't move back to a size with a smaller disk. Sizes with a smaller disk than the server has now can't be picked. (To go smaller anyway, create a smaller Rowsafe Cloud server and [move the database there](/docs/guides/move).)
+- **Some bigger sizes aren't offered in every region.** The dashboard only lists the sizes offered where the server runs.
+- **If the cloud can't make the change** (for example, it has no room for that size right now), the server comes back at its old size and the page says why. Nothing is billed at the new size.
+
+How billing changes:
+
+- **Every hour is billed at the size the server had when the hour started.** The hour you change the size in is billed at the old size; the new size is billed from the next full hour.
+- **A month never costs more than the monthly price of the biggest size the server had that month.** Moving up from Small to Large mid-month: at most Large's monthly price. Moving down from Large to Small: that month still costs at most Large's price, and from the next month at most Small's.
+- Settings → Billing shows the hours so far and the most this month can cost.
+
+Owners and admins can change the size; every change is in the audit log. AI assistants can't. Servers paid by the month (not offered today) keep their size.
+
 ## Your passphrase, only yours
 
 Backups are encrypted on the server with a passphrase made **on the server**. You save a copy through your browser, encrypted end to end; Rowsafe passes on only the encrypted message and never has the passphrase. Without it, nobody can restore your backups, Rowsafe included, so save it before you rely on the database. The dashboard keeps asking until you confirm you saved it.
@@ -103,5 +127,5 @@ It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the datab
 
 - **PostgreSQL only**, versions 15 to 18.
 - **One server per database**: no standby or automatic failover comes with it.
-- **No resize in place yet.** Pick the size you'll need; for a bigger one later, create a larger Rowsafe Cloud server and [move the database there](/docs/guides/move) (about a minute of downtime).
+- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size).
 - SSH keys and what Rowsafe may do on the server are set when you create it.

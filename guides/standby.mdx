@@ -11,7 +11,7 @@ A **standby** is a second server that stays in sync with your database. You can:
 
 Rowsafe sets it up from your backups and your bucket, keeps it in sync, watches how far behind it is, and makes sure the old primary stays stopped after a promotion.
 
-Standby servers work for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse (not yet for Redis and Valkey). This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb) and [ClickHouse](#clickhouse) say what differs.
+Standby servers work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb), [ClickHouse](#clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs.
 
 ## What you need
 
@@ -254,3 +254,15 @@ A ClickHouse standby follows its primary **through your bucket**, like a Postgre
 All of it is in the CLI: `rowsafe standby`, `add`, `promote`, `rebuild`, `unfence`, `failover` and `remove`. See [CLI reference](/docs/reference/cli#standby).
 
 AI assistants can read a standby's status (the `standby_status` MCP tool). They can't create, promote, rebuild or remove one, or turn automatic failover on, by themselves: like every change to production, they can only ask, and it happens when an owner or admin [approves](/docs/guides/approvals) it.
+
+## Redis and Valkey
+
+Redis and Valkey standbys are real replicas: the same buttons, fingerprint check, promotion and planned move. What differs:
+
+- **The other server**: run the Rowsafe installer there with `--redis-standby`. Rowsafe then creates a Redis (or Valkey) server for the standby when you pick that server (its own service, `rowsafe-redis@PORT`, ports 6390 to 6399), or takes an empty one handed to it. The primary's server needs `--redis-standby` too: Rowsafe's Redis user may then create and remove users (on Redis that amounts to administrator rights, used only when someone adds, promotes or removes a standby).
+- **What it gets**: a replication login made for it on the primary (sealed to the standby's agent, like the bucket settings) and the primary's users, so your apps can sign in to it once it is promoted. It copies the data straight from the primary, the way any Redis replica starts (one snapshot), not from the backup, then follows every change; it is read-only.
+- **Fencing** makes the old primary refuse writes (it keeps running for reads), ends its client connections, and its agent keeps it so.
+- **After a promotion**, Rowsafe follows the new primary: its first snapshot is a new base for restores to any second; moments before the switch restore from the old server's history.
+- **Connect your apps** to the primary; reads can use the standby. After a promotion, point apps at the new primary.
+- Details and limits: [Protect Redis or Valkey](/docs/guides/redis#standby-servers).
+

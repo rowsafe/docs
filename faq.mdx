@@ -161,7 +161,7 @@ Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: 
 </Accordion>
 <Accordion title="Does it do replicas and failover?">
 
-Yes, for PostgreSQL. A [standby](/docs/guides/standby) is a second server that Rowsafe keeps in sync from your backups. You can read from it, and promote it when the primary dies, by hand or automatically (off by default). One standby per database, on Linux servers with systemd; the standby's agent is installed natively, not in Docker. To back up, adopt the primary: a standby can't be adopted on its own. Standby servers aren't available for Redis and Valkey yet.
+Yes, for PostgreSQL. A [standby](/docs/guides/standby) is a second server that Rowsafe keeps in sync from your backups. You can read from it, and promote it when the primary dies, by hand or automatically (off by default). One standby per database, on Linux servers with systemd; the standby's agent is installed natively, not in Docker. To back up, adopt the primary: a standby can't be adopted on its own. Redis and Valkey standbys are real replicas Rowsafe sets up ([Redis and Valkey](/docs/guides/standby#redis-and-valkey)).
 
 </Accordion>
 <Accordion title="Is it open source?">

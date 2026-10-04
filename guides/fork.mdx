@@ -13,7 +13,7 @@ Use a fork to:
 
 Production isn't touched. The fork is restored from the source's backups in your bucket, and it never writes into them.
 
-Forks work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and SQLite (not yet for Redis and Valkey). This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [ClickHouse](#clickhouse), [MongoDB](#mongodb) and [SQLite](#sqlite) say what differs. Masking personal data on the way is PostgreSQL's; for the others, a [safe copy](/docs/guides/safe-copies) gives masked data.
+Forks work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [ClickHouse](#clickhouse), [MongoDB](#mongodb), [Redis and Valkey](#redis-and-valkey) and [SQLite](#sqlite) say what differs. Masking personal data on the way is PostgreSQL's; for the others, a [safe copy](/docs/guides/safe-copies) gives masked data.
 
 ## What you need
 
@@ -374,3 +374,13 @@ GET  /v1/forks/{id}               one fork and its progress
 ```
 
 `POST` takes `name`, `host_id` (a host ID or name), and optionally `placement` (`new_cluster`, `empty_cluster` or `docker`), `port`, `at` (RFC 3339) or `mark`, `mask` and, for another server, `fingerprint`. Without `at` and `mark`, it forks now. It needs an API key that can write.
+
+## Redis and Valkey
+
+Redis and Valkey databases are forked from the same **Fork** page, as they were at any second or a Mark. What differs:
+
+- **Where**: a server Rowsafe may fill on the fork's host: run the Rowsafe installer there with `--redis-clones`, and Rowsafe creates a new Redis (or Valkey) server when you pick that host (`rowsafe-redis@PORT`, ports 6390 to 6399), or takes an empty one handed to it. It must run the same version as the source or newer, with as many logical databases.
+- **How**: the moment is restored privately on that host (Unix socket only), masked there if you ask, then copied key by key into the new server, with times to live.
+- **Users** aren't part of the data: the fork has none of the source's. A server Rowsafe created accepts connections from its own host only until you add users with passwords.
+- Keys of module types are removed when masking. Details: [Protect Redis or Valkey](/docs/guides/redis#clones).
+

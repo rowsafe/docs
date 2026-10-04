@@ -81,5 +81,19 @@ The agent connects to Redis from the server itself (`127.0.0.1`, or the Redis se
 | `CONFIG GET`, `CONFIG SET`, `CONFIG REWRITE` | reading settings, and the fixes someone applies |
 | `MEMORY PURGE`, `CLIENT KILL` | the fixes someone applies |
 | `BGSAVE` | scheduled snapshots, when Rowsafe can't follow the server |
+| `ACL SETUSER`, `ACL DELUSER`, `ACL LIST`, `REPLICAOF` | only with `--redis-standby`: the standby's replication login, the users a standby gets, an old primary following the new one |
 
 The user never sees anything outside Redis. Pulse reads the slow log as command names only, never keys or values.
+
+## Standbys, clones and moving in
+
+A **standby** is a real replica of the primary, set up on another server. Rowsafe's own link to the primary announces itself as `rowsafe-agent`, so Pulse, the standby's lag and every count of replicas leave it out, and Rowsafe never mistakes a standby for its link. When a standby is promoted, the promoted server continues the same stream of changes from the same offset under a new replication id; Rowsafe's link to it starts with a fresh snapshot, a new base, and restores to moments before the switch use the old server's history, in the same bucket.
+
+A **clone** is restored like a Rewind copy, privately on its host, then copied key by key (`DUMP` and `RESTORE`, with times to live) into its own server. **Moving in** copies keys the same way from the source, a batch at a time, or follows the source as its replica where the source allows that.
+
+Servers for standbys and clones are either empty servers root handed to Rowsafe (Rowsafe's user has every right there) or new ones root's helper creates on request, each as its own service (`rowsafe-redis@PORT`, running as `redis`, ports 6390 to 6399), when root allowed it at install with `--redis-standby` or `--redis-clones`. The agent gives the helper only its password's SHA-256 for Rowsafe's login there.
+
+## Find the moment and safe copies
+
+**Find the moment** reads the same stream segments a restore replays, on your server, and matches each write's keys against the names or patterns you typed; only those patterns, counts and times reach Rowsafe. A **safe copy** is a temporary server on a private socket, masked or emptied to its structure, which the agent opens over TLS to the addresses you allow.
+

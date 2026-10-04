@@ -24,7 +24,7 @@ Rowsafe works with all three. You only ever name the database file.
 The agent runs as its own system user, `rowsafe`, not as root and not as your app. At install, root gives it read and write access to the file, its `-wal` and `-shm` files, and their folder:
 
 - with a **POSIX ACL** on each, plus a **default ACL** on the folder, so the `-wal` and `-shm` files your app creates later get the same access;
-- or, when the file belongs to the app user's own group, by adding `rowsafe` to that group.
+- or, on a filesystem without ACLs, by adding `rowsafe` to the file's group, when that group is the app user's own and can already write the file.
 
 The installer prints exactly what it changed. It never changes the file's owner, and every other user's access stays as it was. In Docker, the agent runs as the same user as your app instead, so nothing changes at all.
 
@@ -37,7 +37,7 @@ Rowsafe opens the file with SQLite's own locking: the same file locks and the sa
 - **Backups** use SQLite's **online backup API**, made for copying a database while it is in use. The copy is consistent: it is the file as it was at one moment, even while your app writes.
 - **In WAL mode**, readers never block writers, so your app's writes never wait for Rowsafe's reads.
 - **In rollback-journal mode** (the older default), a write can wait a moment while Rowsafe reads, as it would behind any other reader.
-- The agent's work runs at **low CPU and IO priority**. When the file is busy, the agent waits and tries again, and Pulse counts those moments.
+- On a server, the agent's service gets a **lower CPU and IO weight** than your app. When the file is busy, the agent waits and tries again, and Pulse counts those moments.
 
 Network drives (NFS, SMB/CIFS, sshfs and similar) are refused: their file locks aren't reliable, and SQLite itself warns against them.
 
@@ -55,13 +55,13 @@ That makes continuous backups possible:
 
 1. Every few seconds, the agent copies the transactions newly committed to the `-wal` file, whole transactions only, into an encrypted, time-stamped piece in your bucket.
 2. It keeps a read transaction open, so a checkpoint by your app can't overwrite changes it hasn't copied yet.
-3. Once they are copied, it checkpoints the file itself, so the `-wal` file doesn't keep growing.
+3. Every ten seconds or so, it takes SQLite's write lock for a few milliseconds, reads what's left, renews its read transaction there and checkpoints what it copied, so the `-wal` file starts over instead of growing. Changes wait in a small spool on the agent's disk until every bucket has them; if your bucket is unreachable for long, the spool is bounded and Rowsafe takes a fresh full copy once it's back.
 
 So your bucket is usually a few seconds behind your app. The dashboard shows how far behind it is.
 
 ### When the chain breaks
 
-A restore to a second needs every change since the last full copy, in order. Some things break that chain: the agent was stopped while your app reset its `-wal` file, your app ran `VACUUM` or a `TRUNCATE` or `RESTART` checkpoint, or the file was replaced with another one. Rowsafe notices and starts again with a fresh full copy, by itself, and restores to any second continue from that copy.
+A restore to a second needs every change since the last full copy, in order. Some things break that chain: the agent was stopped while your app reset its `-wal` file, your app ran a `TRUNCATE` or `RESTART` checkpoint, the file's page size changed, or the file was replaced with another one. Rowsafe notices and starts again with a fresh full copy, by itself, and restores to any second continue from that copy; moments before the break stay restorable from the backups and changes before it. (A `VACUUM` doesn't break it: in WAL mode it is one more, large, transaction.)
 
 If your app runs a `TRUNCATE` or `RESTART` checkpoint itself, Rowsafe lets go after about two seconds, so your app isn't kept waiting. It's better to leave checkpoints to Rowsafe: it does the same job without needing a new full copy.
 

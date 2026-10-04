@@ -36,7 +36,7 @@ The installer finds your SQLite files. Nothing restarts, and your app keeps runn
 **The files.** It lists the SQLite files that running apps have open, on the server and inside Docker containers, and asks which ones to protect, and what to call each one in Rowsafe. To add a file it can't see (your app is stopped, for example), name it: `--sqlite /srv/app/db/production.sqlite3`. Repeat `--sqlite` for several files.
 </Step>
 <Step>
-**Access to the file.** The agent runs as its own system user, `rowsafe`. Root gives it read and write access to the database file, its `-wal` and `-shm` files, and their folder. It uses a POSIX ACL, plus a default ACL on the folder so the `-wal` and `-shm` files your app creates later are covered too. When the file belongs to the app user's own group, it adds `rowsafe` to that group instead. The installer prints exactly what it changed. It never changes the file's owner, and everyone else's access stays as it was.
+**Access to the file.** The agent runs as its own system user, `rowsafe`. Root gives it read and write access to the database file, its `-wal` and `-shm` files, and their folder. It uses a POSIX ACL (installing the `acl` package if needed), plus a default ACL on the folder so the `-wal` and `-shm` files your app creates later are covered too. On a filesystem without ACLs, it adds `rowsafe` to the file's group when that group is the app user's own and can already write the file. The installer prints exactly what it changed. It never changes the file's owner, and everyone else's access stays as it was.
 </Step>
 <Step>
 **The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in the file changes. Rowsafe checks that a backup reaches your bucket and opens with your key, takes the first full copy and, in WAL mode, starts copying every change.
@@ -54,14 +54,14 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --protect app --sqlite /srv/app/db
 Rowsafe opens the file the way your app does, with SQLite's own locking: the same file locks and the same shared-memory file (`-shm`). So it is safe next to your app's connections.
 
 - **It never locks your app out.** Copies use SQLite's online backup API. In WAL mode, your app's writes never wait for Rowsafe's reads. In the older rollback-journal mode, a write can wait a moment while Rowsafe reads, as it would behind any other reader.
-- **It runs at low priority.** The agent's work runs at low CPU and IO priority.
+- **Your app comes first.** On a server, the agent's service gets a lower CPU and IO weight than your app. It only takes SQLite's write lock for a few milliseconds at a time, to keep its read of the `-wal` file current.
 - **It retries.** When the file is busy, the agent waits and tries again. Pulse counts those moments: many of them mean your app keeps long transactions open.
 
 ## What Rowsafe does
 
 | | How |
 |---|---|
-| Full backup | A consistent copy of the file through SQLite's online backup API, while your app keeps writing. Compressed and encrypted on your server, then sent to your bucket. Every day by default. Each copy's pages are checked (`quick_check`) and its tables' row counts recorded. |
+| Full backup | A consistent copy of the file through SQLite's online backup API, while your app keeps writing. Compressed and encrypted on your server, then sent to your bucket. Every day by default, the newest 7 kept. Each copy's pages are checked (`quick_check`) and its tables' row counts recorded. The copy is made in a temporary file on the server first: it needs about the file's size free, and Rowsafe says so plainly when there isn't room. |
 | Every change | In WAL mode, every committed transaction is copied to your bucket within a few seconds, encrypted on your server. |
 | Restore | To any second, or a Mark (WAL mode). Rowsafe takes the newest backup before that moment and replays every transaction committed by then. In rollback-journal mode, to one of the daily backups. |
 | [Marks](/docs/concepts/restore-points) | A named point in the stream of changes, from the dashboard, `rowsafe mark app before-migration` or an AI agent through [Guard](/docs/guides/ai-agents). Restoring to a Mark stops exactly there. Needs WAL mode. |
@@ -86,6 +86,16 @@ Restores happen on the database's server, from the **Rewind** tab, as for any da
 Only owners and admins can restore, and AI agents can't: no tool lets them.
 
 A restored copy needs about the file's size free on the same disk, and so does the file kept for Undo.
+
+### Restore without Rowsafe
+
+Your backups don't depend on Rowsafe's servers. On any machine with the agent binary, your bucket's settings and your passphrase in the environment (`ROWSAFE_REPO_*`, as in `/etc/rowsafe/agent.env`), restore a database into a new file, to the newest point, a moment or a Mark:
+
+```bash
+rowsafe-agent sqlite restore --stanza app --to /tmp/restored.sqlite3 --at 2026-10-04T09:30:00Z
+```
+
+`--stanza` is the database's folder in your bucket (its **Settings** page shows it). It never touches the live file, and checks the restored one with `PRAGMA integrity_check`.
 
 ## Pulse and one-click fixes
 
@@ -189,6 +199,6 @@ Also good to know:
 - **Restores to any second and Marks need WAL mode.** In rollback-journal mode, a file can only be restored to one of its backups (daily by default).
 - **Network drives are refused** (NFS, SMB/CIFS, sshfs and similar): SQLite's locking isn't reliable there.
 - **Let Rowsafe checkpoint.** If your app runs `PRAGMA wal_checkpoint(TRUNCATE)` or `RESTART` itself, Rowsafe steps aside after about two seconds, so your app isn't kept waiting, and then takes a fresh full copy to keep the stream of changes unbroken. That works, but it costs a full copy each time. Rowsafe checkpoints the file itself once changes are copied, so the `-wal` file doesn't grow.
-- **A fresh full copy starts by itself** when the stream of changes breaks: your app runs `VACUUM`, the file is replaced, or your app reset its `-wal` file while the agent was stopped.
+- **A fresh full copy starts by itself** when the stream of changes breaks: the file is replaced, its page size changes, or your app reset its `-wal` file while the agent was stopped. Backups and changes from before the break stay restorable up to it; restores after it start from the fresh copy.
 - **Restores are to the second.** Rowsafe time-stamps each change when it sees it, within about a second of the commit.
 - **Virtual tables aren't compared** in Rewind, and tables without a primary key are matched by row number, which `VACUUM` can change.

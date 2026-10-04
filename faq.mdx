@@ -71,7 +71,7 @@ Two things restart or stop PostgreSQL without a click, and only if you turn them
 </Accordion>
 <Accordion title="Does Rowsafe slow down my SQLite app?">
 
-Barely. The agent opens the file with SQLite's own locking, as one more connection, and its work runs at low CPU and IO priority. Backups use SQLite's online backup API, made for copying a database while it is in use. In WAL mode, your app's writes never wait for Rowsafe's reads; in rollback-journal mode, a write can wait a moment while Rowsafe reads, as it would behind any other reader. Only two things you ask for make writes wait: rewinding the whole file (a few seconds) and **Give free space back** (`VACUUM`; the confirmation says about how long). See [Safe next to your app](/docs/guides/sqlite#safe-next-to-your-app).
+Barely. The agent opens the file with SQLite's own locking, as one more connection, and only takes SQLite's write lock for a few milliseconds at a time. Backups use SQLite's online backup API, made for copying a database while it is in use. In WAL mode, your app's writes never wait for Rowsafe's reads; in rollback-journal mode, a write can wait a moment while Rowsafe reads, as it would behind any other reader. Only two things you ask for make writes wait: rewinding the whole file (a few seconds) and **Give free space back** (`VACUUM`; the confirmation says about how long). See [Safe next to your app](/docs/guides/sqlite#safe-next-to-your-app).
 
 </Accordion>
 <Accordion title="Does Rowsafe change my SQLite file?">

@@ -130,7 +130,7 @@ Security problems (a server without a password, protected mode off, a port open 
 
 ## Restart
 
-**Restart** in the dashboard restarts Redis after you confirm, through root's helper, and only for the services root allowed at install (`redis-server`, `valkey-server`...). See [Permissions](/docs/guides/permissions). In Docker, it works through the optional container control service ([below](#docker)).
+**Restart** in the dashboard restarts Redis after you confirm, through root's helper, and only for the services root allowed at install (`redis-server`, `valkey-server`...). See [Permissions](/docs/guides/permissions). In Docker, it works through the optional container control service ([below](#docker)). Rowsafe doesn't restart a server that keeps nothing on its own disk (snapshots and the append-only file both off), since it would come back empty: Pulse offers **Turn on snapshots** first.
 
 ## What Rowsafe may do
 
@@ -238,7 +238,7 @@ These Rowsafe features aren't available for Redis and Valkey yet. The dashboard 
 - **Temporary servers** (Proof, Rewind copies) need free disk and memory on the server; the agent checks first and refuses if there isn't enough.
 - **Fixes** last only until the next restart when Redis can't write its config file; the result says so.
 - **In Docker**, restart the container yourself unless you add the container control service; for updates, pull the newest agent image of the same version and recreate its container. Redis's own updates and upgrades are a change to your compose file (Pulse shows the step), setting changes last until the container restarts, and logs need `--logfile` in a volume the agent can read.
-- **Updates and upgrades** install from your server's package sources on Debian and Ubuntu, and need snapshots or the append-only file on: their restart would empty a server that keeps nothing on disk.
+- **Restart, updates and upgrades** need snapshots or the append-only file on: their restart would empty a server that keeps nothing on disk (Pulse offers **Turn on snapshots**). Updates and upgrades install from your server's package sources on Debian and Ubuntu.
 - **Protected mode** can't be turned on from Rowsafe while clients connect over the network (they would be refused) or in Docker.
 - **Read and write users** made in Databases & users can't run `KEYS` or `SORT` (Redis counts them as dangerous); give a user the admin preset if an old app needs them.
 - **Recommendations** sample up to 10,000 keys per numbered database every 30 minutes, slowly; a key-name pattern is sent only when it covers many sampled keys.

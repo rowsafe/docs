@@ -1,6 +1,6 @@
 ---
 title: Protect Redis or Valkey
-description: Backups to your own bucket, restores to any second, Marks, weekly Proof, Rewind and Pulse with one-click fixes for Redis 7.0 and newer and Valkey 7.2 and newer, on your own server or in Docker.
+description: Backups to your own bucket, restores to any second, Marks, weekly Proof, Rewind, Pulse with one-click fixes, security checks, Tuning, updates and upgrades, logs, users and recommendations for Redis 7.0 and newer and Valkey 7.2 and newer, on your own server or in Docker.
 ---
 
 Rowsafe protects Redis and Valkey the way it protects your other databases: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; every change is saved as it happens, so you can restore to **any second**; **Marks** save the exact moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted keys back or puts the whole server back; **Pulse** watches the server and fixes what it can. Some features aren't there for Redis yet: see [Not yet](#not-yet) and [Limits](#limits).
@@ -18,6 +18,12 @@ Valkey is a fork of Redis that speaks the same language and keeps the same files
 | [Rewind](/docs/guides/restore) | Restore a copy at any second, compare it with production, bring keys back, or rewind the whole server in place, with **Undo** for 7 days. |
 | [Pulse](/docs/guides/monitoring) | Memory, evictions, hit rate, clients, persistence, replication, the slow log and latency, with fixes you apply in one click. |
 | Restart | **Restart** in the dashboard, after you confirm. |
+| [Security check](/docs/guides/security#redis-and-valkey) | A server without a password, protected mode off, a port open to the internet, users allowed `FLUSHALL` or `CONFIG`, versions with known flaws, with one-click fixes (a new password made on your server, shown only to you). |
+| [Tuning](/docs/guides/tuning#redis-and-valkey) | The settings that matter in plain words, **Tune for this server** (memory limit, eviction policy for a cache, a store or a queue), changes kept in Redis's config file, undo in one click. |
+| [Updates and upgrades](/docs/guides/updates#redis-and-valkey) | Bug and security releases with one click (including the October 2025 Lua fixes), and new versions (Redis 7.4 to 8.2, Valkey 8.1 to 9.0) rehearsed on a restored copy first, with undo for 7 days. |
+| [Logs](/docs/guides/logs#mysql-mariadb-mongodb-clickhouse-redis-and-valkey) | Redis's own log, redacted on your server, searchable and forwardable. |
+| [Recommendations](/docs/guides/recommendations#redis-and-valkey) | Where the memory goes by key-name pattern, keys that never expire, commands that make other clients wait, settings that lose data on a restart. Only patterns like `session:*` leave your server, never key names or values. |
+| [Databases & users](/docs/guides/databases-and-users#redis-and-valkey) | Add ACL users (read only, read and write, or admin, on the keys you choose), new passwords only you see, and the numbered databases with their keys. |
 | [Files](/docs/guides/files) and [second copy](/docs/guides/second-copy) | Back up the folders that go with your app, and keep your backups in a second bucket too. |
 | [Find the moment](/docs/guides/find-the-moment) | Type a key or a pattern (`user:*`) and see when it was written or deleted, with the moment to rewind to. |
 | [Safe copies](/docs/guides/safe-copies) | A masked copy, or one with every key's type and time to live but no data, for development and AI agents. |
@@ -177,11 +183,11 @@ Fixes come with **Apply fix** and a confirmation:
 
 Fixes apply on the running server at once. Rowsafe also keeps them in Redis's config file when Redis can write it; otherwise they last until the next restart, and the result says which.
 
-A server without a password is flagged: anyone who can reach its port can read and change everything.
+Security problems (a server without a password, protected mode off, a port open to the internet) are in the [security check](/docs/guides/security#redis-and-valkey), with their fixes.
 
 ## Restart
 
-**Restart** in the dashboard restarts Redis after you confirm, through root's helper, and only for the services root allowed at install (`redis-server`, `valkey-server`...). See [Permissions](/docs/guides/permissions). In Docker, it works through the optional container control service ([below](#docker)).
+**Restart** in the dashboard restarts Redis after you confirm, through root's helper, and only for the services root allowed at install (`redis-server`, `valkey-server`...). See [Permissions](/docs/guides/permissions). In Docker, it works through the optional container control service ([below](#docker)). Rowsafe doesn't restart a server that keeps nothing on its own disk (snapshots and the append-only file both off), since it would come back empty: Pulse offers **Turn on snapshots** first.
 
 ## What Rowsafe may do
 
@@ -191,7 +197,8 @@ A server without a password is flagged: anyone who can reach its port can read a
 - the replication handshake: the snapshot for backups, and following every change;
 - `DUMP` and `RESTORE`: bring keys back from a copy;
 - `SWAPDB`, `FLUSHDB` and `DEL`: rewind the whole server in place (only into and out of an empty logical database, and `DEL` only for its own marker key);
-- `CONFIG GET`, `CONFIG SET` and `CONFIG REWRITE`, `MEMORY PURGE` and `CLIENT KILL`: the fixes;
+- `CONFIG GET`, `CONFIG SET` and `CONFIG REWRITE`, `MEMORY PURGE` and `CLIENT KILL`: the fixes and Tuning;
+- `ACL LIST`, `ACL GETUSER`, `ACL USERS`, `ACL SETUSER`, `ACL DELUSER` and `ACL SAVE`: Databases & users and the security fixes (never on its own user, the default user's password only through the security fix, never the users replicas sign in with). An agent installed before these existed lists users only, until you run the installer again; the dashboard says so;
 - `BGSAVE`: scheduled snapshots, when Rowsafe can't follow the server.
 
 With `--redis-standby` (standby servers, the apps' login after a move-in) it may also create, list and remove users and run `REPLICAOF`. On a server handed to Rowsafe for a standby or a clone, it has every right: that server is Rowsafe's to fill.
@@ -204,6 +211,8 @@ It never sees anything outside Redis.
 |---|---|
 | `restart` | restart Redis (**Restart**) |
 | `--redis-standby`, `--redis-clones` (installer) | create a new Redis server for a standby or a clone, on ports 6390 to 6399, as its own service (`rowsafe-redis@PORT`, running as `redis`), and remove it when the standby or clone goes |
+| `updates` | install Redis's minor updates and upgrade it to a new series (the word `database`) |
+| `tuning` | keep setting changes in Redis's config file (root's helper writes only the settings Tuning offers, keeping a copy) |
 
 Rewinding the whole server in place needs no root permission: it swaps data inside Redis.
 
@@ -272,10 +281,7 @@ Put the file in an empty server's data folder (its `dir`, with `appendonly no`) 
 These Rowsafe features aren't available for Redis and Valkey yet. The dashboard says so where you would look for them.
 
 - Connection pooling.
-- Minor updates and major upgrades of Redis.
-- Tuning, security checks and logs.
-- Migration previews.
-- Databases & users.
+- Migration previews (Redis has no schema to migrate).
 
 ## Limits
 
@@ -294,4 +300,9 @@ These Rowsafe features aren't available for Redis and Valkey yet. The dashboard 
 - **Move in** copies one standalone database (not a Redis Cluster). Live sync only works from a source that lets replicas connect, over a plain connection; from managed providers it is a one-time copy while writes are stopped.
 - **Safe copies and clones** remove keys of module types (RedisJSON, search): they can't be masked or always copied. A clone and a safe copy have none of the source's users.
 - **Find the moment** groups writes by second and pattern; keys that expired show as deleted.
-- **In Docker**, restart the container yourself unless you add the container control service; for updates, pull the newest agent image of the same version and recreate its container.
+- **In Docker**, restart the container yourself unless you add the container control service; for updates, pull the newest agent image of the same version and recreate its container. Redis's own updates and upgrades are a change to your compose file (Pulse shows the step), setting changes last until the container restarts, and logs need `--logfile` in a volume the agent can read.
+- **Restart, updates and upgrades** need snapshots or the append-only file on: their restart would empty a server that keeps nothing on disk (Pulse offers **Turn on snapshots**). Updates and upgrades install from your server's package sources on Debian and Ubuntu.
+- **Protected mode** can't be turned on from Rowsafe while clients connect over the network (they would be refused) or in Docker.
+- **Read and write users** made in Databases & users can't run `KEYS` or `SORT` (Redis counts them as dangerous); give a user the admin preset if an old app needs them.
+- **Recommendations** sample up to 10,000 keys per numbered database every 30 minutes, slowly; a key-name pattern is sent only when it covers many sampled keys.
+- **Version checks** go by the version number: a fix your distribution added without changing it (Debian, Ubuntu) isn't seen.

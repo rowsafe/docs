@@ -7,7 +7,7 @@ A database on your own server is only as safe as its settings: which addresses m
 
 It is part of **Pulse** (the database's **Pulse** tab, **Security**), starts as soon as you add a database, and is included in every plan. The database's **Overview** shows the grade and the most important thing to fix.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and [SQLite](#sqlite); not yet for Redis and Valkey, where Pulse flags a server without a password ([Protect Redis or Valkey](/docs/guides/redis)#pulse)). This page describes PostgreSQL's checks; [the others](#mysql-mariadb-mongodb-and-clickhouse) have their own.
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite. This page describes PostgreSQL's checks; [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse), [Redis and Valkey](#redis-and-valkey) and [SQLite](#sqlite) have their own.
 
 ## Fix what it found
 
@@ -111,6 +111,28 @@ The same check runs for the other engines, every 15 minutes, with the check from
 - **Encryption**, **old password formats** (MySQL's `mysql_native_password`, MongoDB's SCRAM-SHA-1, ClickHouse's plaintext passwords), MySQL's sample `test` database and **versions out of support**.
 
 **Remove anonymous accounts** and **Remove the test database** (when it is empty) take one click on MySQL and MariaDB. Users without a password get one in [Databases & users](/docs/guides/databases-and-users). Everything that needs the server's configuration file and a restart (MongoDB's access control and `bindIp`, ClickHouse's `default` user, TLS) comes with the exact steps under **Do it yourself**. Where root allowed the firewall (`sudo rowsafe-allow firewall`), **Only allow your app servers** limits who can reach their port too, exactly like PostgreSQL's. The access-rule actions (`pg_hba.conf`) are PostgreSQL's.
+
+## Redis and Valkey
+
+The same check runs for Redis and Valkey every 15 minutes, with the check from the internet (it sends a `PING` and reads the answer; it never logs in). The agent reads the server's settings and its users (`ACL LIST`) on the server: password hashes never leave it. It looks at:
+
+- **A default user without a password.** Apps that connect without credentials use the default user, so anyone who reaches the port gets in. It's critical when the server listens on the network with protected mode off, or when Rowsafe got in from the internet.
+- **Who can reach the port** (`bind`) and **encryption** (a TLS port), when apps connect over the network.
+- **Users that may run commands apps never need**: `FLUSHALL`, `FLUSHDB`, `CONFIG`, `DEBUG`, `KEYS`, `SHUTDOWN`, `MODULE`, `ACL` and `REPLICAOF`. With them, an app bug or a leaked password can wipe every key, change the server's settings and files, or stop it.
+- **Versions with the October 2025 Lua flaws** (CVE-2025-49844, "RediShell", critical, and CVE-2025-46817, CVE-2025-46818, CVE-2025-46819): a user who may run scripts can run any code on the server. Fixed in Redis 8.2.2, 8.0.4, 7.4.6, 7.2.11 and 6.2.20 (Redis 7.0 has no fixed release: move to 7.2.11 or newer), and Valkey 8.1.4, 8.0.6 and 7.2.11 (Valkey 9.0 includes the fix).
+
+What you can do with a click, each after a confirmation that says who is affected:
+
+| Button | What changes | What apps see |
+| --- | --- | --- |
+| **Require a password** | The agent makes a strong password for the default user on the server, sets it, and shows it to you once with the new connection URL. It travels encrypted to your browser; Rowsafe never sees or stores it. | Apps and replicas that connect without the password are refused from that moment. Put the new URL in their settings (`redis://default:PASSWORD@HOST:6379/0`; clients without user names send the password alone). |
+| **Turn on protected mode** | While the default user has no password, the server accepts connections from itself only. | Anything connecting from another server is turned away. Rowsafe refuses it while something connects over the network, and in Docker (apps connect from other containers there): require a password instead. |
+| **Take them away from** *user* | The dangerous commands above are removed from that user; everything else it may do stays. | Apps signed in as that user get an error for those commands (some clear a cache with `FLUSHDB`). If you manage the server as that user with `redis-cli`, keep it and give apps their own users. |
+| **Turn off scripts for** *user* | Until you update, `EVAL`, `EVALSHA`, `FUNCTION` and `FCALL` are taken away from that user, which closes the Lua flaws for it. | Apps that use Lua scripts (job queues like BullMQ, rate limiters, locks) get an error. |
+
+Nothing restarts. Changes to users are kept with `ACL SAVE` when the server uses an ACL file, else `CONFIG REWRITE`; when the server can't write either file, the result says the change lasts only until the next restart. Rowsafe never changes its own user (`rowsafe`) or the users replicas sign in with. TLS and `bind` need the configuration file and a restart: they come with the exact steps under **Do it yourself**.
+
+Rowsafe's user needs the rights to read and change users. Servers set up before they existed lack them: the Security page says so, and running the installer again (in Docker, `rowsafe-agent redis login`) adds them.
 
 ## SQLite
 

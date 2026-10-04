@@ -78,10 +78,11 @@ The agent connects to Redis from the server itself (`127.0.0.1`, or the Redis se
 | the replication handshake | snapshots, and following every change |
 | `DUMP`, `RESTORE` | bringing keys back, only when someone asks in the dashboard |
 | `SWAPDB`, `FLUSHDB`, `DEL` | rewinding the whole server in place, only when someone asks (`DEL` only for its own marker key) |
-| `CONFIG GET`, `CONFIG SET`, `CONFIG REWRITE` | reading settings, and the fixes someone applies |
+| `CONFIG GET`, `CONFIG SET`, `CONFIG REWRITE` | reading settings, Tuning and the fixes someone applies |
 | `MEMORY PURGE`, `CLIENT KILL` | the fixes someone applies |
 | `BGSAVE` | scheduled snapshots, when Rowsafe can't follow the server |
 | `ACL SETUSER`, `ACL DELUSER`, `ACL LIST`, `REPLICAOF` | only with `--redis-standby`: the standby's replication login, the users a standby gets, an old primary following the new one |
+| `ACL LIST`, `GETUSER`, `USERS`, `SETUSER`, `DELUSER`, `SAVE` | [Databases & users](/docs/guides/databases-and-users#redis-and-valkey) and the [security check](/docs/guides/security#redis-and-valkey): listing users, and creating, changing and removing the ones someone asks for |
 
 The user never sees anything outside Redis. Pulse reads the slow log as command names only, never keys or values.
 
@@ -97,3 +98,16 @@ Servers for standbys and clones are either empty servers root handed to Rowsafe 
 
 **Find the moment** reads the same stream segments a restore replays, on your server, and matches each write's keys against the names or patterns you typed; only those patterns, counts and times reach Rowsafe. A **safe copy** is a temporary server on a private socket, masked or emptied to its structure, which the agent opens over TLS to the addresses you allow.
 
+## What never leaves the server
+
+Key names and values are your data, so Rowsafe never sends them to its control plane:
+
+- **Pulse and the slow log**: command names only (`HGETALL`), never their arguments.
+- **Recommendations**: the agent samples keys slowly and sends only key-name patterns, with the parts that look like ids replaced (`session:*`, `user:*:cart`), and only patterns that cover many keys. Command statistics go by name only.
+- **Logs**: client addresses lose their port and quoted text is removed on the server; a crash report stays there.
+- **Passwords** Rowsafe makes for your users (Databases & users, the security check's new password for the default user) are encrypted on your server for your browser only, and shown once.
+- **Settings**: Rowsafe never reads `requirepass` or `masterauth`.
+
+## Changes to the server's own files
+
+Rowsafe changes Redis's config file only where root allowed it at install (`sudo rowsafe-allow tuning`): root's helper writes the settings Tuning offers into it, keeping a copy, and puts the old lines back on undo. Without it, a setting change is kept by Redis itself (`CONFIG REWRITE`) when it can write its config file, and otherwise lasts until the next restart; the result says which. Updates and upgrades install packages only where root allowed `updates`, from the server's own package sources.

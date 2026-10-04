@@ -198,6 +198,8 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 
 `https://rowsafe.sh/install` serves the same script.
 
+The `--allow-NAME` options answer the permission questions ([permissions](/docs/guides/permissions)). Without a terminal and without the option, what touches only the database is allowed (restart, create-cluster, updates, pooler, tuning, sqlite-modes, files) and the server's own security updates, reboot, firewall and public pooler aren't: `--no-allow-NAME` says no, `--allow-NAME` says yes.
+
 | Option | |
 |---|---|
 | `rse_...` | The enrollment token. `ROWSAFE_ENROLL_TOKEN=rse_...` in the environment works too. Without one, on a terminal, the installer prints a link to approve the server in your browser instead. |
@@ -206,32 +208,32 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --uninstall            # options a
 | `--install-postgres VERSION` | On a fresh Debian or Ubuntu server: install PostgreSQL `VERSION` (13 to 18) from the PostgreSQL project's repository (apt.postgresql.org, its signing key checked) and start it. Refuses if PostgreSQL is already installed; running the installer again keeps the one it installed. With `--protect`, that new PostgreSQL is restarted once if backups need it. What [Create a server for me](/docs/guides/create-a-server) runs on a new server. |
 | `--listen-public` | Make PostgreSQL reachable from the network: it listens on every address, with TLS (a self-signed certificate made on the server, in `/etc/ssl/rowsafe-postgresql`) and `scram-sha-256` passwords for every login from the network; local rules stay as they are. **Put a firewall in front: it decides who can connect.** Restarts PostgreSQL only if `--install-postgres` installed it or you say yes; otherwise the change waits for its next restart. |
 | `--files PATH` | Back up the folder `PATH` (uploads, media) with the database, without asking; repeat for several. Gives the agent's user read-only access to it (ACL) if it needs it. See [Back up and restore files](/docs/guides/files). |
-| `--allow-files` | Allow Rowsafe to put restored files back into the folders protected with `--files` (as the folder's owner), and those folders only: they are listed with their owner in `/etc/rowsafe/files-allowed`. A folder added later in the dashboard needs `--files` and that folder once more. Only when someone asks and confirms. |
+| `--allow-files` | Allowed by default for the folders named with `--files`. Allow Rowsafe to put restored files back into the folders protected with `--files` (as the folder's owner), and those folders only: they are listed with their owner in `/etc/rowsafe/files-allowed`. A folder added later in the dashboard needs `--files` and that folder once more. Only when someone asks and confirms. |
 | `--no-allow-files` | Don't allow it, without asking. |
 | `--no-files` | Don't ask about folders with uploads. |
-| `--allow-pooler` | Allow Rowsafe to install and manage the connection pooler (PgBouncer, ProxySQL for MySQL and MariaDB, chproxy for ClickHouse; [connection pooling](/docs/guides/connection-pooling)), without asking. Nothing is installed until someone turns pooling on and confirms. |
+| `--allow-pooler` | Allowed by default. Allow Rowsafe to install and manage the connection pooler (PgBouncer, ProxySQL for MySQL and MariaDB, chproxy for ClickHouse; [connection pooling](/docs/guides/connection-pooling)), without asking. Nothing is installed until someone turns pooling on and confirms. |
 | `--no-allow-pooler` | Don't allow it, without asking. A PgBouncer Rowsafe already set up keeps running, but Rowsafe can no longer change it. |
 | `--allow-pooler-public` | With `--allow-pooler`: also let PgBouncer listen on every address when someone chooses "public" for it. Without it, PgBouncer listens only on this server and its private network. |
 | `--no-allow-pooler-public` | PgBouncer listens only on this server and its private network again. |
 | `--allow-pooler-target ADDRESS:PORT` | MySQL and MariaDB: let ProxySQL send connections to the server at that address (the new primary after a standby's promotion). `--no-allow-pooler-target ADDRESS:PORT` stops that. |
-| `--allow-restart` | Allow Rowsafe to restart or stop the database when you ask, without asking at install: **Restart**, and **Rewind the whole database**, in the dashboard. Only when someone clicks and confirms. Installs the root helper `rowsafe-pg-restart`. |
+| `--allow-restart` | Allowed by default. Allow Rowsafe to restart or stop the database when you ask, without asking at install: **Restart**, and **Rewind the whole database**, in the dashboard. Only when someone clicks and confirms. Installs the root helper `rowsafe-pg-restart`. |
 | `--no-allow-restart` | Don't allow it, without asking, and remove the helper. Also turns off what needs it: updates, security updates, reboots and new clusters for forks. |
-| `--allow-updates` | Allow installing the database's minor updates and upgrading it from Rowsafe, without asking. Only when someone clicks **Update** or **Upgrade** and confirms. Needs `--allow-restart`. See [Update and upgrade your database](/docs/guides/updates). |
+| `--allow-updates` | Allowed by default. Allow installing the database's minor updates and upgrading it from Rowsafe, without asking. Only when someone clicks **Update** or **Upgrade** and confirms. Needs `--allow-restart`. See [Update and upgrade your database](/docs/guides/updates). |
 | `--no-allow-updates` | Don't allow it, without asking. |
-| `--allow-security-updates` | Allow installing the server's security updates from Rowsafe, without asking. Needs `--allow-restart`. |
+| `--allow-security-updates` | Off by default. Allow installing the server's security updates from Rowsafe, without asking. Needs `--allow-restart`. |
 | `--no-allow-security-updates` | Don't allow it, without asking. |
-| `--allow-reboot` | Allow rebooting the server from Rowsafe, without asking. Needs `--allow-security-updates`. |
+| `--allow-reboot` | Off by default. Allow rebooting the server from Rowsafe, without asking. Needs `--allow-security-updates`. |
 | `--no-allow-reboot` | Don't allow it, without asking. `--no-allow-security-updates` turns it off too. |
-| `--allow-firewall` | Allow Rowsafe to limit who can reach the database's port with the server's firewall (nftables), without asking. Only the database's port, never SSH; only when someone chooses the addresses under [Security](/docs/guides/security#the-firewall) and confirms. |
+| `--allow-firewall` | Off by default. Allow Rowsafe to limit who can reach the database's port with the server's firewall (nftables), without asking. Only the database's port, never SSH; only when someone chooses the addresses under [Security](/docs/guides/security#the-firewall) and confirms. |
 | `--no-allow-firewall` | Don't allow it, without asking; removes Rowsafe's firewall rule and helper. |
-| `--allow-tuning` | MongoDB and ClickHouse: allow Rowsafe to write the settings someone changes under [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) into its own settings file, without asking. `--no-allow-tuning` turns it off. |
+| `--allow-tuning` | Allowed by default. MongoDB, ClickHouse, Redis and Valkey: allow Rowsafe to write the settings someone changes under [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) into its own settings file, without asking. `--no-allow-tuning` turns it off. |
 | `--mysql-standby` | MySQL and MariaDB: let Rowsafe set up [standby servers](/docs/guides/standby#mysql-and-mariadb) with this server. Its account gets administrator rights, used only when someone adds, promotes or removes a standby, forks to an empty server or moves a database in, and confirms. `--no-mysql-standby`: don't. |
 | `--mongodb-standby` | MongoDB: let Rowsafe set up [standby servers](/docs/guides/standby#mongodb) with this server: its user gets `clusterManager`, and root's helper may hand out the replica set's key file and add Rowsafe's lines to `mongod.conf` (a copy kept). Needs `--allow-restart`. |
 | `--mongodb-clones` | MongoDB: keep an empty server ready to receive [forks](/docs/guides/fork#mongodb) and databases [moved in](/docs/guides/move-in#mongodb) (Rowsafe's user gets `restore` and `readWriteAnyDatabase`). |
 | `--clickhouse-clones` | ClickHouse: keep an empty server ready to receive [forks](/docs/guides/fork#clickhouse) and databases [moved in](/docs/guides/move-in#clickhouse) (Rowsafe's user may create and drop databases). |
 | `--mongodb-replica-set` | MongoDB: turn a standalone server into a replica set of one without asking (one MongoDB restart). Restoring to any second needs it. |
 | `--no-mongodb-replica-set` | MongoDB: never do that. |
-| `--allow-create-cluster` | Allow Rowsafe to create a new PostgreSQL cluster (on a free port in 5440-5499) when someone [forks a database](/docs/guides/fork) to this server and confirms, without asking. Debian and Ubuntu (`pg_createcluster`). |
+| `--allow-create-cluster` | Allowed by default where restarts are. Allow Rowsafe to create a new PostgreSQL cluster (on a free port in 5440-5499) when someone [forks a database](/docs/guides/fork) to this server and confirms, without asking. Debian and Ubuntu (`pg_createcluster`). |
 | `--no-allow-create-cluster` | Don't allow it, without asking. Clusters created earlier stay. |
 | `--setup-storage` | Set up (or change) the backup storage, even if it is configured. |
 | `--storage PROVIDER` | Skip the "where" question: `rowsafe` ([Rowsafe Storage](/docs/guides/rowsafe-storage); works without a terminal too), or a bucket provider: `r2`, `b2`, `s3`, `wasabi`, `spaces` or `s3-compatible`. |

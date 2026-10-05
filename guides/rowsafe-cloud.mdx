@@ -1,6 +1,6 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
 No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
@@ -39,9 +39,9 @@ Regions: N. Virginia, Oregon, Frankfurt, Ireland, Singapore.
 
 | Size | Server | Per hour | At most a month |
 |---|---|---|---|
-| Small | 2 vCPU, 4 GB memory, 50 GB disk | $0.029 | $21 |
-| Medium | 4 vCPU, 8 GB memory, 50 GB disk | $0.054 | $39 |
-| Large | 4 vCPU, 16 GB memory, 100 GB disk | $0.15 | $109 |
+| Small | 2 vCPU, 4 GB memory, 50 GB disk | $0.035 | $25 |
+| Medium | 4 vCPU, 8 GB memory, 50 GB disk | $0.062 | $45 |
+| Large | 4 vCPU, 16 GB memory, 100 GB disk | $0.172 | $125 |
 
 Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
@@ -51,6 +51,7 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 - **Add a card once.** The first Rowsafe Cloud server asks an owner for a card: one pay-as-you-go subscription for the whole organization, through Polar, our merchant of record (it handles sales tax and VAT). An admin can create the server, and an owner adds the card under **Settings → Billing**. After that, new servers are created right away.
 - **Billed for every hour a server exists**, from when it's ready until you delete it, and never more than its monthly price in a month. Polar invoices the hours at the end of each month.
+- **Change the size and the price follows** from the next full hour; a month never costs more than the monthly price of the biggest size the server had that month. See [Change the size](#change-the-size).
 - **Delete a server and its billing stops.**
 - **If a payment fails or you cancel**, nothing is deleted right away: you get emails first, your servers keep running for a grace period, and then they are powered off (powered-off hours aren't billed) before they are deleted, after a further notice. Your backups stay in Rowsafe Storage for as long as the database stays in Rowsafe.
 
@@ -80,13 +81,180 @@ For now, traffic above the included amount isn't billed. When that changes, it w
 
 The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](/docs/guides/create-a-server#connect-your-app).
 
+## Change the size
+
+A Rowsafe Cloud server can move to another size of its cloud, bigger or smaller, in place: same server, same address, same database.
+
+1. Open the server's page and click **Change size**.
+2. Pick the new size. Each one shows its price per hour and the most a month costs.
+3. Read what happens and click **Change size now**.
+
+What to expect:
+
+- **The database is offline for a few minutes** while the server restarts with the new size. Most apps reconnect by themselves. Rowsafe saves a [Mark](/docs/concepts/restore-points) first, so you can get back to that exact moment.
+- **The disk can grow, never shrink.** Moving to a size with a bigger disk grows the disk, and that can't be undone: afterwards the server can't move back to a size with a smaller disk. Sizes with a smaller disk than the server has now can't be picked. (To go smaller anyway, create a smaller Rowsafe Cloud server and [move the database there](/docs/guides/move).)
+- **Some bigger sizes aren't offered in every region.** The dashboard only lists the sizes offered where the server runs.
+- **If the cloud can't make the change** (for example, it has no room for that size right now), the server comes back at its old size and the page says why. Nothing is billed at the new size.
+
+How billing changes:
+
+- **Every hour is billed at the size the server had when the hour started.** The hour you change the size in is billed at the old size; the new size is billed from the next full hour.
+- **A month never costs more than the monthly price of the biggest size the server had that month.** Moving up from Small to Large mid-month: at most Large's monthly price. Moving down from Large to Small: that month still costs at most Large's price, and from the next month at most Small's.
+- Settings → Billing shows the hours so far and the most this month can cost.
+
+Owners and admins can change the size; every change is in the audit log. AI assistants can't. Servers paid by the month (not offered today) keep their size.
+
+### A server with a standby
+
+On a server [with a standby](#with-a-standby), **Change size** (on either server's page) changes **both servers**, one at a time, so the database isn't offline for minutes:
+
+1. Rowsafe saves a Mark, then changes the **standby's** server. The primary keeps serving; reads on the standby pause meanwhile.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves; reads on the standby continue.
+3. The old primary becomes the standby again on its own data (no copy), then gets the new size, while the database keeps running.
+
+The two servers **swap roles**: the server that was the standby holds the database afterwards. That's fine, and Rowsafe doesn't switch back (it would only pause writes again). Both servers' pages show each step. The prices shown are for both servers (twice one server's), and each server is billed at its own size by the hour, so for a while one has the new size and the other the old.
+
+The standby must be running and in sync first; if it isn't, the size change is refused and nothing changes. If something fails **before the switchover** (the cloud can't change the standby's size, the standby doesn't catch up), the database stays where it was and keeps running. If the cloud refuses the **second** server after the switchover, both servers keep running, the database on the one that has the new size, and the page says which server has which size; click **Change size** again to change only the one that's left (the standby, so without another switchover). If the old primary can't stop cleanly or the standby can't take over, Rowsafe starts the old primary again by itself.
+
+Servers [in your own cloud account](/docs/guides/create-a-server) with a standby can't change size yet: remove the standby, change the size, then add the standby again.
+
+## With a standby
+
+A standby is a **second server of the same size** that keeps a live, read-only copy of the database, a moment behind the primary. If the primary goes down, the standby takes over, and your apps reconnect to it on their own.
+
+- **When you create a server**, turn on **With a standby**. **Fail over automatically** is ticked; untick it if you'd rather switch yourself.
+- **On a server you already have**, open its page and click **Add a standby**. The price is shown before you confirm. Nothing on the primary restarts.
+
+Rowsafe creates the second server right after the first one is ready, copies the database there from the latest backup, and keeps it in sync by streaming every change over an encrypted connection. The server's page shows the steps: **Creating the standby server**, **Installing PostgreSQL**, **Copying the database**, **Standby ready**. For a big database, copying takes longer.
+
+### Where the standby runs
+
+Rowsafe puts the standby somewhere else than the primary when the cloud has somewhere else in that region, and says plainly when it hasn't. The page shows where it is before you create it and once it runs.
+
+| Cloud | Where the standby runs |
+|---|---|
+| AWS | **Another availability zone** of the same region: a separate datacenter with its own power and network. |
+| DigitalOcean | In **New York** and **San Francisco**, the city's **other datacenter** (NYC1 and NYC3, SFO2 and SFO3). In the other regions, which have one datacenter, a **separate server in the same datacenter**. |
+| OVHcloud | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
+
+A standby in the same datacenter covers the primary's server failing (hardware, disk, a crash), not an outage of the whole datacenter.
+
+### Price
+
+The standby is billed like any Rowsafe Cloud server of its size, by the hour and never more than its monthly price: **twice the price** in total. A Small DigitalOcean server with a standby costs about $0.096 an hour, at most $70 a month. A server and its standby count as **one** server against your organization's Rowsafe Cloud limit. Remove the standby and its billing stops.
+
+### Automatic failover, and what it can lose
+
+Automatic failover only acts when **every** condition holds, and the server's page shows them:
+
+- the primary has been **unreachable for about 3 minutes**, both for Rowsafe and for the standby;
+- the standby is running and was in sync, **at most about a minute behind** when the primary was last heard from;
+- nothing on purpose is going on: no restart, update or other change that stops PostgreSQL. Rowsafe also holds failover while it powers off or deletes one of the two servers itself.
+
+Then Rowsafe stops the old primary for good (as soon as it can reach it again) and promotes the standby, and says so in an alert and in the activity log.
+
+- **Up to about a minute of the newest changes can be lost.** The standby copies changes as they happen, not in lockstep with every commit (asynchronous streaming), so the last changes before the primary died may not have reached it. Usually it's under a second behind; Rowsafe doesn't fail over when it was further behind than a minute.
+- **One case to know: a network cut.** If the primary is cut off from Rowsafe and from the standby but your apps can still reach it, both servers could accept writes until the old primary is back on the network, and then Rowsafe stops it. The writes made to the old primary in between aren't on the new one. Keeping your apps on the same network path as the standby, or connecting through a [Rowsafe pooler](/docs/guides/connection-pooling), avoids it. See [Standby](/docs/guides/standby) for the details.
+
+Turn automatic failover off or on any time on the database's **Standby** page. Without it, you switch with one click (**Promote**) when the primary is down.
+
+### Connect so your app follows a failover
+
+The server's page shows **connection strings that follow the primary**: both servers' addresses in one string, and the driver keeps the one that accepts writes, before and after a failover. For example, with libpq, psycopg or pgx:
+
+```
+postgresql://USER@PRIMARY_ADDRESS:5432,STANDBY_ADDRESS:5432/DBNAME?target_session_attrs=read-write
+```
+
+Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) need a [Rowsafe pooler](/docs/guides/connection-pooling) or a DNS name you move. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
+
+### After a failover
+
+The standby is the primary now, and the old primary is stopped. On the old primary's page, click **Make it the standby again**: Rowsafe reuses its data where it can (else restores the latest backup there) and keeps it in sync, so you have a standby again. Or click **Remove the standby** to delete that server.
+
+After a **planned** switchover (the maintenance window, or a size change, below), Rowsafe does this by itself: the old primary stopped cleanly, so it becomes the standby on its own data, in seconds, without copying the database.
+
+### Updates and size changes with a standby
+
+A pair is updated and resized **one server at a time**: the standby's server first, then a switchover of a few seconds, then the other server. Writes pause for a few seconds instead of the database being offline for a restart, a reboot or minutes of resizing. Afterwards the servers have swapped roles. See [Change the size](#a-server-with-a-standby) and [Updates and maintenance](#maintenance-with-a-standby).
+
+### Remove the standby
+
+On either server's page, click **Remove the standby** and type the server's name. The standby server is deleted, its billing stops, automatic failover turns off, and the primary keeps running untouched. Deleting the primary asks to delete its standby too.
+
+While a server has a standby, **Take it with you** isn't offered, because a database has one standby at a time and the move goes through a standby on your server: first click **Remove the standby** (its server is deleted and its billing stops; the primary keeps running), then **Take it with you**.
+
 ## Your passphrase, only yours
 
 Backups are encrypted on the server with a passphrase made **on the server**. You save a copy through your browser, encrypted end to end; Rowsafe passes on only the encrypted message and never has the passphrase. Without it, nobody can restore your backups, Rowsafe included, so save it before you rely on the database. The dashboard keeps asking until you confirm you saved it.
 
-## Nothing changes until you click
+## Updates and maintenance
 
-No maintenance windows and no surprise restarts. Restarts, updates and deleting each wait for someone in your organization to click and confirm. There are no permission switches to set: Rowsafe hosts the server, so restarts, PostgreSQL and security updates, reboots and restored copies are all available, and each runs only after that click. Updates are a button you click: nothing patches or restarts on its own, so keeping up is yours to decide. AI assistants (MCP) can list servers and save Marks, but can't create, resize, restart or delete anything.
+Rowsafe hosts a Rowsafe Cloud server, so Rowsafe keeps it patched. What can happen without a restart happens by itself; what needs a restart waits for a weekly window you choose, with an email the day before. Servers in [your own cloud account](/docs/guides/create-a-server) and your own servers are not affected: there, nothing changes until someone clicks.
+
+### Security updates install by themselves
+
+Every day the server installs the security updates of its operating system (Debian's security updates only, nothing else). They keep the database running:
+
+- **PostgreSQL's own packages are left out.** PostgreSQL updates wait for the maintenance window.
+- **PostgreSQL is never restarted by them.** Other services that use an updated library (SSH, for example) restart by themselves in a second; PostgreSQL keeps running on the old library until the window.
+- **The server never reboots by itself.** A new kernel is installed and waits for the window.
+
+The server's page shows **Security updates: installed automatically**, with when they last installed something. Servers created before this existed get it within the hour when their Rowsafe helper is new enough; on the others the page says so, and the window installs the waiting security updates instead.
+
+### The maintenance window
+
+Each Rowsafe Cloud server has a weekly maintenance window: **Sunday 03:00 in the region's local time** unless you pick another day, hour or time zone when you create the server or later. It lasts two hours. In it, Rowsafe applies what needs a restart, if anything does:
+
+| What | Downtime |
+|---|---|
+| **A PostgreSQL update** of the version you run, e.g. 17.5 to 17.6 (never a new major version) | A few seconds |
+| **PostgreSQL using an updated library** (OpenSSL, the C library) | A few seconds (a restart) |
+| **A new kernel** | A minute or two (the server restarts) |
+| Security updates still waiting, if any | None |
+
+Rowsafe saves a [Mark](/docs/concepts/restore-points) first, then does each step the same way as when someone clicks **Update**, **Restart** or **Reboot**, and records it in the activity log as *maintenance window*. Nothing starts outside the window: what doesn't fit waits for the next one. In an organization with several Rowsafe Cloud servers, Rowsafe maintains one at a time.
+
+**The emails.** About 24 hours before a window that has something to apply, the people who get your organization's emails get one saying what will be applied and how long it takes. A window with nothing to apply sends nothing and changes nothing. After the window, an email says what was done, or what failed (nothing else is changed then, and Rowsafe tries again the next week).
+
+**Postpone or apply now.** From the email's link, or the **Updates and maintenance** section of the server's page:
+
+- **Postpone a week** skips the next window, once: the window after it can't be postponed again.
+- **Apply now** applies it right away, after you confirm with the server's name.
+
+### Maintenance with a standby
+
+A server [with a standby](#with-a-standby) is maintained **one server at a time**, in the same window (the standby server has the primary's window):
+
+1. Rowsafe saves a Mark, then applies what needs a restart to the **standby's** server (its own PostgreSQL update, restart or reboot). The primary keeps serving.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops cleanly and the standby takes over. Nothing is lost; reads on the standby continue, and apps using the connection strings that follow the primary reconnect by themselves.
+3. The old primary becomes the standby again on its own data (no copy), and gets the same updates.
+
+The email the day before says "a few seconds while Rowsafe switches to the standby" instead of a restart's or a reboot's downtime. The servers **swap roles** and stay that way; Rowsafe doesn't switch back. Automatic failover waits throughout, so planned maintenance never triggers a failover.
+
+If the standby isn't running and in sync at that moment, or something fails **before the switchover**, Rowsafe applies the updates **in place** instead, like on a server without a standby (a few seconds for a restart, a minute or two for a reboot), and the email after the window says why. If something fails **after** the switchover, the database runs on the updated server, the email says what's left, and the next window tries again.
+
+When only the **standby's server** needs a restart (a new kernel there, for example) and the primary doesn't, its window applies it to the standby alone: no Mark, no switchover, **no downtime for the database**; only reads on the standby pause.
+
+### Critical security fixes
+
+Sometimes an update can't wait for whenever you get to it: a flaw that is being exploited, or one that lets anyone read your data. Rowsafe staff can mark such an update **critical** (a PostgreSQL release or an operating system package, with its CVE and why it matters). Then, for each Rowsafe Cloud server that doesn't have it yet:
+
+1. Right away, an email and a red banner in the dashboard say what it is and when it will be applied.
+2. **7 days after the notice**, it is applied in the server's maintenance window, with an email 48 hours before and a Mark first. If the window is turned off, it is applied on Sunday at 03:00 in the region's local time.
+
+This happens **even if the window is turned off or postponed**: it is the one case where Rowsafe changes a Rowsafe Cloud server you asked it to leave alone. Apply it sooner with **Apply now**. Customers can't mark updates critical, and neither can AI assistants.
+
+### Change or turn off the window
+
+On the server's page, in **Updates and maintenance**, an owner or admin clicks **Change window** to pick another day, hour or time zone, or to turn the window off. With the window off, nothing is applied for you except critical fixes (above); updates that need a restart then wait until someone clicks **Apply now**, **Update** or **Reboot**. Every change is in the activity log.
+
+AI assistants (MCP) can see the window, the next date and what's waiting, but can't change the window, postpone it or apply anything. They can list servers and save Marks, but can't create, resize, restart or delete anything.
+
+### Your own servers are not affected
+
+All of this is for Rowsafe Cloud servers only. On [servers in your own cloud account](/docs/guides/create-a-server) and on your own servers, nothing patches, restarts or reboots on its own: updates are a button someone clicks (see [Update and upgrade your database](/docs/guides/updates)), or the [automatic minor updates](/docs/guides/updates#minor-updates) you can turn on per database.
+
 
 ## Take it with you
 
@@ -99,9 +267,63 @@ Move your database to your own server whenever you like, with about a minute of 
 
 It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
 
+## Private connection from your AWS network
+
+<Callout title="Coming soon">
+Private connections are built and being switched on. Until then the server's page doesn't offer them; this section describes how they will work.
+</Callout>
+
+If your apps run in AWS, they can reach a Rowsafe Cloud server on AWS **without going over the internet**. This uses **AWS PrivateLink**: AWS carries the traffic from your own network (your VPC) to the server, privately, and only the AWS accounts you name can connect.
+
+- **Price:** $20 a month at most, billed by the hour ($0.028) while it's on, on the same pay-as-you-go subscription as your servers. Turn it off and billing stops.
+- **AWS only, same region only.** It works for Rowsafe Cloud servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean and OVHcloud servers don't have it.
+- **With a standby, it follows the database.** Turn it on on the primary's page. After a failover, the same endpoint reaches the server that holds the database now, with nothing to change on your side; if you then remove the old primary, the private connection stays.
+
+### Turn it on
+
+1. Open the server's page (**Servers**, then the server) and find **Private connection from your AWS network**.
+2. Click **Turn on**, type the IDs of the AWS accounts your apps run in (12 digits, shown at the top right of the AWS console), tick the price and confirm. Owners and admins can do this.
+3. After a few minutes Rowsafe shows the **service name** (it starts with `com.amazonaws.vpce.`), the region, and the **zones** your endpoint can use. Zones are shown as AWS zone IDs (like `euc1-az2`), which are the same in every AWS account; your console shows them next to the zone names.
+
+### Connect from your VPC
+
+Your apps connect through an **endpoint** in your VPC.
+
+**If your AWS account is connected to Rowsafe** ([Connect AWS](/docs/guides/cloud-accounts/aws)), click **Create the endpoint for me**, pick the VPC and a subnet in each zone your apps use, and Rowsafe creates the endpoint with a security group that lets that VPC reach port 5432. Accounts connected before this feature need the [updated policy](/docs/guides/cloud-accounts/aws#the-policy) for this button.
+
+**Otherwise, in your AWS console:**
+
+1. Sign in with the account your apps run in, and switch to the server's region (top right).
+2. Open the **VPC** console and choose **Endpoints**, then **Create endpoint**.
+3. Name it, and under **Type** choose **Endpoint services that use NLBs and GWLBs**.
+4. Paste the service name Rowsafe shows under **Service name** and click **Verify service**.
+5. Choose the VPC your apps run in, then a subnet in each zone your apps use (only the zones Rowsafe lists work).
+6. Choose a security group that lets your apps reach port **5432** (for example, one that allows your VPC's own addresses on 5432).
+7. Click **Create endpoint**. When it's **Available**, copy its first DNS name.
+
+Connections from the accounts you named are accepted right away: AWS lets only those accounts create an endpoint to it, so there's nothing to approve. If you remove an account, its endpoints are disconnected at once.
+
+### Connect your app
+
+Use the endpoint's DNS name as the host, port 5432, and `sslmode=require`, with a user from [Databases & users](/docs/guides/databases-and-users):
+
+```
+postgresql://USER:PASSWORD@<your endpoint's DNS name>:5432/postgres?sslmode=require
+```
+
+Connections stay encrypted. The server's certificate is its own (made when it was set up), so it doesn't carry your endpoint's name: use `sslmode=require`, not `verify-full`, which checks the name and refuses it.
+
+**Only private connections:** once your apps connect privately, you can close the database's port to the internet with one switch (it empties **Who can connect**, after a confirmation). Backups and Rowsafe keep working.
+
+### Turn it off
+
+Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, with the endpoints it created in your accounts, and billing stops. Endpoints you made yourself stop working; delete them in your VPC console. Deleting the server turns its private connection off too.
+
 ## Limits
 
 - **PostgreSQL only**, versions 15 to 18.
-- **One server per database**: no standby or automatic failover comes with it.
-- **No resize in place yet.** Pick the size you'll need; for a bigger one later, create a larger Rowsafe Cloud server and [move the database there](/docs/guides/move) (about a minute of downtime).
+- **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
+- **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.
+- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). With a standby, both servers change one at a time and **writes pause for a few seconds** at the switchover instead; the servers swap roles. (A pair in your own cloud account can't change size yet.)
 - **No SSH access.** Rowsafe runs the server, like other managed databases: every fix is a button in the dashboard. For a server you can log in to, create it in your own cloud account.
+- **Maintenance restarts the database in place**: a few seconds for a PostgreSQL update or a library, a minute or two when a new kernel needs the server to restart. Pick a window when that suits you. With a standby that's in sync, **writes pause for a few seconds** at a switchover instead, and the servers swap roles; when it isn't, the window updates in place.

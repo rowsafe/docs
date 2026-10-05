@@ -53,6 +53,12 @@ curl -fsSL https://rowsafe.sh | sudo \
 
 Store that passphrase in your secret manager first. The settings are listed in [Agent configuration](/docs/reference/agent-configuration#second-copy).
 
+## Keep backups away from the server
+
+Backups help most when they're somewhere else. If your backups are at the same provider **and** in the same region as the database server, Pulse says so: "Backups are in the same region as the server", with **Add a second copy**. The same provider in another region is fine, and so is another provider.
+
+Rowsafe knows where a server is when it created it (**Create a server for me**), and reads where a bucket is from its URL. When it can't tell for sure (a server you set up yourself, MinIO), it says nothing.
+
 ## When the second storage is down
 
 Nothing changes for PostgreSQL or for your first storage. Each change log file first reaches the first storage, and only then is copied to a queue on the server that the agent sends on to the second storage. If the second storage can't be reached:

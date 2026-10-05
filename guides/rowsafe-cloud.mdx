@@ -52,11 +52,29 @@ OVHcloud's Public Cloud, billed by the hour.
 
 Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
+### OVHcloud Value
+
+The lowest price for a database that runs all month, **billed monthly**. Pick it with the **Value** switch in the OVHcloud tab.
+
+| Size | Server | A month |
+|---|---|---|
+| Small | 2 vCPU, 4 GB memory, 40 GB disk | $15 |
+| Medium | 4 vCPU, 8 GB memory, 75 GB disk | $25 |
+| Large | 8 vCPU, 24 GB memory, 200 GB disk | $59 |
+
+Regions: London, Beauharnois (while OVHcloud has servers free there).
+
+- **Paid a month at a time**, before the server is created: one subscription per server, cancel any time. Deleting the server ends its subscription at the end of the paid month.
+- **Ready in about 10 to 30 minutes**: OVHcloud prepares the server first.
+- **Shared CPU** with other servers on the same machine, and network up to 500 Mbps (Small), 1 Gbps (Medium) or 3 Gbps (Large), traffic unlimited.
+- **No clones, standby or size changes.** For those, pick OVHcloud Flex, DigitalOcean or AWS.
+
 **Every size includes** PostgreSQL 15 to 18 on a server of its own, backups in [Rowsafe Storage](/docs/guides/rowsafe-storage) (encrypted on the server), Rewind, Proof, Pulse and Guard, and a firewall that lets in only the addresses you add. A Rowsafe Cloud server doesn't count against your Rowsafe [plan](/pricing).
 
 ## How billing works
 
 - **Add a card once.** The first Rowsafe Cloud server asks an owner for a card: one pay-as-you-go subscription for the whole organization, through Polar, our merchant of record (it handles sales tax and VAT). An admin can create the server, and an owner adds the card under **Settings → Billing**. After that, new servers are created right away.
+- **OVHcloud Value is billed monthly instead**: see [OVHcloud Value](#ovhcloud-value).
 - **Billed for every hour a server exists**, from when it's ready until you delete it, and never more than its monthly price in a month. Polar invoices the hours at the end of each month.
 - **Change the size and the price follows** from the next full hour; a month never costs more than the monthly price of the biggest size the server had that month. See [Change the size](#change-the-size).
 - **Delete a server and its billing stops.**
@@ -74,13 +92,14 @@ Each Rowsafe Cloud server comes with some outbound traffic a month, depending on
 | --- | --- | --- | --- | --- | --- |
 | DigitalOcean | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB |
 | OVHcloud Flex | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
+| OVHcloud Value | Unlimited | Unlimited | Unlimited | | |
 | AWS | None | None | None | None | None |
 
 Traffic above that is billed per GB:
 
 - **DigitalOcean:** 1.4¢ per GB ($14 per TB) above the included amount.
 - **AWS:** no traffic is included, so every GB out is 11¢ (14¢ in Singapore).
-- **OVHcloud Flex:** unlimited, never billed.
+- **OVHcloud Flex and OVHcloud Value:** unlimited, never billed.
 
 A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts. The dashboard shows each server's traffic this month, and extra traffic is invoiced with the hours at the end of the month.
 

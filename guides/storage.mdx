@@ -1,6 +1,6 @@
 ---
 title: Set up backup storage
-description: Create a storage bucket and an access key for your backups, and find the bucket URL the installer asks for. Step by step for Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, CranL and other S3-compatible storage.
+description: Create a storage bucket and an access key for your backups, and find the bucket URL the installer asks for. Step by step for Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces and other S3-compatible storage.
 ---
 
 <Callout title="Don't want to set up a bucket?">
@@ -182,40 +182,6 @@ https://mycompany-rowsafe.fra1.digitaloceanspaces.com
 ### Create an access key
 
 Open **Spaces Object Storage > Access Keys** and create a key with read, write and delete access, limited to this bucket if you can. Copy the access key and secret.
-
-</Step>
-</Steps>
-
-## CranL
-
-[CranL](https://cranl.com) storage comes with its **Pro** plan (one bucket, 5 GB) and **Enterprise** plan (five buckets, 50 GB). 5 GB suits small databases only. CranL works with Rowsafe for backup storage only: Rowsafe can't create servers there or protect CranL's managed databases.
-
-<Steps>
-<Step>
-
-### Create a bucket
-
-In the [CranL dashboard](https://app.cranl.com/dashboard), open **Storage** and choose **New Bucket**, for example `mycompany-rowsafe`.
-
-</Step>
-<Step>
-
-### Copy the bucket URL
-
-Open the bucket. Its page shows the **endpoint URL**. Your bucket URL is that endpoint followed by the bucket name:
-
-```text
-https://<endpoint-from-the-bucket-page>/mycompany-rowsafe
-```
-
-If the installer asks for a region, type `auto`.
-
-</Step>
-<Step>
-
-### Create credentials
-
-In the bucket's **Credentials** section, choose **Create Credentials** with read-write access. They work on this bucket only. Copy the **Access Key** and **Secret Key**: the secret is shown only once.
 
 </Step>
 </Steps>

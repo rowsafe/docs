@@ -38,7 +38,9 @@ Large, XL and 2XL on AWS are coming back soon.
 
 Regions: N. Virginia, Oregon, Frankfurt, Ireland, Singapore.
 
-### OVHcloud
+### OVHcloud Flex
+
+OVHcloud's Public Cloud, billed by the hour.
 
 | Size | Server | Per hour | At most a month |
 |---|---|---|---|
@@ -62,7 +64,7 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 ### Copies for a test or an AI agent
 
-[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a database (as it is now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click. It's billed by the hour like any Rowsafe Cloud server, and you can have Rowsafe delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud size cost about $0.09.
+[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a database (as it is now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click. It's billed by the hour like any Rowsafe Cloud server, and you can have Rowsafe delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud Flex size cost about $0.09.
 
 ## Bandwidth
 
@@ -71,14 +73,14 @@ Each Rowsafe Cloud server comes with some outbound traffic a month, depending on
 | Cloud | Small | Medium | Large | XL | 2XL |
 | --- | --- | --- | --- | --- | --- |
 | DigitalOcean | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB |
-| OVHcloud | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
+| OVHcloud Flex | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
 | AWS | None | None | None | None | None |
 
 Traffic above that is billed per GB:
 
 - **DigitalOcean:** 1.4¢ per GB ($14 per TB) above the included amount.
 - **AWS:** no traffic is included, so every GB out is 11¢ (14¢ in Singapore).
-- **OVHcloud:** unlimited, never billed.
+- **OVHcloud Flex:** unlimited, never billed.
 
 A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts. The dashboard shows each server's traffic this month, and extra traffic is invoiced with the hours at the end of the month.
 
@@ -146,7 +148,7 @@ Rowsafe puts the standby somewhere else than the primary when the cloud has some
 |---|---|
 | AWS | **Another availability zone** of the same region: a separate datacenter with its own power and network. |
 | DigitalOcean | In **New York** and **San Francisco**, the city's **other datacenter** (NYC1 and NYC3, SFO2 and SFO3). In the other regions, which have one datacenter, a **separate server in the same datacenter**. |
-| OVHcloud | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
+| OVHcloud Flex | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
 
 A standby in the same datacenter covers the primary's server failing (hardware, disk, a crash), not an outage of the whole datacenter.
 
@@ -287,7 +289,7 @@ Private connections are built and being switched on. Until then the server's pag
 If your apps run in AWS, they can reach a Rowsafe Cloud server on AWS **without going over the internet**. This uses **AWS PrivateLink**: AWS carries the traffic from your own network (your VPC) to the server, privately, and only the AWS accounts you name can connect.
 
 - **Price:** $20 a month at most, billed by the hour ($0.028) while it's on, on the same pay-as-you-go subscription as your servers. Turn it off and billing stops.
-- **AWS only, same region only.** It works for Rowsafe Cloud servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean and OVHcloud servers don't have it.
+- **AWS only, same region only.** It works for Rowsafe Cloud servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean and OVHcloud Flex servers don't have it.
 - **With a standby, it follows the database.** Turn it on on the primary's page. After a failover, the same endpoint reaches the server that holds the database now, with nothing to change on your side; if you then remove the old primary, the private connection stays.
 
 ### Turn it on

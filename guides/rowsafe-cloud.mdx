@@ -66,13 +66,15 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 ## Bandwidth
 
-Every Rowsafe Cloud server comes with outbound traffic included. Inbound traffic is free, and backups to Rowsafe Storage never count.
+Rowsafe Cloud servers on DigitalOcean and OVHcloud come with outbound traffic included; on AWS, none is. Inbound traffic is free, and backups to Rowsafe Storage never count.
 
 | Cloud | Small | Medium | Large |
 | --- | --- | --- | --- |
 | DigitalOcean | 4 TB a month | 5 TB a month | 6 TB a month |
 | OVHcloud | Unlimited | Unlimited | Unlimited |
 | AWS | Not included | Not included | Not included |
+
+A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts.
 
 For now, traffic above the included amount isn't billed. When that changes, it will be billed per GB at a price shown here and in the dashboard, and we'll email you before it starts.
 

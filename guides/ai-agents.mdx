@@ -47,7 +47,7 @@ rowsafe init app
 
 This writes `.rowsafe.json` (`{"database": "app"}`). The CLI, the MCP server and the guard hook all use it.
 
-<Tabs items={["Claude Code plugin", "MCP server", "AGENTS.md only"]}>
+<Tabs items={["Claude Code plugin", "Codex plugin", "MCP server", "AGENTS.md only"]}>
 <Tab value="Claude Code plugin">
 
 The plugin bundles three things:
@@ -62,6 +62,18 @@ claude plugin install rowsafe@rowsafe
 ```
 
 Or inside Claude Code: `/plugin marketplace add rowsafe/rowsafe`, then `/plugin install rowsafe@rowsafe`. The hook, migration previews (`rowsafe preview`) and safe copies (`rowsafe copies create`) need the `rowsafe` CLI on your `PATH`, logged in; without it the hook does nothing and the MCP tools still work.
+
+</Tab>
+<Tab value="Codex plugin">
+
+The same three parts for OpenAI Codex (CLI and IDE extension): Rowsafe's MCP server with Sign in with Rowsafe, the `rowsafe-safety` skill, and the `rowsafe guard` hook on shell commands.
+
+```sh
+codex plugin marketplace add rowsafe/rowsafe
+codex plugin add rowsafe@rowsafe
+```
+
+Codex opens Rowsafe to sign in (or run `codex mcp login rowsafe`); choose whether it may save Marks and act for you. With the `rowsafe` CLI installed, trust the hook once: run `/hooks` in Codex and trust `rowsafe guard`. Without the CLI the hook does nothing and the MCP tools still work. More in the plugin's [README](https://github.com/rowsafe/rowsafe/tree/main/integrations/codex).
 
 </Tab>
 <Tab value="MCP server">
@@ -135,9 +147,10 @@ or set `ROWSAFE_REQUIRE_PROTECTION=1`. The hook then checks protection first, an
 | | Examples |
 |---|---|
 | Migration tools | `prisma migrate deploy/reset/dev`, `prisma db push`; `rails`/`rake db:migrate`, `db:rollback`, `db:drop`, `db:reset`, `db:schema:load`; `alembic upgrade/downgrade`; `manage.py migrate/flush`; `knex migrate:latest`, `seed:run`; `sequelize db:migrate`; `typeorm migration:run`, `schema:sync`; `drizzle-kit push/migrate`; `goose up/down/reset`; `migrate ... up/down/drop`; `dbmate up`; `atlas schema apply`; `sqlx migrate run`; `diesel migration run`; `flyway migrate/clean`; `liquibase update/rollback`; `mix ecto.migrate`; `artisan migrate`; `supabase db reset/push`; `npm run db:migrate` and similar script names |
-| SQL sent to a SQL client | `psql`, `mysql`, `mariadb`, `mycli` and `clickhouse-client` (or `clickhouse client`) with `DROP ...`, `TRUNCATE`, `RENAME TABLE`, `ALTER TABLE ... DROP/RENAME/TYPE/MODIFY/CHANGE`, ClickHouse mutations (`ALTER TABLE ... DELETE/UPDATE`, `DROP PARTITION`), `DELETE` or `UPDATE` without `WHERE`, in `-c`/`-e`/`--query`, a heredoc, a pipe, `< file`, or a small file passed with `-f` or `--queries-file` |
+| SQL sent to a SQL client | `psql`, `pgcli`, `mysql`, `mariadb`, `mycli`, `clickhouse-client` (or `clickhouse client`), `sqlite3` and `litecli` with `DROP ...`, `TRUNCATE`, `RENAME TABLE`, `ALTER TABLE ... DROP/RENAME/TYPE/MODIFY/CHANGE`, ClickHouse mutations (`ALTER TABLE ... DELETE/UPDATE`, `DROP PARTITION`), `DELETE` or `UPDATE` without `WHERE`, in `-c`/`-e`/`--query`, a heredoc, a pipe, `< file`, or a small file passed with `-f`, `--queries-file`, `sqlite3 -init` or `.read` |
 | MongoDB shell | `mongosh` or `mongo` with `drop()`, `dropDatabase()`, `deleteMany({})`, `updateMany({}, ...)`, `dropIndex`, `renameCollection`, in `--eval` or a small script file |
-| Database tools | `dropdb`, `pg_restore --clean`, `mysqladmin drop`, `mongorestore --drop`, `myloader --overwrite-tables` |
+| Redis and Valkey | `redis-cli` or `valkey-cli` with `FLUSHALL`, `FLUSHDB` or `SWAPDB`, `DEL`/`UNLINK` fed by `xargs` (`--scan --pattern ... \| xargs redis-cli del`), or those commands in `< file` or an `--eval` script (CLI 0.9.2 and later) |
+| Database tools | `dropdb`, `pg_restore --clean`, `mysqladmin drop`, `mongorestore --drop`, `myloader --overwrite-tables`, `sqlite3 ... .restore` |
 
 It ignores status, dry-run and help commands (`migrate status`, `alembic upgrade --sql`, `manage.py migrate --plan`, `--help`), generating migrations, and commands that only mention a tool (`git commit -m "..."`, `grep`, `echo`, `cat`).
 

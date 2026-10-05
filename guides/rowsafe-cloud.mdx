@@ -66,17 +66,21 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 ## Bandwidth
 
-Rowsafe Cloud servers on DigitalOcean and OVHcloud come with outbound traffic included; on AWS, none is. Inbound traffic is free, and backups to Rowsafe Storage never count.
+Each Rowsafe Cloud server comes with some outbound traffic a month, depending on the cloud and the size. Inbound traffic is free, and backups to Rowsafe Storage never count.
 
-| Cloud | Small | Medium | Large |
-| --- | --- | --- | --- |
-| DigitalOcean | 4 TB a month | 5 TB a month | 6 TB a month |
-| OVHcloud | Unlimited | Unlimited | Unlimited |
-| AWS | Not included | Not included | Not included |
+| Cloud | Small | Medium | Large | XL | 2XL |
+| --- | --- | --- | --- | --- | --- |
+| DigitalOcean | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB |
+| OVHcloud | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
+| AWS | None | None | None | None | None |
 
-A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts.
+Traffic above that is billed per GB:
 
-For now, traffic above the included amount isn't billed. When that changes, it will be billed per GB at a price shown here and in the dashboard, and we'll email you before it starts.
+- **DigitalOcean:** 1.4¢ per GB ($14 per TB) above the included amount.
+- **AWS:** no traffic is included, so every GB out is 11¢ (14¢ in Singapore).
+- **OVHcloud:** unlimited, never billed.
+
+A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts. The dashboard shows each server's traffic this month, and extra traffic is invoiced with the hours at the end of the month.
 
 ## Create a Rowsafe Cloud server
 

@@ -1,19 +1,34 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its Hetzner, DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
-No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
+No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
 
 It's the same server as [Create a server for me](/docs/guides/create-a-server), with one difference: **Rowsafe holds the cloud account and bills you**, by the hour, with Rowsafe included.
 
 <Callout title="What Rowsafe can and can't reach">
-  Your server runs in Rowsafe's cloud account (DigitalOcean, AWS or OVHcloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
+  Your server runs in Rowsafe's cloud account (Hetzner, DigitalOcean, AWS or OVHcloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
 </Callout>
 
 ## Sizes and prices
 
 Prices are in USD and include Rowsafe. Each size is billed **by the hour** (the monthly price divided by 730 hours, rounded up to a tenth of a cent) and **never more than the monthly price** in a month.
+
+### Hetzner
+
+The lowest price, billed by the hour.
+
+| Size | Server | Per hour | At most a month |
+|---|---|---|---|
+| Small | 2 vCPU, 4 GB memory, 40 GB disk | $0.014 | $10 |
+| Medium | 4 vCPU, 8 GB memory, 80 GB disk | $0.027 | $19 |
+| Large | 8 vCPU, 16 GB memory, 160 GB disk | $0.048 | $35 |
+| XL | 16 vCPU, 32 GB memory, 320 GB disk | $0.09 | $65 |
+
+Regions: Falkenstein and Nuremberg (Germany), Helsinki (Finland).
+
+Hetzner often runs out of a size in a location for a while. The dashboard then shows that size as **None free right now** there, and offers it again as soon as Hetzner has one (it checks every 15 minutes). Large and XL are often out everywhere.
 
 ### DigitalOcean
 
@@ -54,7 +69,7 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 ### OVHcloud Value
 
-The lowest price for a database that runs all month, **billed monthly**. Pick it with the **Value** switch in the OVHcloud tab.
+A fixed price, **billed monthly**. Pick it with the **Value** switch in the OVHcloud tab.
 
 | Size | Server | A month |
 |---|---|---|
@@ -67,7 +82,7 @@ Regions: London, Beauharnois (while OVHcloud has servers free there).
 - **Paid a month at a time**, before the server is created: one subscription per server, cancel any time. Deleting the server ends its subscription at the end of the paid month.
 - **Ready in about 10 to 30 minutes**: OVHcloud prepares the server first.
 - **Shared CPU** with other servers on the same machine, and network up to 500 Mbps (Small), 1 Gbps (Medium) or 3 Gbps (Large), traffic unlimited.
-- **No clones, standby or size changes.** For those, pick OVHcloud Flex, DigitalOcean or AWS.
+- **No clones, standby or size changes.** For those, pick Hetzner, OVHcloud Flex, DigitalOcean or AWS.
 
 **Every size includes** PostgreSQL 15 to 18 on a server of its own, backups in [Rowsafe Storage](/docs/guides/rowsafe-storage) (encrypted on the server), Rewind, Proof, Pulse and Guard, and a firewall that lets in only the addresses you add. A Rowsafe Cloud server doesn't count against your Rowsafe [plan](/pricing).
 
@@ -90,6 +105,7 @@ Each Rowsafe Cloud server comes with some outbound traffic a month, depending on
 
 | Cloud | Small | Medium | Large | XL | 2XL |
 | --- | --- | --- | --- | --- | --- |
+| Hetzner | Unlimited | Unlimited | Unlimited | Unlimited | |
 | DigitalOcean | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB |
 | OVHcloud Flex | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
 | OVHcloud Value | Unlimited | Unlimited | Unlimited | | |
@@ -99,7 +115,7 @@ Traffic above that is billed per GB:
 
 - **DigitalOcean:** 1.4¢ per GB ($14 per TB) above the included amount.
 - **AWS:** no traffic is included, so every GB out is 11¢ (14¢ in Singapore).
-- **OVHcloud Flex and OVHcloud Value:** unlimited, never billed.
+- **Hetzner, OVHcloud Flex and OVHcloud Value:** unlimited, never billed.
 
 A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts. The dashboard shows each server's traffic this month, and extra traffic is invoiced with the hours at the end of the month.
 
@@ -202,6 +218,7 @@ Rowsafe puts the standby somewhere else than the primary when the cloud has some
 |---|---|
 | AWS | **Another availability zone** of the same region: a separate datacenter with its own power and network. |
 | DigitalOcean | In **New York** and **San Francisco**, the city's **other datacenter** (NYC1 and NYC3, SFO2 and SFO3). In the other regions, which have one datacenter, a **separate server in the same datacenter**. |
+| Hetzner | A **separate server in the same datacenter**: each location Rowsafe Cloud offers is one datacenter. |
 | OVHcloud Flex | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
 
 A standby in the same datacenter covers the primary's server failing (hardware, disk, a crash), not an outage of the whole datacenter.

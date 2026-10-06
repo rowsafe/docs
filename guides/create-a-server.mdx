@@ -132,6 +132,8 @@ When the server is ready, its page shows **Connect your app**: the host (the ser
 2. Make sure your app's address is under **Who can connect**.
 3. Connect with `sslmode=require`. The certificate is made on the server and isn't signed by a public authority, so `verify-full` doesn't accept it.
 
+On [Rowsafe Cloud](/docs/guides/rowsafe-cloud#connect-your-app), the host is a name that follows the primary, with a trusted certificate, so apps can use `verify-full` there.
+
 ## Who can connect
 
 Two locks keep the database private:

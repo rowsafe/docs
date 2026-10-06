@@ -1,6 +1,6 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its DigitalOcean, AWS or OVHcloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
 No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** DigitalOcean, AWS or OVHcloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
@@ -111,7 +111,42 @@ A [standby](#with-a-standby) is a second server, so it comes with its own allowa
 4. Add the addresses that may connect.
 5. Click **Create server**. The first time, an owner adds a card first.
 
-The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](/docs/guides/create-a-server#connect-your-app).
+The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](#connect-your-app).
+
+## Connect your app
+
+Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with port `5432`: use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
+
+- **It follows the primary.** With a [standby](#with-a-standby), after a failover or a planned switchover (the maintenance window, a size change), Rowsafe points the name at the new primary **within about a minute**. Apps that can't wait that long can use the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover), which switch right away.
+- **A name for reads.** `x7kq2mfa3pzd-ro.cloud.rowsafe.sh` points at the standby when there is one, else at the primary: for reports and other read-only work.
+- **IPv4, and IPv6 when you use it.** The names have IPv4 addresses. They get an IPv6 address only when **Who can connect** includes an IPv6 address or range, so apps that prefer IPv6 don't try a path the firewall closes.
+- A new server's name works a minute or so after the server is ready. Until then, the page also shows the IP address.
+
+Then click **Create a database and user** ([Databases & users](/docs/guides/databases-and-users)) and make sure your app's address is under **Who can connect**.
+
+### Check the server's certificate
+
+Each server gets a certificate from **Let's Encrypt** for both names. Its private key is made on the server and never leaves it. Rowsafe renews it about a month before it expires, and PostgreSQL reloads it without a restart.
+
+Connections are always encrypted (`sslmode=require`). With the certificate, your app can also check it reaches your server and nothing else: `sslmode=verify-full`.
+
+```
+postgresql://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:5432/DATABASE?sslmode=verify-full&sslrootcert=system
+```
+
+| Driver | What to set |
+| --- | --- |
+| psql, Python (psycopg), Ruby (pg), PHP and other clients built on libpq | `sslmode=verify-full&sslrootcert=system`. libpq uses the system's trusted certificates only with `sslrootcert=system`, which needs libpq 16 or newer. |
+| Node.js (node-postgres) | `sslmode=verify-full` in the URL (without `sslrootcert`), or `ssl: { rejectUnauthorized: true }`. |
+| Go (pgx), Java (JDBC) | `sslmode=verify-full`: they use the system's (or Java's) trusted certificates. |
+
+The page switches to `verify-full` once the certificate is installed, a minute or two after the server is ready. Until then, and on a server whose Rowsafe agent hasn't updated itself yet, use `sslmode=require`: still encrypted, with the server's own certificate. With an older libpq, keep `require`.
+
+### When the name goes away
+
+The name belongs to the server: deleting the server removes it, and it's never given to another server. After [Take it with you](#take-it-with-you), the database runs on your server, so your apps connect to that server's address.
+
+Servers in your own cloud account ([Create a server for me](/docs/guides/create-a-server)) don't get a Rowsafe name: apps connect to the server's address, or to a name you point at it.
 
 ## Change the size
 
@@ -141,7 +176,7 @@ Owners and admins can change the size; every change is in the audit log. AI assi
 On a server [with a standby](#with-a-standby), **Change size** (on either server's page) changes **both servers**, one at a time, so the database isn't offline for minutes:
 
 1. Rowsafe saves a Mark, then changes the **standby's** server. The primary keeps serving; reads on the standby pause meanwhile.
-2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves; reads on the standby continue.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves, and the [server's name](#connect-your-app) follows within about a minute; reads on the standby continue.
 3. The old primary becomes the standby again on its own data (no copy), then gets the new size, while the database keeps running.
 
 The two servers **swap roles**: the server that was the standby holds the database afterwards. That's fine, and Rowsafe doesn't switch back (it would only pause writes again). Both servers' pages show each step. The prices shown are for both servers (twice one server's), and each server is billed at its own size by the hour, so for a while one has the new size and the other the old.
@@ -198,7 +233,7 @@ The server's page shows **connection strings that follow the primary**: both ser
 postgresql://USER@PRIMARY_ADDRESS:5432,STANDBY_ADDRESS:5432/DBNAME?target_session_attrs=read-write
 ```
 
-Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) need a [Rowsafe pooler](/docs/guides/connection-pooling) or a DNS name you move. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
+Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) can use the [server's name](#connect-your-app), which follows the primary within about a minute. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
 
 ### After a failover
 
@@ -259,7 +294,7 @@ Rowsafe saves a [Mark](/docs/concepts/restore-points) first, then does each step
 A server [with a standby](#with-a-standby) is maintained **one server at a time**, in the same window (the standby server has the primary's window):
 
 1. Rowsafe saves a Mark, then applies what needs a restart to the **standby's** server (its own PostgreSQL update, restart or reboot). The primary keeps serving.
-2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops cleanly and the standby takes over. Nothing is lost; reads on the standby continue, and apps using the connection strings that follow the primary reconnect by themselves.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops cleanly and the standby takes over. Nothing is lost; reads on the standby continue, apps using the connection strings that follow the primary reconnect by themselves, and the [server's name](#connect-your-app) follows within about a minute.
 3. The old primary becomes the standby again on its own data (no copy), and gets the same updates.
 
 The email the day before says "a few seconds while Rowsafe switches to the standby" instead of a restart's or a reboot's downtime. The servers **swap roles** and stay that way; Rowsafe doesn't switch back. Automatic failover waits throughout, so planned maintenance never triggers a failover.
@@ -295,7 +330,7 @@ Move your database to your own server whenever you like, with about a minute of 
 1. Install Rowsafe on your server ([Quickstart](/docs/quickstart)).
 2. On the Rowsafe Cloud server's page, click **Take it with you** and pick your server.
 3. Your server gets a copy from the latest backup and keeps it in sync while the database keeps running. Then apps are disconnected for about a minute while your server takes over. Nothing is lost.
-4. Check your app works with the new address. The Rowsafe Cloud server is stopped, as a way back, and deleted only when you confirm; its billing stops then.
+4. Point your app at your server's address (the Rowsafe Cloud name goes away with the Rowsafe Cloud server) and check it works. The Rowsafe Cloud server is stopped, as a way back, and deleted only when you confirm; its billing stops then.
 
 It's plain PostgreSQL, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
 

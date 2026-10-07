@@ -20,7 +20,7 @@ Prefer to decide each change yourself? An owner can choose **Ask me first** in *
 What it may do follows that person's role **now**. Rowsafe asks just before each change:
 
 - **An owner or admin:** the change runs right away, as them.
-- **A member:** it waits for an owner or admin, since members can't make changes in the dashboard either. That happens when someone connected an app as an admin and is a member now. Removing someone from the organization disconnects their apps.
+- **A member:** it waits for an owner or admin, since members can't make changes in the dashboard either. That happens when someone connected an app as an admin and is a member now. Removing someone from the organization disconnects their apps; an API key they made stops working for changes until it's revoked ([API keys](/docs/guides/teams#api-keys)).
 - **What only owners can do stays owner-only.** A first payment for Rowsafe Cloud is always an owner's: see [When a person still decides](#when-a-person-still-decides).
 
 An agent never gets more than its person's rights, and only the one change it made runs. It can never approve anything, and never change what AI agents may do.
@@ -120,4 +120,4 @@ Only that person can do it, signed in to the dashboard, and it's in the audit lo
 - The budget is in US dollars, and a monthly rate, not a total: a server billed by the hour costs money from the hour it's created until it's deleted. Deleting a server frees its share of the budget.
 - With **Within a budget**, agents can't resize or delete servers, even their own: those wait for a person.
 - An app acts for the one organization picked when it was connected; an API key for its own organization.
-- **Ask me first** and the budget apply to AI apps and to `rowsafe mcp`. A read-write API key used directly, by the `rowsafe` CLI or a script, acts right away like the dashboard. To have an agent ask, connect it as an AI app or give it a read-only key.
+- **Ask me first** and the budget apply to AI apps and to `rowsafe mcp`. A read-write API key used directly, by the `rowsafe` CLI or a script, acts right away like the dashboard, with the rights of the person who made it now: if they're a member it only reads, if they left it changes nothing. To have an agent ask, connect it as an AI app or give it a read-only key.

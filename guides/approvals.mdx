@@ -30,7 +30,7 @@ AI agents connected to Rowsafe can do almost everything the dashboard does. They
 </Step>
 <Step>
 
-**You approve or deny.** Only an owner or admin signed in to the dashboard can. To approve a change that replaces data, you type the database's name. Deny it and nothing changes; you can add a note the agent will see.
+**You approve or deny.** Only an owner or admin signed in to the dashboard can. To approve a change that replaces data, you type the database's name (the server's name, to delete a Rowsafe Cloud server). Deny it and nothing changes; you can add a note the agent will see.
 
 </Step>
 <Step>
@@ -52,16 +52,50 @@ A request nobody decides expires after 24 hours. The agent can withdraw a reques
 | Standby | Create, promote (fail over), rebuild or remove a standby, start or stop watching a fenced old primary, automatic failover |
 | Move and fork | Move to another server, schedule or make the switch, cancel, switch back, finish; fork the database |
 | Security | Turn connection pooling on or off, change security settings, fix a security finding |
-| Data | Create a database for an existing owner, remove a database or user, turn an extension on or off, change masking rules, stop protecting a database |
+| Data | Create a database for an app (Rowsafe Cloud), create a database for an existing owner, remove a database or user, turn an extension on or off, change masking rules, stop protecting a database |
 | Files and alerts | Restore files and undo it, change an alert rule |
+| Rowsafe Cloud | Create a server, change who can connect, change a server's size, clone a database to a new server, delete a server |
 
 The agent's `describe_change` tool lists them with their parameters.
+
+## Rowsafe Cloud requests
+
+An agent can ask for a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server for the app it's building, and later change it (see [Need a database?](/docs/guides/ai-agents#need-a-database)). These requests work like the others, with a few more things on the page, because some of them cost money.
+
+| Request | What you see |
+|---|---|
+| **Create a Rowsafe Cloud server** | Where it runs (cloud and region), the size, the price per hour and the most it costs a month (a standby doubles it), the traffic included, who can connect, and how it will be paid. |
+| **Change who can connect** | The whole new list of addresses, and which addresses get cut off. Apps connecting from those lose access. |
+| **Change a Rowsafe Cloud server's size** | The old and the new price. Rowsafe saves a Mark first. The database is offline for a few minutes while the server restarts (with a standby, writes pause for a few seconds instead). The disk never shrinks. |
+| **Clone to a new Rowsafe Cloud server** | The database and the moment it copies (now, a second or a Mark), the new server's size and price, and when Rowsafe deletes it. The clone holds real data, not masked, and costs money until it's deleted. |
+| **Delete a Rowsafe Cloud server** | The server, the bill that stops, and whether the backup passphrase was saved. You type the server's name to approve. Rowsafe refuses to delete a server whose passphrase was never saved (clones aside): without it, its backups can't be restored. |
+
+Every address is listed, never cut short. An address that lets **everyone on the internet** try to connect (`0.0.0.0/0` or `::/0`) gets its own warning, and so does a very wide range. They'd still need a password, but limiting it to your apps' addresses is much safer. The page also says when its prices, payment state and addresses were read.
+
+### Approve and pay
+
+A request that costs money (a new server, a bigger size, a clone) says **This adds to your organization's bill**, and its button reads **Approve and pay**.
+
+- **Pay as you go is on:** the server is created as soon as you approve, and billed by the hour like any Rowsafe Cloud server. See [How billing works](/docs/guides/rowsafe-cloud#how-billing-works).
+- **Pay as you go isn't on yet** (or the cloud is billed by the month, like OVHcloud Value): right after you approve, you go to the checkout. The server is created once it's paid.
+- **Only owners pay.** An admin can approve, and is told that an owner of the organization pays for it to be created. The server waits for payment until then; an owner pays with **Pay to create it** on the request's page.
+
+Nothing is created or billed before a person approves (and, where needed, pays).
+
+### A database for an app
+
+**Create a database for an app** makes a new, empty PostgreSQL database and a new user that owns it, on a Rowsafe Cloud server. Existing databases and users are untouched. The page shows the connection string without the password, and where the password comes from:
+
+- **Made on the assistant's machine** (a local `rowsafe mcp`): Rowsafe only has its verifier and never sees the password. The assistant can connect once you approve.
+- **Made on the database server when you approve** (apps signed in with Rowsafe, such as the Claude Code and Codex plugins): it's shown only to you, once, in your browser. Put it in the app's environment (for example `DATABASE_URL` in `.env`), or give it to the assistant.
+
+See [Databases and users](/docs/guides/databases-and-users#a-database-for-an-ai-agents-app) for what the new user can reach.
 
 ## What stays the same
 
 - **A person decides.** API keys and AI agents can never approve, not even their own requests.
 - **Root's permissions still apply.** A restart, an update or a reboot runs only on servers where root allowed it at install. See [Permissions](/docs/guides/permissions).
-- **Secrets never go through agents.** Passwords for new database users, password resets and passwords for restored copies are set by people in the dashboard.
+- **Secrets never go through Rowsafe.** Passwords for new database users, password resets and passwords for restored copies are set by people in the dashboard. The one exception is [a database for an app](#a-database-for-an-app): its password is made on the assistant's machine, or shown only to you, and Rowsafe never sees it.
 - **No queries or commands.** Agents never run SQL or commands on production through Rowsafe and never see what's inside your backups. They test on masked [safe copies](/docs/guides/safe-copies).
 
 ## Which agents can ask

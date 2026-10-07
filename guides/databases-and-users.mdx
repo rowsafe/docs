@@ -86,6 +86,17 @@ Rowsafe never sees the passwords it creates:
 
 PostgreSQL stores only a SCRAM verifier the agent computes, so the password isn't in any SQL statement or server log either.
 
+## A database for an AI agent's app
+
+On a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server running PostgreSQL 15 or newer, an AI agent building an app can ask for the app's own database with `create_app_database` (see [Need a database?](/docs/guides/ai-agents#need-a-database)). An owner or admin [approves](/docs/guides/approvals#a-database-for-an-app) it in the dashboard first. Rowsafe then creates a new, empty database and a new user that owns it, like **Create database** does. Existing databases and users are untouched, and the new database is backed up with the rest of the server.
+
+The password still never passes through Rowsafe:
+
+- **From the Claude Code and Codex plugins, or any app signed in with Rowsafe:** when you approve, the agent on the server makes the password and encrypts it to your browser, as above. You see the connection string once; put it in the app's `.env` or give it to the AI agent.
+- **From a local `rowsafe mcp`:** the password is made on your own machine, and only its SCRAM verifier is sent. The Rowsafe agent on the server creates the user from that verifier, so the AI agent has the full connection string at once, and it works once you approve. This needs the next agent release on the server (agents update themselves); until then the request is refused, and you can create the database here instead.
+
+The connection string uses the server's name (like `x7kq2mfa3pzd.cloud.rowsafe.sh`) with `sslmode=require`. The new user owns only its database, and only it (and superusers) can connect there. Like every user, it can also connect to the server's other databases, with only what's granted to everyone there.
+
 ## MySQL, MariaDB, MongoDB and ClickHouse
 
 The same page works for the other engines, in their own terms. Passwords are made on your server and reach only your browser, like PostgreSQL's.
@@ -130,7 +141,7 @@ rowsafe db user add everything --keys "*" --access read_only
 ## Who can do it
 
 - Owners and admins, in the dashboard; read-write API keys, with the CLI. Members and read-only keys can only see the list.
-- AI agents (MCP) read the list (`list_databases_on_server`). They can't create or remove anything on their own, and never get a password: they can ask to create a database for an existing owner, remove a database or user, or turn an extension on or off, and it happens when an owner or admin [approves](/docs/guides/approvals). New users and passwords are for people only.
+- AI agents (MCP) read the list (`list_databases_on_server`). They can't create or remove anything on their own: they can ask to create a database for an existing owner, remove a database or user, or turn an extension on or off, and it happens when an owner or admin [approves](/docs/guides/approvals). New users and passwords are for people only, except [a database for an AI agent's app](#a-database-for-an-ai-agents-app) on Rowsafe Cloud, whose password Rowsafe never sees.
 - Every change is in the [audit log](/docs/guides/teams#audit-log), without passwords.
 
 ## Limits

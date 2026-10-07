@@ -11,6 +11,10 @@ It's the same server as [Create a server for me](/docs/guides/create-a-server), 
   Your server runs in Rowsafe's cloud account (Hetzner, DigitalOcean, AWS, OVHcloud, Azure or Google Cloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
 </Callout>
 
+## From your coding agent
+
+Building an app with Claude Code, Codex or another AI agent? It can ask for a Rowsafe Cloud server when the app needs a database. It picks the region and the cheapest size that fits, and asks you to approve: you see the price and click **Approve and pay**. Once the server is ready, it asks for the app's own database and login and puts the connection string in the app's `.env`. Nothing is created or billed until you approve, and Rowsafe never sees the password. See [Need a database?](/docs/guides/ai-agents#need-a-database).
+
 ## Sizes and prices
 
 Prices are in USD and include Rowsafe. Each size is billed **by the hour** (the monthly price divided by 730 hours, rounded up to a tenth of a cent) and **never more than the monthly price** in a month.

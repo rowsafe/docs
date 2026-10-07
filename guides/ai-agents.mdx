@@ -22,13 +22,63 @@ Before any destructive or risky database operation:
 
 An agent connected to Rowsafe can do what the dashboard does, but it never changes production by itself:
 
-- **It reads everything the dashboard shows:** health and findings, alerts, what's running now and who blocks whom, metrics, the disk forecast, uptime, security, updates, standbys, pooling, forks, the audit log and the weekly Pulse.
+- **It reads everything the dashboard shows:** health and findings, alerts, what's running now and who blocks whom, metrics, the disk forecast, uptime, security, updates, standbys, pooling, forks, the audit log and the weekly Pulse, plus Rowsafe Cloud's sizes and prices and your Rowsafe Cloud servers.
 - **It acts where production can't be hurt** (with write access): backups and Proof runs, acknowledging alerts, dismissing recommendations, testing indexes on a copy, checking and rehearsing an upgrade on a copy, the security check, files backups, and safe copies.
-- **It asks for changes to production:** applying a fix, changing settings, restarting, restoring a copy, bringing rows back, rewinding, updating or upgrading, promoting a standby, moving a database, and more. `request_change` files a request and gives you a link. Nothing happens until an owner or admin clicks **Approve** in the dashboard, and an agent can never approve.
+- **It asks for changes to production:** applying a fix, changing settings, restarting, restoring a copy, bringing rows back, rewinding, updating or upgrading, promoting a standby, moving a database, a new Rowsafe Cloud server ([Need a database?](#need-a-database)), and more. `request_change` files a request and gives you a link. Nothing happens until an owner or admin clicks **Approve** in the dashboard, and an agent can never approve.
 
 See [Approvals](/docs/guides/approvals) for what you see before you approve, and the [MCP reference](/docs/reference/mcp#tools) for every tool.
 
 **Destructive** means: migrations and schema changes from any tool, `DROP`, `TRUNCATE`, `ALTER TABLE ... DROP/RENAME/TYPE`, `DELETE` or `UPDATE` without a narrow `WHERE`, backfills, `pg_restore --clean`, `dropdb`, and resetting or re-seeding a database.
+
+## Need a database?
+
+When the app an agent is building needs PostgreSQL and has none, the agent can ask for one in [Rowsafe Cloud](/docs/guides/rowsafe-cloud): a server Rowsafe runs and protects from the first minute (backups, Proof, Pulse), billed to your organization. It costs money, so **you approve each step that costs money or changes a server**: nothing is created, changed or billed until an owner or admin approves it in the dashboard.
+
+<Steps>
+<Step>
+
+**The agent looks first.** `list_cloud_servers` shows the servers your organization already has; one may do. `cloud_catalog` shows the regions, the sizes with their price per hour and the most they cost a month, and what's sold out right now. The agent picks a region near the app and the cheapest size that fits (a small app fits the smallest one, about $10 a month at most), and tells you the price.
+
+</Step>
+<Step>
+
+**It asks for the server** (`create_cloud_server`), with a name, the region, the size and the addresses the app connects from, and gives you a link. The request shows the size, the price and who can connect. Click **Approve and pay**. If pay as you go isn't on yet, you go to the checkout right after (an owner pays), and the server is created once it's paid. See [Approve and pay](/docs/guides/approvals#approve-and-pay).
+
+</Step>
+<Step>
+
+**It waits.** Once you approve, the agent sees the new server and follows it until it's ready, about 5 to 10 minutes.
+
+</Step>
+<Step>
+
+**It lets the app in.** If the app's address isn't allowed to connect, it asks you to change who can connect (`cloud_firewall`).
+
+</Step>
+<Step>
+
+**It asks for the app's own database and login** (`create_app_database`): a new, empty database and a new user that owns it. You approve this too. The connection string uses the server's name (like `x7kq2mfa3pzd.cloud.rowsafe.sh`) with `sslmode=require`.
+
+</Step>
+<Step>
+
+**It stores the connection string** in the app's environment, for example `DATABASE_URL` in `.env` (which git must ignore), never in code, a commit or the chat.
+
+</Step>
+</Steps>
+
+**Rowsafe never sees the password.** Where it's made depends on how the agent is connected:
+
+- **The Claude Code and Codex plugins, and other apps signed in with Rowsafe:** when you approve, the database server makes the password and your browser shows you the connection string once. Paste it into the app's `.env` yourself, or give it to the agent.
+- **A local `rowsafe mcp --allow-writes`:** the password is made on your machine and Rowsafe only gets its verifier. The agent gets the full connection string at once; it works once you approve. This needs the next agent release on the server (agents update themselves); until then the request is refused, and you can create the database in the dashboard instead ([Databases and users](/docs/guides/databases-and-users)).
+
+Later, the agent can ask you to approve a bigger size (`resize_cloud_server`), a copy on a new server to test on (`clone_to_new_server`, deleted after the hours you choose) or deleting a server (`delete_cloud_server`: you type its name to approve).
+
+The plugins' `rowsafe-new-database` skill teaches agents these steps. Asking needs **Act for you** (or `--allow-writes`); without it, the agent asks you to create the server in the dashboard and give it the connection string.
+
+<Callout title="Limits">
+  PostgreSQL only (15 to 18; 17 unless you ask otherwise). `create_app_database` works on Rowsafe Cloud servers running PostgreSQL 15 or newer, not on your own servers or servers in your own cloud account: there, create the database in the dashboard. The new user owns only its database, but like every user it can connect to the server's other databases, with only what's granted to everyone there.
+</Callout>
 
 ## Preview migrations and test on safe copies
 
@@ -53,7 +103,7 @@ This writes `.rowsafe.json` (`{"database": "app"}`). The CLI, the MCP server and
 The plugin bundles three things:
 
 - Rowsafe's MCP server (`https://api.rowsafe.sh/mcp`): sign in with Rowsafe once (`/mcp` in Claude Code) and choose whether it may save Marks and act for you (run checks, and ask you to approve changes to production);
-- a skill, `rowsafe-safety`, that teaches the workflow;
+- two skills: `rowsafe-safety`, which teaches the workflow, and `rowsafe-new-database`, which asks for a Rowsafe Cloud database when the app needs one ([Need a database?](#need-a-database));
 - a hook that runs `rowsafe guard` to set a Mark **right before** destructive commands, whether or not the model remembered to. It never approves a command.
 
 ```sh
@@ -66,7 +116,7 @@ Or inside Claude Code: `/plugin marketplace add rowsafe/rowsafe`, then `/plugin 
 </Tab>
 <Tab value="Codex plugin">
 
-The same three parts for OpenAI Codex (CLI and IDE extension): Rowsafe's MCP server with Sign in with Rowsafe, the `rowsafe-safety` skill, and the `rowsafe guard` hook on shell commands.
+The same three parts for OpenAI Codex (CLI and IDE extension): Rowsafe's MCP server with Sign in with Rowsafe, the `rowsafe-safety` and `rowsafe-new-database` skills, and the `rowsafe guard` hook on shell commands.
 
 ```sh
 codex plugin marketplace add rowsafe/rowsafe

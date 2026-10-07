@@ -1,6 +1,6 @@
 ---
 title: Create a server for me
-description: No server yet? Rowsafe creates one in your own cloud account (DigitalOcean, AWS or OVHcloud) with PostgreSQL, backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, SSH, resizing and deleting.
+description: No server yet? Rowsafe creates one in your own cloud account (Hetzner, DigitalOcean, AWS, Google Cloud, Azure or OVHcloud) with PostgreSQL, backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, SSH, resizing and deleting.
 ---
 
 No server yet? Rowsafe can create one for you **in your own cloud account**, install PostgreSQL on it and protect it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), and Pulse watching its health.
@@ -8,7 +8,7 @@ No server yet? Rowsafe can create one for you **in your own cloud account**, ins
 It's your server. It runs in your account, your cloud bills you for it, and you can log in to it yourself. Everything else in these docs works on it exactly as on a server you set up yourself.
 
 <Callout title="Which clouds">
-  **DigitalOcean, AWS and OVHcloud** work today: each has been run end to end against a real account (create, first boot, SSH key, firewall, resize, delete). **Hetzner, Google Cloud and Azure are coming soon**: the dashboard shows them, but you can't connect them yet.
+  **Hetzner, DigitalOcean, AWS, Google Cloud, Azure and OVHcloud** work today: each has been run end to end against a real account (create, first boot, SSH key, firewall, resize, delete).
 
   No cloud account? [Rowsafe Cloud](/docs/guides/rowsafe-cloud) runs the same server in Rowsafe's account, billed by the hour.
 </Callout>
@@ -199,5 +199,5 @@ Only **owners and admins** create, resize and delete servers, connect cloud acco
 - **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To use your own bucket instead, [move to it](/docs/guides/rowsafe-storage#move-to-your-own-bucket) on the server; that needs SSH. A [second copy](/docs/guides/second-copy) in your own bucket works too.
 - **One server per database.** A [standby](/docs/guides/standby) isn't available on Rowsafe Storage yet: move to your own bucket first.
 - The choices of what Rowsafe may do, and SSH keys, are set when the server is created. Changing them later needs you to log in to the server.
-- **DigitalOcean, AWS and OVHcloud** only, for now. Hetzner, Google Cloud and Azure are coming soon.
+- **Six clouds** for now: Hetzner, DigitalOcean, AWS, Google Cloud, Azure and OVHcloud.
 - The connect steps for each cloud are new: [tell us](mailto:hello@rowsafe.sh) if anything doesn't match what you see.

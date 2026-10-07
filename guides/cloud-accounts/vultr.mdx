@@ -1,0 +1,74 @@
+---
+title: Connect Vultr
+description: Turn on API access in Vultr and paste the API key so Rowsafe can create database servers there for you. What the key lets Rowsafe do, how to limit it, and how to revoke it.
+---
+
+<Callout type="info">
+  **New:** tell us if anything in these steps doesn't match what you see, at hello@rowsafe.sh.
+</Callout>
+
+To [create servers for you](/docs/guides/create-a-server) in Vultr, Rowsafe needs your Vultr **API key**. You turn on API access in Vultr and paste the key into the dashboard once. It takes about two minutes.
+
+## Get the API key
+
+<Steps>
+<Step>
+
+### Choose the account
+
+A Vultr API key reaches everything its user can, in the whole account. If the account also runs servers Rowsafe has no business with, use a separate Vultr account (or organization) for the databases Rowsafe creates, or the key of a sub-user, see [Limit what the key can do](#limit-what-the-key-can-do).
+
+</Step>
+<Step>
+
+### Turn on API access
+
+Sign in to [Vultr](https://console.vultr.com), open your account menu at the top right and choose **API Access**. Click **Enable API Access**, click **Copy** to copy the key, tick **I have successfully copied the key** and click **Finalize Key Generation**. Vultr shows the key only this once.
+
+</Step>
+<Step>
+
+### Allow Rowsafe's address
+
+Under **Access Control List**, Vultr lets a new key be used only from the network you're on. Click **Add IP to Allowlist** and add Rowsafe's address: the dashboard shows it when you connect (Vultr refuses Rowsafe until it's there, and the message names the address). Or turn on **Any IPv4** and **Any IPv6** to allow every address.
+
+</Step>
+<Step>
+
+### Paste it into Rowsafe
+
+In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account**, choose **Vultr**, paste the key into **API key**, give the account a name your team will recognize (like "Production"), and click **Connect**.
+
+</Step>
+</Steps>
+
+Rowsafe checks the key before it saves it: that it works and can create firewall groups, without creating anything that costs money.
+
+## What access this gives Rowsafe
+
+**What the key's user can do, in the whole Vultr account.** Vultr keys can't be limited to some servers. Rowsafe itself only touches what it creates for your servers:
+
+- **servers** (Debian 13, High Performance or any size you pick), tagged `rowsafe`, created, resized and deleted only when someone in your organization clicks and confirms;
+- **firewall groups**, one per server, named `rowsafe-…`, that let in only the addresses you chose (Vultr drops everything else);
+- **SSH keys**, only the public keys you give it when you create a server. Rowsafe never adds its own.
+
+The key is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+
+### Limit what the key can do
+
+In Vultr, a **sub-user** (Account, **Users**) has its own API key and only the permissions you tick. Rowsafe needs **Manage Servers**, **Provisioning** and **Manage Firewall**. Turn on API access for that user and paste its key instead of yours.
+
+## Revoke it
+
+- **In Vultr:** open **API Access** and delete the key (or turn API access off). It stops working at once.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the key; nothing in your Vultr account changes. You can remove an account once its servers are deleted.
+
+After you revoke the key, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their firewall or delete them. Do that in the Vultr console.
+
+## Good to know
+
+- Prices in the dashboard are Vultr's own, shown as "from": a few locations (São Paulo) cost more. Your Vultr bill is what counts.
+- **Resizing only goes up.** Vultr moves a server to a bigger plan of its kind only, with a bigger disk, never back. The server restarts for it, without a clean shutdown (Vultr has none): PostgreSQL recovers from its write-ahead log, so nothing committed is lost.
+- New Vultr accounts can have only a few servers at first. If you reach the limit, Rowsafe says so: ask Vultr support to raise it, or delete a server you don't use.
+- Vultr sets a root password on every new server and shows it in the Vultr console. Rowsafe never reads it, and the firewall lets SSH in only from the addresses you add.
+- To check the key, Rowsafe creates an empty firewall group (`rowsafe-key-check-…`, free) and deletes it right away.

@@ -1,14 +1,14 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its Hetzner, DigitalOcean, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
-No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
+No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
 
 It's the same server as [Create a server for me](/docs/guides/create-a-server), with one difference: **Rowsafe holds the cloud account and bills you**, by the hour, with Rowsafe included.
 
 <Callout title="What Rowsafe can and can't reach">
-  Your server runs in Rowsafe's cloud account (Hetzner, DigitalOcean, AWS, OVHcloud, Azure or Google Cloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
+  Your server runs in Rowsafe's cloud account (Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
 </Callout>
 
 ## From your coding agent
@@ -45,6 +45,21 @@ Hetzner often runs out of a size in a location for a while. The dashboard then s
 | 2XL | 16 dedicated vCPU, 64 GB memory, 400 GB disk | $1.04 | $759 |
 
 Regions: New York, San Francisco, Toronto, London, Amsterdam, Frankfurt, Singapore, Bangalore, Sydney.
+
+### Vultr
+
+The most places: 22 cities on six continents. High Performance servers (AMD EPYC, NVMe disks), billed by the hour.
+
+| Size | Server | Per hour | At most a month |
+|---|---|---|---|
+| Small | 2 vCPU, 4 GB memory, 100 GB disk | $0.044 | $32 |
+| Medium | 4 vCPU, 8 GB memory, 180 GB disk | $0.085 | $62 |
+| Large | 8 vCPU, 16 GB memory, 350 GB disk | $0.164 | $119 |
+| XL | 12 vCPU, 24 GB memory, 500 GB disk | $0.254 | $185 |
+
+Regions: New Jersey, Chicago, Dallas, Los Angeles, Silicon Valley, Toronto, Mexico City, Santiago, London, Amsterdam, Frankfurt, Paris, Madrid, Stockholm, Warsaw, Tel Aviv, Johannesburg, Mumbai, Singapore, Tokyo, Seoul, Sydney.
+
+When Vultr has none of a size free in a city for a while, the dashboard shows it as **None free right now** there (it checks every 15 minutes).
 
 ### AWS
 
@@ -135,6 +150,7 @@ Each Rowsafe Cloud server comes with some outbound traffic a month, depending on
 | --- | --- | --- | --- | --- | --- |
 | Hetzner | Unlimited | Unlimited | Unlimited | Unlimited | |
 | DigitalOcean | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB |
+| Vultr | Unlimited | Unlimited | Unlimited | Unlimited | |
 | OVHcloud Flex | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
 | OVHcloud Value | Unlimited | Unlimited | Unlimited | | |
 | AWS | None | None | None | None | None |
@@ -147,7 +163,7 @@ Traffic above that is billed per GB:
 - **AWS:** no traffic is included, so every GB out is 11¢ (14¢ in Singapore).
 - **Azure:** no traffic is included, so every GB out is 11¢.
 - **Google Cloud:** no traffic is included, so every GB out is 14¢.
-- **Hetzner, OVHcloud Flex and OVHcloud Value:** unlimited, never billed.
+- **Hetzner, Vultr, OVHcloud Flex and OVHcloud Value:** unlimited, never billed.
 
 A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts. The dashboard shows each server's traffic this month, and extra traffic is invoiced with the hours at the end of the month.
 
@@ -207,6 +223,7 @@ A Rowsafe Cloud server can move to another size of its cloud, bigger or smaller,
 What to expect:
 
 - **The database is offline for a few minutes** while the server restarts with the new size. Most apps reconnect by themselves. Rowsafe saves a [Mark](/docs/concepts/restore-points) first, so you can get back to that exact moment.
+- **On Vultr, the restart is a power cut**: Vultr has no clean shutdown. PostgreSQL recovers from its write-ahead log as it starts again, so nothing that was committed is lost, but transactions in flight are rolled back.
 - **The disk can grow, never shrink.** Moving to a size with a bigger disk grows the disk, and that can't be undone: afterwards the server can't move back to a size with a smaller disk. Sizes with a smaller disk than the server has now can't be picked. (To go smaller anyway, create a smaller Rowsafe Cloud server and [move the database there](/docs/guides/move).)
 - **Some bigger sizes aren't offered in every region.** The dashboard only lists the sizes offered where the server runs.
 - **If the cloud can't make the change** (for example, it has no room for that size right now), the server comes back at its old size and the page says why. Nothing is billed at the new size.
@@ -253,6 +270,7 @@ Rowsafe puts the standby somewhere else than the primary when the cloud has some
 | Azure | A **separate server in the same region**: Rowsafe doesn't spread servers across Azure's availability zones yet. |
 | Google Cloud | A **separate server in the same zone**: Rowsafe doesn't spread servers across Google Cloud's zones yet. |
 | Hetzner | A **separate server in the same datacenter**: each location Rowsafe Cloud offers is one datacenter. |
+| Vultr | A **separate server in the same datacenter**: each Vultr city is one datacenter. |
 | OVHcloud Flex | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
 
 A standby in the same datacenter covers the primary's server failing (hardware, disk, a crash), not an outage of the whole datacenter.
@@ -394,7 +412,7 @@ Private connections are built and being switched on. Until then the server's pag
 If your apps run in AWS, they can reach a Rowsafe Cloud server on AWS **without going over the internet**. This uses **AWS PrivateLink**: AWS carries the traffic from your own network (your VPC) to the server, privately, and only the AWS accounts you name can connect.
 
 - **Price:** $20 a month at most, billed by the hour ($0.028) while it's on, on the same pay-as-you-go subscription as your servers. Turn it off and billing stops.
-- **AWS only, same region only.** It works for Rowsafe Cloud servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean and OVHcloud Flex servers don't have it.
+- **AWS only, same region only.** It works for Rowsafe Cloud servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean, Vultr and OVHcloud Flex servers don't have it.
 - **With a standby, it follows the database.** Turn it on on the primary's page. After a failover, the same endpoint reaches the server that holds the database now, with nothing to change on your side; if you then remove the old primary, the private connection stays.
 
 ### Turn it on

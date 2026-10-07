@@ -3,6 +3,7 @@
   "pages": [
     "hetzner",
     "digitalocean",
+    "vultr",
     "aws",
     "google-cloud",
     "azure",

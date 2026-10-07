@@ -90,9 +90,9 @@ They **could not**:
 
 ## Servers Rowsafe creates
 
-With [Create a server for me](/docs/guides/create-a-server), Rowsafe creates a server in your own cloud account (Hetzner, DigitalOcean, AWS, Google Cloud, Azure or OVHcloud). For that, and only for that, it keeps a credential for your cloud account:
+With [Create a server for me](/docs/guides/create-a-server), Rowsafe creates a server in your own cloud account (Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure or OVHcloud). For that, and only for that, it keeps a credential for your cloud account:
 
-- **Limited to a dedicated place.** Each cloud's steps create the credential for one Hetzner project, a DigitalOcean team, an IAM user whose policy only changes what is tagged `rowsafe=1`, a Google Cloud project's service account, an Azure app limited to one resource group, or one OVHcloud Public Cloud project. Each page shows exactly what access it gives: [Hetzner](/docs/guides/cloud-accounts/hetzner), [DigitalOcean](/docs/guides/cloud-accounts/digitalocean), [AWS](/docs/guides/cloud-accounts/aws), [Google Cloud](/docs/guides/cloud-accounts/google-cloud), [Azure](/docs/guides/cloud-accounts/azure), [OVHcloud](/docs/guides/cloud-accounts/ovh).
+- **Limited to a dedicated place.** Each cloud's steps create the credential for one Hetzner project, a DigitalOcean team, a Vultr account or sub-user, an IAM user whose policy only changes what is tagged `rowsafe=1`, a Google Cloud project's service account, an Azure app limited to one resource group, or one OVHcloud Public Cloud project. Each page shows exactly what access it gives: [Hetzner](/docs/guides/cloud-accounts/hetzner), [DigitalOcean](/docs/guides/cloud-accounts/digitalocean), [Vultr](/docs/guides/cloud-accounts/vultr), [AWS](/docs/guides/cloud-accounts/aws), [Google Cloud](/docs/guides/cloud-accounts/google-cloud), [Azure](/docs/guides/cloud-accounts/azure), [OVHcloud](/docs/guides/cloud-accounts/ovh).
 - **Stored encrypted.** Rowsafe checks it, then seals it with AES-256-GCM under a key kept outside its database. It's never shown again, never logged and never put in an error message.
 - **Used only when a person asks.** Rowsafe creates, resizes, changes the firewall of or deletes a server only when an owner or admin clicks and confirms (or uses a read-write API key), and then follows that change through. Every change is in the [audit log](/docs/guides/teams#audit-log). AI agents (MCP) can't create, resize or delete servers.
 - **Revocable.** Delete the token or key in your cloud and it stops working at once; **Remove** under Settings → Cloud accounts makes Rowsafe forget it.
@@ -118,7 +118,7 @@ On the server itself:
 | Bucket keys | | `agent.env` and pgBackRest configuration, on your server | Your bucket. |
 | Rowsafe Storage credentials | | `/var/lib/rowsafe/storage-credentials.json` and pgBackRest configuration (0600), on your server | Your organization's space in Rowsafe Storage only, for 7 days; renewed daily. |
 | Encryption passphrase | | The same files, and your secret manager | Decrypting every backup. |
-| Cloud account credential | | Rowsafe, sealed with AES-256-GCM, only if you use [Create a server for me](/docs/guides/create-a-server) | Creating, resizing and deleting servers where you allowed it: one Hetzner project, DigitalOcean team, Google Cloud project, Azure resource group or OVHcloud Public Cloud project, or what the AWS policy allows. |
+| Cloud account credential | | Rowsafe, sealed with AES-256-GCM, only if you use [Create a server for me](/docs/guides/create-a-server) | Creating, resizing and deleting servers where you allowed it: one Hetzner project, DigitalOcean team, Vultr account, Google Cloud project, Azure resource group or OVHcloud Public Cloud project, or what the AWS policy allows. |
 
 Rowsafe stores only SHA-256 hashes of API keys, enrollment tokens and agent tokens.
 

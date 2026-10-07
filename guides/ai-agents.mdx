@@ -70,7 +70,7 @@ When the app an agent is building needs PostgreSQL and has none, the agent can a
 **Rowsafe never sees the password.** Where it's made depends on how the agent is connected:
 
 - **The Claude Code and Codex plugins, and other apps signed in with Rowsafe:** when you approve, the database server makes the password and your browser shows you the connection string once. Paste it into the app's `.env` yourself, or give it to the agent.
-- **A local `rowsafe mcp --allow-writes`:** the password is made on your machine and Rowsafe only gets its verifier. The agent gets the full connection string at once; it works once you approve. This needs the next agent release on the server (agents update themselves); until then the request is refused, and you can create the database in the dashboard instead ([Databases and users](/docs/guides/databases-and-users)).
+- **A local `rowsafe mcp --allow-writes`:** the password is made on your machine and Rowsafe only gets its verifier. The agent gets the full connection string at once; it works once you approve. This needs Rowsafe 0.9.4 or newer on the server (agents update themselves); on an older one the request is refused, and you can create the database in the dashboard instead ([Databases and users](/docs/guides/databases-and-users)).
 
 Later, the agent can ask you to approve a bigger size (`resize_cloud_server`), a copy on a new server to test on (`clone_to_new_server`, deleted after the hours you choose) or deleting a server (`delete_cloud_server`: you type its name to approve).
 

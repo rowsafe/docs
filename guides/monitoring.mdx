@@ -164,7 +164,7 @@ Some things Rowsafe doesn't do for you, and the finding says so in plain words: 
 - **You confirm what disrupts.** Ending a session, removing an index or a slot, restarting PostgreSQL and turning on pooling show what will happen first. Ending a session and removing an index or a slot ask you to type the database name.
 - **A Mark first.** Before removing an index, Rowsafe saves a Mark (a restore point named `before-fix-...`), so you can [restore to just before it](/docs/guides/restore).
 - **Gentle on the server.** Changes to indexes wait at most 5 seconds for a lock and then give up rather than queue behind your traffic. Indexes are rebuilt and removed `CONCURRENTLY`, so reads and writes carry on. Vacuum runs with a small cost delay. One fix runs at a time per database.
-- **AI agents only ask.** Through the [MCP server](/docs/reference/mcp), an agent can ask for a fix; it runs only when an owner or admin approves it, exactly as if they clicked **Apply fix** ([Approvals](/docs/guides/approvals)).
+- **AI agents apply fixes the same way.** Through the [MCP server](/docs/reference/mcp) (`apply_fix`), an agent picks a fix by its ID, exactly as if its person clicked **Apply fix**: right away [as the person who connected it](/docs/guides/agent-autonomy) when they're an owner or admin, otherwise once an owner or admin [approves](/docs/guides/approvals) it.
 
 From a terminal, `rowsafe fix` lists the same fixes and applies one:
 

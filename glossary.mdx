@@ -19,7 +19,7 @@ The button on a Pulse finding that fixes the problem for you: Rowsafe does the w
 
 ## Approval
 
-A request from an AI agent (or an API key) to change production: apply a fix, restart, rewind, upgrade and so on. It waits under **Approvals** in the dashboard, and nothing changes until an owner or admin clicks **Approve**. Agents can never approve. See [Approvals](/docs/guides/approvals).
+An AI agent's change to production (apply a fix, restart, rewind, upgrade and so on) that waits for a person: when the team chose **Ask me first**, when the agent's person is a member, or when a safety net needs a person. It waits under **Approvals** in the dashboard until an owner or admin clicks **Approve**. Agents can never approve. Otherwise, an agent's change runs right away as the person who connected it ([How AI agents act](/docs/guides/agent-autonomy)). See [Approvals](/docs/guides/approvals).
 
 ## Ask Rowsafe
 
@@ -107,7 +107,7 @@ A named restore point, such as `before-migration-42`: a moment you can rewind to
 
 ## MCP
 
-The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health, save Marks, run backups and checks, and ask you to approve changes to production. No MCP tool restores, rewinds, restarts the database or applies a fix on its own: a person approves each one ([Approval](#approval)). See [MCP server](/docs/reference/mcp).
+The Model Context Protocol: a standard way for AI assistants (Claude, ChatGPT, Cursor and others) to use outside tools. Rowsafe's MCP server lets them read your databases' health, save Marks, run backups and checks, and make changes to production as the person who connected them, with that person's rights ([How AI agents act](/docs/guides/agent-autonomy)), or ask a person to approve them ([Approval](#approval)). See [MCP server](/docs/reference/mcp).
 
 ## Migration preview
 

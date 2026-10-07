@@ -167,7 +167,7 @@ Undo works the same everywhere: the data from before is kept for 7 days (on the 
 ## Who can do this
 
 - Only **owners and admins**, and API keys with write access. Every step is in the [audit log](/docs/guides/teams#audit-log).
-- **AI agents only ask.** No MCP tool restores a copy, brings rows back or rewinds a database on its own. An assistant can show your recovery window with `rewind_window` and ask for a restore; it runs only when an owner or admin approves it, with the same confirmations. See [Approvals](/docs/guides/approvals).
+- **AI agents act as their person.** An assistant can show your recovery window with `rewind_window`, and, when you ask, restore a copy, bring rows back or rewind [as the person who connected it](/docs/guides/agent-autonomy), with the same confirmations and the Mark first. That runs right away for an owner's or admin's agent when Rowsafe has a backup to go back to; otherwise an owner or admin [approves](/docs/guides/approvals) it.
 
 ## Do it yourself
 

@@ -356,7 +356,7 @@ http://USER:PASSWORD@db-1:9090/?database=DATABASE
 - **Superusers can't log in through PgBouncer.** Connect directly for admin work.
 - **PgBouncer connects to PostgreSQL over TCP, at `127.0.0.1`, with a password.** If `pg_hba.conf` refuses that, Rowsafe stops before it changes anything and says which line to add, for example `host all all 127.0.0.1/32 scram-sha-256`. Add it, reload PostgreSQL (`SELECT pg_reload_conf();`) and try again.
 - **A PgBouncer with its own configuration is left alone.** Rowsafe doesn't take over a PgBouncer you configured yourself.
-- **AI agents can't change pooling on their own.** The API refuses pooling changes made through MCP. An agent can only ask, and pooling changes when an owner or admin [approves](/docs/guides/approvals). Read-only API keys can't change it either. Every change is in the audit log.
+- **AI agents change pooling only as their person.** The API refuses pooling changes made directly through MCP. An agent's change is a request that runs [as the person who connected it](/docs/guides/agent-autonomy) when they're an owner or admin, or once an owner or admin [approves](/docs/guides/approvals) it. Read-only API keys can't change it. Every change is in the audit log.
 
 ## If something goes wrong
 

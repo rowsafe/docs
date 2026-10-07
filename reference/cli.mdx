@@ -87,6 +87,52 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 
 `--host ADDRESS` on `create`, `user add` and `user password` sets the address in the printed connection string (default: the one your apps use). The password is encrypted on your server to a key the CLI makes in memory for that command; Rowsafe only relays the ciphertext.
 
+## Connect apps and psql
+
+| Command | What it does |
+|---|---|
+| `rowsafe env [DATABASE]` | The app's own database and login, written to `.env` as `DATABASE_URL`. `DATABASE` defaults to this directory's name (`my-app` becomes `my_app`). Creates the database owned by a new user named like it, or, with `--reset-password`, gives an existing user a new password (apps using the old one stop connecting; asks first, `--yes` skips it). |
+| `rowsafe connect [DATABASE\|SERVER]` | Open `psql` as a temporary user made for this session and removed when you quit (what it created is handed to the database's owner). `--access read_only`, `read_write` or `owner` (default). `--user USER` connects as an existing user instead; psql asks for its password. `psql`'s own options go after `--`. |
+
+`--on NAME` chooses the server for both; without it, the usual [name rules](#database-names) apply.
+
+**`env` flags:** `--file .env` (the file to write), `--name DATABASE_URL` (the variable), `--user USER` (the new owner's name), `--extension EXT` (repeatable, for a new database), `--force` (replace the variable when the file already has it; without it nothing changes), `--print` (also print the connection string with its password).
+
+The password never passes through Rowsafe and isn't printed unless `--print`. On PostgreSQL, `env` makes it on your computer and sends only its SCRAM verifier; with an agent too old for that, or another engine, the database server makes it and encrypts it for your terminal. `env` writes the variable in place (a new file is readable only by you; an existing one keeps its mode) and, in a git repository, adds the file to `.gitignore`, warning if git already tracks it. `connect` needs `psql` (it says how to install it), passes the password in psql's environment, never on a command line, and on a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server that doesn't let this computer connect yet, offers to allow it first (`--yes` without asking).
+
+## Rowsafe Cloud
+
+[Rowsafe Cloud](/docs/guides/rowsafe-cloud) servers from the terminal, with your login or a read-write API key, like the dashboard. `NAME` is a server's name or ID, or its database's name; without it, the project's database (`.rowsafe.json`), else the organization's only server. What costs money and deletions ask first: `--yes` is the confirmation in scripts.
+
+| Command | What it does |
+|---|---|
+| `rowsafe cloud sizes` | Clouds, regions and sizes: CPUs, memory, disk, the price of an hour, the most a month costs, and what is sold out right now. `--cloud CLOUD`, `--region REGION`, `--json`. |
+| `rowsafe cloud create NAME` | A new server with PostgreSQL, backups, Proof and Pulse on. By default, the cheapest size free now, PostgreSQL 17, and only this computer may connect. Shows the size and price and asks first. The first server billed by the hour gives you a link to add a card, once (an owner of the organization pays); it's created right after. |
+| `rowsafe cloud list` | The servers Rowsafe created: status, size, price and who can connect. `--json`. |
+| `rowsafe cloud show [NAME]` | One server: status, size, price, where apps connect, who can connect, and whether the backup passphrase is saved. `--json`. |
+| `rowsafe cloud wait [NAME]` | Follow a server being created or resized until it's ready. `--timeout 30m`. |
+| `rowsafe cloud resize [NAME] SIZE` | Another size, after a Mark. The database is offline for a few minutes while the server restarts; a pair with a standby switches over instead. Disks never shrink. Asks first; `--yes`, `--wait`. |
+| `rowsafe cloud allow [NAME] [me\|IP\|CIDR]...` | Let more addresses connect. Default: this computer (`me`). Asks before opening it to everyone. |
+| `rowsafe cloud firewall [NAME]` | Who can connect. Change it with `--set A,B` (the whole list), `--add A`, `--remove A` or `--clear` (nobody). Asks before cutting anyone off; `--yes`, `--json`. |
+| `rowsafe cloud passphrase [NAME]` | The backup passphrase, encrypted for this terminal only (Rowsafe can't read it). `--file PATH` writes it to a new file readable only by you. Rowsafe records that it was saved. |
+| `rowsafe cloud clone [SOURCE] NAME` | A copy of a database on a new server billed by the hour: as it is now, `--at TIME` or `--mark LABEL`. Next to the source, at its size, by default (`--cloud`, `--region`, `--size` to choose). `--delete-after 24h` (1 hour to 30 days) has Rowsafe delete it; otherwise it's kept until you delete it. Real data, not masked. |
+| `rowsafe cloud retry [NAME]` | Create a server that failed to set up again. `--wait`. |
+| `rowsafe cloud delete [NAME]` | Delete the server and the database on it. Asks you to type the name (`--yes` in scripts). Refuses until the backup passphrase is saved (clones aside). `--with-standby` deletes its standby too; `--wait`. |
+
+**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--postgres 15|16|17|18`, `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (a second server ready to take over; doubles the price), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
+
+```sh
+rowsafe cloud sizes
+rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
+rowsafe env --on shop-db                     # DATABASE_URL in .env
+rowsafe connect shop-db                      # psql, as a temporary user
+rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect
+rowsafe cloud resize shop-db medium
+rowsafe cloud clone shop-db shop-test --at "10m ago" --delete-after 1d
+rowsafe cloud passphrase shop-db --file shop-db-passphrase.txt
+rowsafe cloud delete shop-db
+```
+
 ## Backups, Proof and Marks
 
 | Command | What it does |
@@ -243,7 +289,7 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 | `rowsafe upgrade undo [NAME]` | Go back to the version the upgrade kept (for 7 days). |
 | `rowsafe upgrade cleanup [NAME]` | Remove the kept version and free its disk; the upgrade can't be undone afterwards. |
 
-They work only on servers where the installer allowed updates, and through MCP only when an owner or admin [approves](/docs/guides/approvals) the request. Security updates and reboots are fixes: `rowsafe fix NAME`. See [Update and upgrade PostgreSQL](/docs/guides/updates).
+They work only on servers where the installer allowed updates, and through MCP only as an owner or admin ([an agent acting as one](/docs/guides/agent-autonomy), or a request one [approves](/docs/guides/approvals)). Security updates and reboots are fixes: `rowsafe fix NAME`. See [Update and upgrade PostgreSQL](/docs/guides/updates).
 
 ## Pulse: monitoring and alerts
 
@@ -287,7 +333,7 @@ They work only on servers where the installer allowed updates, and through MCP o
 | `--listen local\|private\|public` | `local` | This server only; also its private network; or every address (only where root allowed it: `--allow-pooler-public`). |
 | `--port N` | `6432` | PgBouncer's port. |
 
-Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. Read-only API keys can't change it; AI agents (MCP) can only ask, and a person [approves](/docs/guides/approvals).
+Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. Read-only API keys can't change it; AI agents (MCP) change it [as their person](/docs/guides/agent-autonomy), or a person [approves](/docs/guides/approvals).
 
 ## Settings and tuning
 
@@ -324,7 +370,7 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 
 | Command | What it does |
 |---|---|
-| `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds Marks; `--allow-writes` adds the actions that don't touch production and `request_change` (changes a person [approves](/docs/guides/approvals)). |
+| `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds Marks; `--allow-writes` adds the actions that don't touch production, and changes to production made [as you](/docs/guides/agent-autonomy) (`request_change`, `create_cloud_server`, `cloud_firewall`, `apply_fix`, `create_app_database`). |
 | `rowsafe guard` | The Claude Code `PreToolUse` hook: sets a Mark before a destructive database command. See [Guard](/docs/guides/ai-agents#the-guard-hook). |
 | `rowsafe guard --check COMMAND` | Whether `COMMAND` looks destructive. |
 | `rowsafe preview [NAME] FILE` | [Preview a migration](/docs/guides/preview-migrations) on a fresh copy: `--db DB`, `--json` or `--format markdown`, `--fail-on careful\|dangerous`, `--no-wait`. `FILE` may be `-` (stdin). |

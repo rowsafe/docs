@@ -9,7 +9,7 @@ Ask your AI app "Are my databases backed up?", "Why is the orders database slow 
 https://api.rowsafe.sh/mcp
 ```
 
-The first time, the app opens Rowsafe in your browser. You pick the organization, choose whether the app may save Marks and whether it may **Act for you**, and click **Allow**. That's it: no API key to create or paste. (Prefer a key, for CI or an app without sign-in? Use the **Remote endpoint** setup in the [MCP reference](/docs/reference/mcp#set-up).) The dashboard has the same steps, with one-click install links for Cursor and VS Code, under **Ask your AI**.
+The first time, the app opens Rowsafe in your browser. You pick the organization, choose whether the app may save Marks and whether it may **Act for you** (make the changes you can make in the dashboard, as you), and click **Allow**. That's it: no API key to create or paste. (Prefer a key, for CI or an app without sign-in? Use the **Remote endpoint** setup in the [MCP reference](/docs/reference/mcp#set-up).) The dashboard has the same steps, with one-click install links for Cursor and VS Code, under **Ask your AI**.
 
 ## What a connected app can do
 
@@ -20,13 +20,25 @@ The first time, the app opens Rowsafe in your browser. You pick the organization
 | [Rowsafe Cloud](/docs/guides/rowsafe-cloud) sizes and prices, and your Rowsafe Cloud servers | Yes |
 | Save a Mark (a named moment you can rewind to) | Only if you ticked **Save Marks** |
 | Run backups, Proof and checks, preview migrations, make masked safe copies, acknowledge alerts, change schedules | Only if you ticked **Act for you** |
-| Ask you to approve a change to production (apply a fix, restart, restore, rewind, upgrade, ...) | Only if you ticked **Act for you**. Nothing changes until an owner or admin clicks **Approve** in the dashboard; see [Approvals](/docs/guides/approvals) |
-| Ask you to approve a new Rowsafe Cloud server, a new size, a clone or deleting one, and a database and login for the app it's building | Only if you ticked **Act for you**. You see the price and click **Approve and pay**; see [Need a database?](/docs/guides/ai-agents#need-a-database) |
-| Approve a change, or restore, rewind, restart or apply a fix by itself | Never |
-| Pay, or see the password of a database it asked for | Never: an owner pays, and the password is shown only to the person who approves (who can give it to the app) |
+| Make a change to production (apply a fix, restart, restore, rewind, upgrade, ...) | Only if you ticked **Act for you**. It acts as you, right away, while you're an owner or admin (if you become a member, its changes wait for an owner or admin). If an owner chose **Ask me first**, every change waits for an owner or admin to click **Approve**. See [How AI agents act](/docs/guides/agent-autonomy) |
+| Create a Rowsafe Cloud server, change its size or who can connect, clone it or delete it | Only if you ticked **Act for you**, as above. It tells you the price first; see [Need a database?](/docs/guides/ai-agents#need-a-database) |
+| Create a database and login for the app it's building | Only if you ticked **Act for you**. The password is made in your browser, so you approve it and see it once |
+| Approve a change | Never |
+| Change what AI agents may do | Never: only an owner, in the dashboard |
+| Pay | Never: a first payment is always an owner's, at a checkout. An owner's app gives you the link |
 | Read the rows in your tables | Never: Rowsafe itself never sees them |
 
-Apps act for one organization, the one you picked. Everything they do is in the [audit log](/docs/guides/teams#audit-log), attributed to the app, and Marks they save show the app as their creator.
+Apps act for one organization, the one you picked. Everything they do is in the [audit log](/docs/guides/teams#audit-log), as you through the app (*ana@example.com through their AI agent Claude*), and Marks they save show the app as their creator.
+
+## What the Allow page says
+
+When you tick **Act for you**, the page says what that means: the app can make the changes you can make in the dashboard (restore, restart, apply fixes, change settings, create Rowsafe Cloud servers), right away, unless an owner of the organization chose **Ask me first**. If you're no longer an owner or admin, its changes wait for one. Rowsafe saves a Mark before risky changes, a first payment is always an owner's, and everything it does is in the audit log. It never sees the rows in your tables.
+
+Leave **Act for you** unticked for an app that should only look (and save Marks).
+
+### Apps connected earlier
+
+An app connected before AI agents could act as the person who connected them keeps **asking first**: **Settings → Connected apps** shows **Asks first** next to it. The person who connected it can click **Let it act as me** there (only them, and it's in the audit log), or connect the app again. Until then, every change it makes waits for an owner or admin.
 
 ## Set it up
 
@@ -126,9 +138,9 @@ Owners and admins of an organization. A member who tries sees the request, but *
 
 ## Disconnect an app
 
-In the dashboard, open **Settings**, **Connected apps**, and click **Disconnect**. The app loses access right away; Marks it saved stay. Rowsafe also disconnects an app by itself when:
+In the dashboard, open **Settings**, **Connected apps**, and click **Disconnect**. The app loses access right away; Marks it saved stay. Each app shows who allowed it and whether it **Acts as** them or **Asks first**. Rowsafe also disconnects an app by itself when:
 
-- the person who allowed it is removed from the organization;
+- the person who allowed it is removed from the organization, leaves it, or deletes their account;
 - a sign-in token is used twice, which means it may have leaked. Connect the app again if it was yours.
 
 ## How it stays safe
@@ -136,7 +148,7 @@ In the dashboard, open **Settings**, **Connected apps**, and click **Disconnect*
 - **You approve every app**, on a Rowsafe page, in the browser where you're signed in. The page shows the app's name, and whether Rowsafe could verify it: ChatGPT and Claude Code publish their identity on their own domain (shown as **Verified: chatgpt.com**); other apps only give a name, marked **not verified**. It also shows where you'll return to, and warns when an app runs on your own computer.
 - **Only known apps and apps on your own computer can receive a sign-in.** Rowsafe sends approvals only to the published callback addresses of ChatGPT, Claude, VS Code and Cursor, and to `localhost`. A link someone sends you can't send your approval to their website, and only the browser that started a sign-in can finish it.
 - **Short-lived tokens, only for MCP.** An app gets a one-hour access token that works on `https://api.rowsafe.sh/mcp` and nowhere else, and a refresh token that works once. Rowsafe stores only their hashes.
-- **Nothing beyond what you ticked.** Without **Act for you**, an app never sees the tools that queue backups, make copies or ask for changes, and the API refuses those actions for it too. With it, changes to production are still only requests that a person approves; an app can never approve one.
+- **Nothing beyond what you ticked, and never more than you.** Without **Act for you**, an app never sees the tools that queue backups, make copies or change production, and the API refuses those actions for it too. With it, the app acts as you, with your role at the moment of each change: Rowsafe checks it every time, and if you're a member by then, the change waits for an owner or admin. Every change goes through the same checks as your click, with a Mark first where the dashboard saves one ([safety nets](/docs/guides/agent-autonomy#safety-nets-that-stay-on)). An app can never approve a change, or change what AI agents may do.
 
 This follows the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (OAuth 2.1 with PKCE, protected resource metadata, client ID metadata documents and dynamic client registration). Details are in the [MCP server reference](/docs/reference/mcp#sign-in-with-rowsafe-oauth).
 

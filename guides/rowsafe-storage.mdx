@@ -87,6 +87,12 @@ Rowsafe never deletes your backups on its own, except in these cases, always aft
 
 Settings → Storage lists what is scheduled and when. To keep a removed database's backups, add it back under the same name, on a server that uses Rowsafe Storage, before the date: the deletion is cancelled. Every deletion is recorded in the [audit log](/docs/guides/teams#audit-log).
 
+### Kept for you
+
+Rowsafe never deletes backups because an AI agent did something. When an [AI agent](/docs/guides/agent-autonomy) removes a database from Rowsafe, its backups are **kept**, with no date, and listed under **Kept for you** in Settings → Storage. Add the database back to use them again.
+
+To delete them, an owner clicks **Delete these backups**. Then the usual rules apply: they're deleted 30 days later, with an email a week before, and adding the database back before then keeps them. Admins and members see the list but can't delete them.
+
 There is no "download your backups" button: they are encrypted with your passphrase, so a copy from Rowsafe wouldn't help anyone without it. To keep your backups in your own hands, move to your own bucket.
 
 ## Good to know

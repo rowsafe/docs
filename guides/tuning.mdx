@@ -106,7 +106,7 @@ rowsafe settings set app work_mem=64MB    # change one (VALUE "default" resets i
 rowsafe settings undo app                 # undo the latest change
 ```
 
-See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI assistants can read the settings and recommendations (`database_settings` on the [MCP server](/docs/reference/mcp)) but never change them on their own: they can ask, and a person [approves](/docs/guides/approvals).
+See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI assistants can read the settings and recommendations (`database_settings` on the [MCP server](/docs/reference/mcp)) and apply the recommended changes [as the person who connected them](/docs/guides/agent-autonomy) (a Mark first), or a person [approves](/docs/guides/approvals) them.
 
 ## MySQL and MariaDB
 

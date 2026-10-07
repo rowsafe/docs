@@ -1,16 +1,22 @@
 ---
 title: Approvals
-description: AI agents can ask for any change the dashboard makes to production, such as a fix, a restart or a rewind. Nothing changes until an owner or admin clicks Approve.
+description: When an AI agent's change to production waits for a person, an owner or admin approves or denies it here. That happens when your team chose Ask me first, for a member's agent, and when a safety net needs a person.
 ---
 
-AI agents connected to Rowsafe can do almost everything the dashboard does. They read health, alerts and backups, run backups and checks, and test on copies. But they **never change production by themselves**. When an agent wants to apply a fix, restart the database, rewind it or upgrade it, it asks you. Nothing happens until you click **Approve**.
+AI agents connected to Rowsafe can do almost everything the dashboard does. By default, an agent [acts as the person who connected it](/docs/guides/agent-autonomy): when an owner's or admin's agent applies a fix, restarts the database or rewinds it, the change runs right away, as them.
+
+A change waits here, for an owner or admin to click **Approve**, when:
+
+- **your team chose Ask me first** in **Settings → AI agents** (an owner's choice). Then every change an agent makes waits, and nothing happens until you approve it;
+- **the agent's person is a member**, or the agent [always asks first](/docs/guides/agent-autonomy#agents-that-always-ask-first) (a key made by another key, an app connected before agents could act as their person);
+- **a safety net needs a person:** no backup to go back to yet, a first payment only an owner makes, a server's key to compare, the agents' budget, or an app database's password made in your browser. See [When a person still decides](/docs/guides/agent-autonomy#when-a-person-still-decides).
 
 ## How it works
 
 <Steps>
 <Step>
 
-**The agent asks.** It explains what it wants to do and why, then files a request with `request_change`. It gives you a link to the request in the dashboard. Apps that can open links for you (MCP URL elicitation) ask you to open it; others show the link.
+**The agent asks.** It explains what it wants to do and why, then makes the change (`request_change`, or a tool like `apply_fix`). When the change has to wait, the agent gets a link to the request in the dashboard and gives it to you. Apps that can open links for you (MCP URL elicitation) ask you to open it; others show the link.
 
 </Step>
 <Step>
@@ -25,7 +31,7 @@ AI agents connected to Rowsafe can do almost everything the dashboard does. They
 - **What will change**, written by Rowsafe, not by the agent;
 - the agent's reason, labeled as its words (Rowsafe doesn't check them);
 - the **risk**: *Apps won't notice* (it changes Rowsafe or a copy), *Apps may notice* (a restart, a short pause or a switch) or *Replaces data* (it replaces or deletes data, or removes the way back);
-- who asked (the app or API key) and when the request expires.
+- who asked (the app or API key, and the person behind it), why it waits for a person, and when the request expires.
 
 </Step>
 <Step>
@@ -42,7 +48,11 @@ AI agents connected to Rowsafe can do almost everything the dashboard does. They
 
 A request nobody decides expires after 24 hours. The agent can withdraw a request that is still waiting.
 
-## What an agent can ask for
+### Done right away
+
+When the change doesn't have to wait, Rowsafe skips steps 2 to 4: it runs the change at once as the person who connected the agent, and the agent gets the result in the same call. The change still shows on the **Approvals** page, as **Done right away**, with a banner (*Done by AI agents in the last 24 hours*). The audit log records it as that person through their agent, for example *ana@example.com through their AI agent Claude*, and owners get a digest email. See [Know what agents did](/docs/guides/agent-autonomy#know-what-agents-did).
+
+## What an agent can change
 
 | | Changes |
 |---|---|
@@ -60,7 +70,7 @@ The agent's `describe_change` tool lists them with their parameters.
 
 ## Rowsafe Cloud requests
 
-An agent can ask for a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server for the app it's building, and later change it (see [Need a database?](/docs/guides/ai-agents#need-a-database)). These requests work like the others, with a few more things on the page, because some of them cost money.
+An agent can create a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server for the app it's building, and later change it (see [Need a database?](/docs/guides/ai-agents#need-a-database)). When one of these waits for you, it works like the other requests, with a few more things on the page, because some of them cost money.
 
 | Request | What you see |
 |---|---|
@@ -76,30 +86,32 @@ Every address is listed, never cut short. An address that lets **everyone on the
 
 A request that costs money (a new server, a bigger size, a clone) says **This adds to your organization's bill**, and its button reads **Approve and pay**.
 
-- **Pay as you go is on:** the server is created as soon as you approve, and billed by the hour like any Rowsafe Cloud server. See [How billing works](/docs/guides/rowsafe-cloud#how-billing-works).
-- **Pay as you go isn't on yet** (or the cloud is billed by the month, like OVHcloud Value): right after you approve, you go to the checkout. The server is created once it's paid.
+- **Pay as you go is on:** the server is created as soon as you approve, and billed by the hour like any Rowsafe Cloud server. See [How billing works](/docs/guides/rowsafe-cloud#how-billing-works). An owner's or admin's agent doesn't need a request here: it creates the server right away.
+- **Pay as you go isn't on yet** (or the cloud is billed by the month, like OVHcloud Value): right after you approve, you go to the checkout. The server is created once it's paid. An owner's agent gets that checkout link without a request, and gives it to you.
 - **Only owners pay.** An admin can approve, and is told that an owner of the organization pays for it to be created. The server waits for payment until then; an owner pays with **Pay to create it** on the request's page.
 
-Nothing is created or billed before a person approves (and, where needed, pays).
+Nothing is created or billed before a request that waits is approved (and, where needed, paid). A first payment is always an owner's, whoever's agent asked.
 
 ### A database for an app
 
 **Create a database for an app** makes a new, empty PostgreSQL database and a new user that owns it, on a Rowsafe Cloud server. Existing databases and users are untouched. The page shows the connection string without the password, and where the password comes from:
 
-- **Made on the assistant's machine** (a local `rowsafe mcp`): Rowsafe only has its verifier and never sees the password. The assistant can connect once you approve.
-- **Made on the database server when you approve** (apps signed in with Rowsafe, such as the Claude Code and Codex plugins): it's shown only to you, once, in your browser. Put it in the app's environment (for example `DATABASE_URL` in `.env`), or give it to the assistant.
+- **Made on the assistant's machine** (a local `rowsafe mcp`): Rowsafe only has its verifier and never sees the password. The assistant can connect once the database is created: right away for an owner's or admin's agent, or once you approve.
+- **Made on the database server when you approve** (apps signed in with Rowsafe, such as the Claude Code and Codex plugins): it's shown only to you, once, in your browser. Put it in the app's environment (for example `DATABASE_URL` in `.env`), or give it to the assistant. So this one always waits for a person.
 
 See [Databases and users](/docs/guides/databases-and-users#a-database-for-an-ai-agents-app) for what the new user can reach.
 
 ## What stays the same
 
-- **A person decides.** API keys and AI agents can never approve, not even their own requests.
+- **Only a person approves.** API keys and AI agents can never approve, not even their own requests. An agent's change that runs right away needs no approval because it runs as its person, with exactly their rights.
 - **Root's permissions still apply.** A restart, an update or a reboot runs only on servers where root allowed it at install. See [Permissions](/docs/guides/permissions).
 - **Secrets never go through Rowsafe.** Passwords for new database users, password resets and passwords for restored copies are set by people in the dashboard. The one exception is [a database for an app](#a-database-for-an-app): its password is made on the assistant's machine, or shown only to you, and Rowsafe never sees it.
 - **No queries or commands.** Agents never run SQL or commands on production through Rowsafe and never see what's inside your backups. They test on masked [safe copies](/docs/guides/safe-copies).
 
-## Which agents can ask
+## Which agents can make changes
 
 - **Local `rowsafe mcp`**: with `--allow-writes`. See the [MCP reference](/docs/reference/mcp#set-up).
-- **The remote endpoint with an API key**: a read-write key. A read-only key can't ask.
+- **The remote endpoint with an API key**: a read-write key. A read-only key can't change anything.
 - **Apps signed in with Rowsafe** (ChatGPT, Claude, Cursor...): only if you ticked **Act for you** when you connected them. See [Connect AI apps](/docs/guides/connect-ai-apps).
+
+Whether a change runs right away or waits here is described in [How AI agents act](/docs/guides/agent-autonomy).

@@ -1,6 +1,6 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. Sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
 No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs PostgreSQL and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
@@ -13,7 +13,9 @@ It's the same server as [Create a server for me](/docs/guides/create-a-server), 
 
 ## From your coding agent
 
-Building an app with Claude Code, Codex or another AI agent? It can ask for a Rowsafe Cloud server when the app needs a database. It picks the region and the cheapest size that fits, and asks you to approve: you see the price and click **Approve and pay**. Once the server is ready, it asks for the app's own database and login and puts the connection string in the app's `.env`. Nothing is created or billed until you approve, and Rowsafe never sees the password. See [Need a database?](/docs/guides/ai-agents#need-a-database).
+Building an app with Claude Code, Codex or another AI agent? It can create a Rowsafe Cloud server when the app needs a database. It picks the region and the cheapest size that fits, tells you the price and gets your OK, then creates it as you (an owner's or admin's agent, right away; the first time, an owner adds a card at a checkout link). Once the server is ready, it creates the app's own database and login and puts the connection string in the app's `.env`. Rowsafe never sees the password. See [Need a database?](/docs/guides/ai-agents#need-a-database) and [How AI agents act](/docs/guides/agent-autonomy): an owner can set a monthly budget for agents, or make every change wait for approval.
+
+Prefer the terminal? `rowsafe cloud create shop-db`, then `rowsafe env --on shop-db`: see [From the terminal](#from-the-terminal).
 
 ## Sizes and prices
 
@@ -177,6 +179,29 @@ A [standby](#with-a-standby) is a second server, so it comes with its own allowa
 
 The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](#connect-your-app).
 
+## From the terminal
+
+The `rowsafe` CLI does the same as the dashboard, with your login (`rowsafe login`) or a read-write API key. What costs money and deletions ask first; in scripts, `--yes` is the confirmation.
+
+```sh
+rowsafe cloud sizes                          # clouds, regions, sizes, prices, what's sold out now
+rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
+rowsafe env --on shop-db                     # the app's database and login: DATABASE_URL in .env
+rowsafe connect shop-db                      # psql, as a temporary user removed when you quit
+rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect
+rowsafe cloud resize shop-db medium          # a Mark first; asks before the restart
+rowsafe cloud clone shop-db shop-test --at "10m ago" --delete-after 1d
+rowsafe cloud passphrase shop-db --file shop-db-passphrase.txt
+rowsafe cloud delete shop-db                 # asks you to type the name
+```
+
+- **The first server** billed by the hour gives you a link to add a card, once. An owner of the organization pays there; the server is created right after, and nothing is billed before.
+- **Who can connect:** only the computer you ran it on, unless you say otherwise (`--allow ADDRESS`, or `--allow none` for nobody yet). Add your app's server later with `rowsafe cloud allow`.
+- **Passwords never pass through Rowsafe.** `rowsafe env` makes the app's password on your computer and sends only its verifier. It writes `DATABASE_URL` to `.env` (a new file is readable only by you), adds `.env` to `.gitignore` in a git repository, and never prints the password unless you pass `--print`. `rowsafe connect` makes a temporary user whose password is encrypted for your terminal, and removes it when you quit psql.
+- **Save the passphrase.** `rowsafe cloud passphrase` gets it, encrypted for your terminal only, and records that you saved it. `rowsafe cloud delete` refuses a server whose passphrase was never saved.
+
+Every command and flag is in the [CLI reference](/docs/reference/cli#rowsafe-cloud).
+
 ## Connect your app
 
 Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with port `5432`: use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
@@ -234,7 +259,7 @@ How billing changes:
 - **A month never costs more than the monthly price of the biggest size the server had that month.** Moving up from Small to Large mid-month: at most Large's monthly price. Moving down from Large to Small: that month still costs at most Large's price, and from the next month at most Small's.
 - Settings → Billing shows the hours so far and the most this month can cost.
 
-Owners and admins can change the size; every change is in the audit log. AI assistants can't. Servers paid by the month (not offered today) keep their size.
+Owners and admins can change the size, in the dashboard or with `rowsafe cloud resize`; every change is in the audit log. AI agents change it [as the person who connected them](/docs/guides/agent-autonomy) (right away for an owner's or admin's agent, within the agents' budget if an owner set one), or an owner or admin [approves](/docs/guides/approvals) it. Servers paid by the month (not offered today) keep their size.
 
 ### A server with a standby
 
@@ -385,7 +410,7 @@ This happens **even if the window is turned off or postponed**: it is the one ca
 
 On the server's page, in **Updates and maintenance**, an owner or admin clicks **Change window** to pick another day, hour or time zone, or to turn the window off. With the window off, nothing is applied for you except critical fixes (above); updates that need a restart then wait until someone clicks **Apply now**, **Update** or **Reboot**. Every change is in the activity log.
 
-AI assistants (MCP) can see the window, the next date and what's waiting, but can't change the window, postpone it or apply anything. They can list servers and save Marks, but can't create, resize, restart or delete anything.
+AI assistants (MCP) can see the window, the next date and what's waiting, but can't change the window, postpone it or apply anything. They can list servers and save Marks. They create, resize, restart or delete servers [as the person who connected them](/docs/guides/agent-autonomy), or ask an owner or admin to approve it.
 
 ### Your own servers are not affected
 

@@ -1,9 +1,9 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL, MySQL, MariaDB or Valkey server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
-No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs the database you choose (PostgreSQL, MySQL, MariaDB or Valkey) and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
+No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs the database you choose (PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse) and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
 
 It's the same server as [Create a server for me](/docs/guides/create-a-server), with one difference: **Rowsafe holds the cloud account and bills you**, by the hour, with Rowsafe included.
 
@@ -27,13 +27,15 @@ Pick the database when you create the server. The price is the same for each.
 | MySQL | 8.4 LTS | port 3306 |
 | MariaDB | 11.8 LTS (supported until 2030) | port 3306 |
 | Valkey | 8, the open-source Redis: Redis clients and `redis-cli` work with it | port 6380, with TLS only (nothing listens on 6379 for apps) |
+| ClickHouse | 26.8 LTS (unless you pick another) or 26.3 LTS | port 9440 (native protocol) and 8443 (HTTPS), with TLS only (nothing listens on 9000 or 8123 for apps) |
 
 Every server gets continuous backups to Rowsafe Storage, restore to any second, Marks, a weekly restore test (Proof) and Pulse. Logins from the network always use TLS (TLS 1.2 or newer on MySQL and MariaDB) and a password.
 
 - **MySQL needs an Intel or AMD processor.** Oracle builds MySQL's packages for those only, so sizes with Arm processors aren't offered for MySQL: in Rowsafe Cloud, that's every AWS size.
 - **Valkey** is installed from Debian's own packages (Debian 12 or 13).
-- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On MySQL, MariaDB and Valkey, make the app's login in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
-- **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis, ClickHouse or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
+- **ClickHouse needs 4 GB of memory.** Sizes with less aren't offered for it. It's installed from ClickHouse's own packages, on Intel, AMD and Arm processors. Users made in [Databases & users](/docs/guides/databases-and-users) get limits so one query can't take the whole server: at most 40% of its memory and as many threads as it has processors.
+- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On MySQL, MariaDB, Valkey and ClickHouse, make the app's login in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
+- **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
 
 ## Sizes and prices
 
@@ -191,7 +193,7 @@ A [standby](#with-a-standby) is a second server, so it comes with its own allowa
 
 1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
 2. Under **Where should it run?**, choose **Rowsafe Cloud**.
-3. Under **Database**, pick PostgreSQL, MySQL, MariaDB or Valkey.
+3. Under **Database**, pick PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse.
 4. Pick a region (the region decides the cloud), a size, a name and the version.
 5. Add the addresses that may connect.
 6. Click **Create server**. The first time, an owner adds a card first.
@@ -205,7 +207,7 @@ The `rowsafe` CLI does the same as the dashboard, with your login (`rowsafe logi
 ```sh
 rowsafe cloud sizes                          # clouds, regions, sizes, prices, what's sold out now
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
-rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb (PostgreSQL is the default)
+rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb, clickhouse (PostgreSQL is the default)
 rowsafe env --on shop-db                     # the app's database and login: DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user removed when you quit
 rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect
@@ -217,7 +219,7 @@ rowsafe cloud delete shop-db                 # asks you to type the name
 
 - **The first server** billed by the hour gives you a link to add a card, once. An owner of the organization pays there; the server is created right after, and nothing is billed before.
 - **Who can connect:** only the computer you ran it on, unless you say otherwise (`--allow ADDRESS`, or `--allow none` for nobody yet). Add your app's server later with `rowsafe cloud allow`.
-- **`rowsafe env` and `rowsafe connect` are for PostgreSQL** today. On MySQL, MariaDB and Valkey, make the app's login in the dashboard (or with `rowsafe db user add`) and use the database's own client; `rowsafe cloud show` gives the host and port.
+- **`rowsafe env` and `rowsafe connect` are for PostgreSQL** today. On MySQL, MariaDB, Valkey and ClickHouse, make the app's login in the dashboard (or with `rowsafe db user add`) and use the database's own client; `rowsafe cloud show` gives the host and port.
 - **Passwords never pass through Rowsafe.** `rowsafe env` makes the app's password on your computer and sends only its verifier. It writes `DATABASE_URL` to `.env` (a new file is readable only by you), adds `.env` to `.gitignore` in a git repository, and never prints the password unless you pass `--print`. `rowsafe connect` makes a temporary user whose password is encrypted for your terminal, and removes it when you quit psql.
 - **Save the passphrase.** `rowsafe cloud passphrase` gets it, encrypted for your terminal only, and records that you saved it. `rowsafe cloud delete` refuses a server whose passphrase was never saved.
 
@@ -225,7 +227,7 @@ Every command and flag is in the [CLI reference](/docs/reference/cli#rowsafe-clo
 
 ## Connect your app
 
-Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with the database's port (`5432`, `3306`, or `6380` for Valkey): use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
+Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with the database's port (`5432`, `3306`, `6380` for Valkey, or `9440` and `8443` for ClickHouse): use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
 
 - **It follows the primary.** With a [standby](#with-a-standby), after a failover or a planned switchover (the maintenance window, a size change), Rowsafe points the name at the new primary **within about a minute**. Apps that can't wait that long can use the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover), which switch right away.
 - **A name for reads.** `x7kq2mfa3pzd-ro.cloud.rowsafe.sh` points at the standby when there is one, else at the primary: for reports and other read-only work.
@@ -252,13 +254,15 @@ postgresql://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:5432/DATABASE?sslmode=v
 
 The page switches to `verify-full` once the certificate is installed, a minute or two after the server is ready. Until then, and on a server whose Rowsafe agent hasn't updated itself yet, use `sslmode=require`: still encrypted, with the server's own certificate. With an older libpq, keep `require`.
 
-### MySQL, MariaDB and Valkey
+### MySQL, MariaDB, Valkey and ClickHouse
 
 The same name works for every database. Connections must use TLS:
 
 ```
 mysql://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:3306/DATABASE?ssl-mode=REQUIRED
 rediss://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:6380/
+clickhouse://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:9440/DATABASE?secure=true
+https://x7kq2mfa3pzd.cloud.rowsafe.sh:8443
 ```
 
 From a terminal:
@@ -267,9 +271,13 @@ From a terminal:
 mysql -h x7kq2mfa3pzd.cloud.rowsafe.sh -P 3306 -u USER -p --ssl-mode=REQUIRED DATABASE   # MySQL
 mariadb -h x7kq2mfa3pzd.cloud.rowsafe.sh -P 3306 -u USER -p --ssl DATABASE              # MariaDB
 redis-cli --tls -h x7kq2mfa3pzd.cloud.rowsafe.sh -p 6380 --user USER --askpass         # Valkey (valkey-cli too)
+clickhouse-client --host x7kq2mfa3pzd.cloud.rowsafe.sh --port 9440 --secure --user USER --ask-password   # ClickHouse
+curl --user USER https://x7kq2mfa3pzd.cloud.rowsafe.sh:8443/ --data-binary 'SELECT 1'      # ClickHouse over HTTPS
 ```
 
 Valkey is `rediss://` (two s's: with TLS) on port 6380. Its plain port, 6379, is closed to the network.
+
+ClickHouse has two ports, both with TLS: **9440** for its native protocol (`clickhouse-client --secure`, Go, and drivers that take a `clickhouse://` URL with `secure=true`) and **8443** for HTTPS (curl, Python's clickhouse-connect, the Node.js client, JDBC and DBeaver). Its plain ports, 9000 and 8123, listen on the server itself only.
 
 ### When the name goes away
 
@@ -524,7 +532,7 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 
 ## Limits
 
-- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8 or Valkey 8.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS). See [Databases](#databases).
+- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8 or ClickHouse 26.3 and 26.8.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse needs 4 GB of memory. See [Databases](#databases).
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
 - **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.
 - **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). With a standby, both servers change one at a time and **writes pause for a few seconds** at the switchover instead; the servers swap roles. (A pair in your own cloud account can't change size yet.)

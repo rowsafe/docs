@@ -94,7 +94,7 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe env [DATABASE]` | PostgreSQL. The app's own database and login, written to `.env` as `DATABASE_URL`. `DATABASE` defaults to this directory's name (`my-app` becomes `my_app`). Creates the database owned by a new user named like it, or, with `--reset-password`, gives an existing user a new password (apps using the old one stop connecting; asks first, `--yes` skips it). |
 | `rowsafe connect [DATABASE\|SERVER]` | PostgreSQL. Open `psql` as a temporary user made for this session and removed when you quit (what it created is handed to the database's owner). `--access read_only`, `read_write` or `owner` (default). `--user USER` connects as an existing user instead; psql asks for its password. `psql`'s own options go after `--`. |
 
-`--on NAME` chooses the server for both; without it, the usual [name rules](#database-names) apply. Both are for PostgreSQL today: on MySQL, MariaDB and Valkey, make a login with `rowsafe db user add` (or in the dashboard) and use the database's own client.
+`--on NAME` chooses the server for both; without it, the usual [name rules](#database-names) apply. Both are for PostgreSQL today: on MySQL, MariaDB, Valkey and ClickHouse, make a login with `rowsafe db user add` (or in the dashboard) and use the database's own client.
 
 **`env` flags:** `--file .env` (the file to write), `--name DATABASE_URL` (the variable), `--user USER` (the new owner's name), `--extension EXT` (repeatable, for a new database), `--force` (replace the variable when the file already has it; without it nothing changes), `--print` (also print the connection string with its password).
 
@@ -107,7 +107,7 @@ The password never passes through Rowsafe and isn't printed unless `--print`. `e
 | Command | What it does |
 |---|---|
 | `rowsafe cloud sizes` | The databases and their versions, then clouds, regions and sizes: CPUs, memory, disk, the price of an hour, the most a month costs, and what is sold out right now. `--cloud CLOUD`, `--region REGION`, `--json`. |
-| `rowsafe cloud create NAME` | A new server with PostgreSQL, MySQL, MariaDB or Valkey, backups, Proof and Pulse on. By default, the cheapest size free now, PostgreSQL 17, and only this computer may connect. Shows the size and price and asks first. The first server billed by the hour gives you a link to add a card, once (an owner of the organization pays); it's created right after. |
+| `rowsafe cloud create NAME` | A new server with PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse, backups, Proof and Pulse on. By default, the cheapest size free now, PostgreSQL 17, and only this computer may connect. Shows the size and price and asks first. The first server billed by the hour gives you a link to add a card, once (an owner of the organization pays); it's created right after. |
 | `rowsafe cloud list` | The servers Rowsafe created: status, size, price and who can connect. `--json`. |
 | `rowsafe cloud show [NAME]` | One server: status, size, price, where apps connect, who can connect, and whether the backup passphrase is saved. `--json`. |
 | `rowsafe cloud wait [NAME]` | Follow a server being created or resized until it's ready. `--timeout 30m`. |
@@ -119,12 +119,13 @@ The password never passes through Rowsafe and isn't printed unless `--print`. `e
 | `rowsafe cloud retry [NAME]` | Create a server that failed to set up again. `--wait`. |
 | `rowsafe cloud delete [NAME]` | Delete the server and the database on it. Asks you to type the name (`--yes` in scripts). Refuses until the backup passphrase is saved (clones aside). `--with-standby` deletes its standby too; `--wait`. |
 
-**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--engine postgresql|mysql|mariadb|valkey` (default `postgresql`), `--engine-version V` (PostgreSQL 15 to 18, default 17; MySQL 8.4; MariaDB 11.8; Valkey 8), `--postgres 15|16|17|18` (the same as `--engine postgresql --engine-version`), `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (PostgreSQL only: a second server ready to take over; doubles the price), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
+**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--engine postgresql|mysql|mariadb|valkey|clickhouse` (default `postgresql`), `--engine-version V` (PostgreSQL 15 to 18, default 17; MySQL 8.4; MariaDB 11.8; Valkey 8; ClickHouse 26.3 or 26.8, default 26.8), `--postgres 15|16|17|18` (the same as `--engine postgresql --engine-version`), `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (PostgreSQL only: a second server ready to take over; doubles the price), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
 
 ```sh
 rowsafe cloud sizes
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
 rowsafe cloud create shop-mysql --engine mysql   # MySQL 8.4 (Intel and AMD sizes only)
+rowsafe cloud create events --engine clickhouse  # ClickHouse 26.8 (sizes with 4 GB of memory or more)
 rowsafe env --on shop-db                     # DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user
 rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect

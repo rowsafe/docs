@@ -83,7 +83,7 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. Redis and Valkey: `--keys PATTERN` instead of `--db` (`"*"` for every key). |
 | `rowsafe db user password USER` | A new password, shown once. |
 | `rowsafe db user remove USER` | Remove a user; `--reassign-to USER` gets what it owns. Asks first; `--yes` skips it. |
-| `rowsafe db ext on\|off DB EXTENSION` | Turn an extension on or off in one database. `--allow-untrusted` for extensions that can run programs on the server. |
+| `rowsafe db ext on\|off DB EXTENSION` | Turn an extension on or off in one database. `--allow-untrusted` for extensions that can run programs on the server. `vector` (pgvector), `postgis` (PostGIS) and `timescaledb` (TimescaleDB) are installed first where root allowed PostgreSQL updates ([Extensions](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb)); `timescaledb` needs `--restart` unless it's loaded already: Rowsafe saves a Mark, then restarts PostgreSQL once. |
 
 `--host ADDRESS` on `create`, `user add` and `user password` sets the address in the printed connection string (default: the one your apps use). The password is encrypted on your server to a key the CLI makes in memory for that command; Rowsafe only relays the ciphertext.
 
@@ -119,13 +119,14 @@ The password never passes through Rowsafe and isn't printed unless `--print`. `e
 | `rowsafe cloud retry [NAME]` | Create a server that failed to set up again. `--wait`. |
 | `rowsafe cloud delete [NAME]` | Delete the server and the database on it. Asks you to type the name (`--yes` in scripts). Refuses until the backup passphrase is saved (clones aside). `--with-standby` deletes its standby too; `--wait`. |
 
-**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--engine postgresql|mysql|mariadb|valkey|clickhouse` (default `postgresql`), `--engine-version V` (PostgreSQL 15 to 18, default 17; MySQL 8.4; MariaDB 11.8; Valkey 8; ClickHouse 26.3 or 26.8, default 26.8), `--postgres 15|16|17|18` (the same as `--engine postgresql --engine-version`), `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (PostgreSQL only: a second server ready to take over; doubles the price), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
+**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--engine postgresql|mysql|mariadb|valkey|clickhouse` (default `postgresql`), `--engine-version V` (PostgreSQL 15 to 18, default 17; MySQL 8.4; MariaDB 11.8; Valkey 8; ClickHouse 26.3 or 26.8, default 26.8), `--postgres 15|16|17|18` (the same as `--engine postgresql --engine-version`), `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (PostgreSQL only: a second server ready to take over; doubles the price), `--extensions vector,postgis,timescaledb` (PostgreSQL 15 to 18: pgvector, PostGIS and TimescaleDB's Apache-2.0 edition, installed and turned on in the `postgres` database and every new one; see [Extensions](/docs/guides/rowsafe-cloud#extensions)), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
 
 ```sh
 rowsafe cloud sizes
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
 rowsafe cloud create shop-mysql --engine mysql   # MySQL 8.4 (Intel and AMD sizes only)
 rowsafe cloud create events --engine clickhouse  # ClickHouse 26.8 (sizes with 4 GB of memory or more)
+rowsafe cloud create search-db --extensions vector,postgis   # pgvector and PostGIS on from the start
 rowsafe env --on shop-db                     # DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user
 rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect

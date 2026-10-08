@@ -1,6 +1,6 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, pgvector, PostGIS and TimescaleDB with one switch, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
 No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs the database you choose (PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse) and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
@@ -23,7 +23,7 @@ Pick the database when you create the server. The price is the same for each.
 
 | Database | Versions | Apps connect on |
 | --- | --- | --- |
-| PostgreSQL | 15, 16, 17 or 18 (17 unless you pick another) | port 5432 |
+| PostgreSQL | 15, 16, 17 or 18 (17 unless you pick another), with [pgvector, PostGIS and TimescaleDB](#extensions) if you want them | port 5432 |
 | MySQL | 8.4 LTS | port 3306 |
 | MariaDB | 11.8 LTS (supported until 2030) | port 3306 |
 | Valkey | 8, the open-source Redis: Redis clients and `redis-cli` work with it | port 6380, with TLS only (nothing listens on 6379 for apps) |
@@ -36,6 +36,32 @@ Every server gets continuous backups to Rowsafe Storage, restore to any second, 
 - **ClickHouse needs 4 GB of memory.** Sizes with less aren't offered for it. It's installed from ClickHouse's own packages, on Intel, AMD and Arm processors. Users made in [Databases & users](/docs/guides/databases-and-users) get limits so one query can't take the whole server: at most 40% of its memory and as many threads as it has processors.
 - **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On MySQL, MariaDB, Valkey and ClickHouse, make the app's login in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
 - **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
+
+## Extensions
+
+On PostgreSQL 15 to 18, three popular extensions are one switch each:
+
+| Extension | For | Name in SQL |
+| --- | --- | --- |
+| **pgvector** | AI search: store embeddings and find the nearest ones | `vector` |
+| **PostGIS** | Maps and places: locations, distances, areas, spatial indexes | `postgis` |
+| **TimescaleDB** | Time series: tables split by time automatically, `time_bucket` | `timescaledb` |
+
+**When you create the server**, tick them under **Extensions** (or `--extensions vector,postgis,timescaledb` in the terminal, or `extensions` for an AI agent). Rowsafe installs them and turns them on in the `postgres` database and in every database you create afterwards, so `CREATE EXTENSION` isn't needed.
+
+**Later**, turn one on in a database from [Databases & users](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb): Rowsafe installs it first. TimescaleDB is loaded when PostgreSQL starts, so turning it on later **restarts PostgreSQL once** (apps are disconnected for a few seconds; Rowsafe saves a Mark first). Picking it at create time avoids that.
+
+- **From the PostgreSQL project.** All three come from the PostgreSQL project's own repository (apt.postgresql.org), the one PostgreSQL itself is installed from: no other repository is added.
+- **TimescaleDB is its Apache-2.0 edition**, the one the PostgreSQL project builds. It has hypertables and `time_bucket`, but **not compression, continuous aggregates** or the other features under the Timescale License. Its telemetry is off.
+- **Rowsafe keeps them working.** Settings changes through Rowsafe never drop TimescaleDB from the libraries PostgreSQL loads, and if it goes missing, Pulse offers to put it back. When an update brings a newer version, Rowsafe updates the extension in your databases after PostgreSQL's update; when a database runs an older version, Pulse offers **Update** with a Mark first.
+- **Everything else works with them:** backups, restore to any second, Proof, restored copies, [Clone to a new server](#copies-for-a-test-or-an-ai-agent) and [a standby](#with-a-standby) (which get the same extensions).
+- **Other extensions** that come with PostgreSQL (`pg_trgm`, `pgcrypto`, `uuid-ossp`, ...) are already installed: turn them on in [Databases & users](/docs/guides/databases-and-users#extensions).
+
+Limits:
+
+- **PostgreSQL 15 to 18** only.
+- **Upgrading PostgreSQL 15 to 16 with TimescaleDB isn't possible through Rowsafe yet.** An upgrade needs the same TimescaleDB version before and after, and the packages for 15 and 16 don't share one. The [upgrade check](/docs/guides/updates#timescaledb) says whether an upgrade can carry TimescaleDB before anything changes, and offers to update it first when that's enough.
+- **On a server with a standby**, only extensions already installed (and for TimescaleDB, loaded) can be turned on later: the standby must have them too. Pick them when you create the server.
 
 ## Sizes and prices
 
@@ -194,7 +220,7 @@ A [standby](#with-a-standby) is a second server, so it comes with its own allowa
 1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
 2. Under **Where should it run?**, choose **Rowsafe Cloud**.
 3. Under **Database**, pick PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse.
-4. Pick a region (the region decides the cloud), a size, a name and the version.
+4. Pick a region (the region decides the cloud), a size, a name and the version. For PostgreSQL, tick the [extensions](#extensions) you want (pgvector, PostGIS, TimescaleDB), if any.
 5. Add the addresses that may connect.
 6. Click **Create server**. The first time, an owner adds a card first.
 
@@ -208,6 +234,7 @@ The `rowsafe` CLI does the same as the dashboard, with your login (`rowsafe logi
 rowsafe cloud sizes                          # clouds, regions, sizes, prices, what's sold out now
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
 rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb, clickhouse (PostgreSQL is the default)
+rowsafe cloud create search-db --extensions vector,postgis  # pgvector and PostGIS on from the start
 rowsafe env --on shop-db                     # the app's database and login: DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user removed when you quit
 rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect
@@ -533,6 +560,7 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 ## Limits
 
 - **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8 or ClickHouse 26.3 and 26.8.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse needs 4 GB of memory. See [Databases](#databases).
+- **pgvector, PostGIS and TimescaleDB** on PostgreSQL 15 to 18; TimescaleDB is the Apache-2.0 edition (no compression or continuous aggregates), and a PostgreSQL 15 to 16 upgrade with it isn't possible through Rowsafe yet. See [Extensions](#extensions).
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
 - **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.
 - **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). With a standby, both servers change one at a time and **writes pause for a few seconds** at the switchover instead; the servers swap roles. (A pair in your own cloud account can't change size yet.)

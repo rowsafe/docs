@@ -52,9 +52,19 @@ Rowsafe never changes superusers, the user its agent connects as, or its own use
 
 ## Extensions
 
-Click a database's extensions (or **Extensions** in its menu) to turn extensions on and off. Only extensions installed on the server are listed; some, like PostGIS, come in a separate package that has to be installed on the server first. Turning one off is refused while something still uses it, with the reason.
+Click a database's extensions (or **Extensions** in its menu) to turn extensions on and off. The extensions installed on the server are listed, and [pgvector, PostGIS and TimescaleDB](#pgvector-postgis-and-timescaledb), which Rowsafe can install for you. Other extensions that come in a separate package have to be installed on the server first. Turning one off is refused while something still uses it, with the reason.
 
 Extensions that let database users run programs or read files on the server as PostgreSQL's system user (the untrusted languages such as `plpython3u`, and `file_fdw`) are marked, and need you to type their name to confirm.
+
+### pgvector, PostGIS and TimescaleDB
+
+Under **Installed by Rowsafe when you turn them on**, three popular extensions are one switch each, on PostgreSQL 15 to 18: **pgvector** (`vector`, AI search), **PostGIS** (`postgis`, maps and places) and **TimescaleDB** (`timescaledb`, time series). When you turn one on, Rowsafe installs its package from the PostgreSQL project's repository (apt.postgresql.org), then turns it on in that database.
+
+- **TimescaleDB restarts PostgreSQL once.** It's loaded when PostgreSQL starts, so the first time, Rowsafe asks you to confirm a restart: it saves a Mark, restarts PostgreSQL (apps are disconnected for a few seconds), then turns it on. After that, turning it on in other databases needs no restart. On a server created with it, it's loaded already.
+- **TimescaleDB is its Apache-2.0 edition**: hypertables and `time_bucket`, but not compression, continuous aggregates or the other features under the Timescale License.
+- **Rowsafe installs them only where root allowed PostgreSQL updates** on the server (**Install PostgreSQL updates and upgrades**, [what Rowsafe may do](/docs/guides/permissions)), and TimescaleDB's restart only where restarts are allowed. If installing would also change PostgreSQL's own packages, Rowsafe says so and asks you to install PostgreSQL's update first, so nothing restarts by surprise.
+- **On a server with a standby**, only extensions already installed (and for TimescaleDB, loaded) can be turned on: the standby needs them too. On [servers Rowsafe creates](/docs/guides/rowsafe-cloud#extensions), pick them when you create the server, and both servers get them.
+- **Rowsafe keeps them working**: a settings change never drops TimescaleDB from the libraries PostgreSQL loads, Pulse offers to load it again if it goes missing, and Pulse offers **Update** (a Mark first) when a database runs an older version than the server has. A minor update of PostgreSQL through Rowsafe updates them in every database by itself. Before a major upgrade, the [upgrade check](/docs/guides/updates#timescaledb) says whether TimescaleDB can move with it.
 
 ## Remove a database
 
@@ -69,7 +79,8 @@ rowsafe db create shop --owner app --extension pg_trgm
 rowsafe db user add reporting --db shop --access read_only
 rowsafe db user password reporting
 rowsafe db user remove old_app --reassign-to app
-rowsafe db ext on shop vector
+rowsafe db ext on shop vector                # pgvector: installed first if needed
+rowsafe db ext on metrics timescaledb --restart   # a Mark, then one restart of PostgreSQL
 rowsafe db drop shop                        # asks you to type the name; a Mark first
 ```
 
@@ -147,6 +158,7 @@ rowsafe db user add everything --keys "*" --access read_only
 ## Limits
 
 - Extensions, templates and locales are PostgreSQL's; the other engines don't have them (see [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse)).
+- Rowsafe installs pgvector, PostGIS and TimescaleDB on PostgreSQL 15 to 18 only, and not on a server with a standby unless they're installed there already. Upgrading PostgreSQL 15 to 16 with TimescaleDB isn't possible through Rowsafe yet.
 - Redis and Valkey: users get one of the three presets; users with rules of their own are listed as "Custom rules" and keep them. Connection strings use `redis://` on the server's port (Rowsafe doesn't manage TLS for Redis).
 - A new user can connect to the databases it was given, and also to databases every user may connect to (on most servers, `postgres`, where it can't read anything it wasn't given). Rowsafe doesn't change your other databases' rights or `pg_hba.conf`.
 - "Tables created later" covers tables created by the database's owner and by users that already own tables in it.

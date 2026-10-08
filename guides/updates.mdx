@@ -44,7 +44,8 @@ When a newer release of your major is available (from apt.postgresql.org, or you
 1. saves a Mark;
 2. installs only your major's own packages (`postgresql-16`, `postgresql-client-16`, `libpq5` and the `postgresql-16-*` extension packages you have), never another major;
 3. restarts PostgreSQL if the packages didn't, and waits until it answers;
-4. checks that changes still reach your backups.
+4. when the update brought a newer pgvector, PostGIS or TimescaleDB, updates the extension in each database that has it (`ALTER EXTENSION ... UPDATE`; TimescaleDB's package carries only one version, so its databases need this to keep working);
+5. checks that changes still reach your backups.
 
 The result says what happened, for example "Updated PostgreSQL from 16.9 to 16.10 in 12 s; it didn't accept connections for 3 s."
 
@@ -108,7 +109,7 @@ Open the database's **Updates** tab, or use `rowsafe upgrade`. An upgrade has th
 **Check** looks at the server and changes nothing:
 
 - the new major is available from the server's package sources (apt.postgresql.org has every supported version);
-- every extension package you use (`postgresql-16-*`) exists for the new major;
+- every extension package you use (`postgresql-16-*`) exists for the new major, and [TimescaleDB](#timescaledb) can move with it;
 - enough free disk for each mode;
 - the database isn't a read-only replica; replicas that stream from it are listed (they must be set up again afterwards);
 - pgBackRest supports the new major (PostgreSQL 17 needs 2.53, 18 needs 2.55);
@@ -172,11 +173,24 @@ rowsafe upgrade undo app
 rowsafe upgrade cleanup app
 ```
 
+### TimescaleDB
+
+`pg_upgrade` needs every database on the **same TimescaleDB version** before and after, and each major's TimescaleDB package carries one version. When TimescaleDB is turned on somewhere, Check compares them and says what to do:
+
+- **TimescaleDB moves to PostgreSQL 18**: both have the same version; nothing to do.
+- **Update TimescaleDB first**: the server already has the new major's version, and some databases run an older one. Click **Update TimescaleDB first** under the check and type the database's name (a Mark first; it locks their time-series tables briefly), then check and rehearse again.
+- **Update PostgreSQL first**: install your major's minor update, which brings the right TimescaleDB version and updates the databases, then rehearse again.
+- **TimescaleDB can't move yet**: the old major's package stops at an older version than the new major's has. Rowsafe can't upgrade the server while TimescaleDB is on. Upgrade to a major whose package has your version, or move the data into a new server with a dump and restore. **PostgreSQL 15 to 16 is like this today.**
+- **TimescaleDB isn't available** for the new major yet, or your databases run a newer version than its package: upgrade once the PostgreSQL project publishes it.
+
+The rehearsal checks again with the new major installed. pgvector and PostGIS are checked like any other extension package.
+
 ## Limits
 
 - **Debian and Ubuntu, PostgreSQL from packages.** Rowsafe installs packages with apt and upgrades clusters with Debian's `pg_upgradecluster`, so the cluster must be one `pg_lsclusters` lists, run by its `postgresql@16-main` unit. Elsewhere, Check and Rehearse still work where the new major's programs are installed.
 - **Docker.** Rowsafe can't change your container's image. Check shows the steps (a one-off `pg_upgrade` container, then the new image tag), and the rehearsal works if the agent's image has the new major's programs. For minor updates, pull the newest image of the same major and recreate the container.
 - **Extensions** must come as packages for the new major. Extensions you built yourself block the upgrade until you install them for the new major.
+- **TimescaleDB** must be the same version before and after: PostgreSQL 15 to 16 with TimescaleDB isn't possible through Rowsafe yet. See [TimescaleDB](#timescaledb).
 - **Replicas** that stream from the upgraded server have to be set up again: a major upgrade changes the data files.
 - **Tablespaces** are upgraded, but Fast mode isn't offered with them (its undo couldn't restore them).
 - **Going back before the upgrade** (Rewind to a time before it) needs the old major's programs: keep the old version until you're sure. Removing it removes them too.

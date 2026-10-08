@@ -199,7 +199,7 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 
 | Tool | Access | What it does |
 |---|---|---|
-| `cloud_catalog` | read | What a new [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server can be: the databases (`engine`: `postgresql`, `mysql`, `mariadb` or `valkey`, with their versions and ports), each cloud's regions and sizes (CPUs, memory, disk), the price per hour and the most a month costs, the traffic included, what's sold out right now, where a standby is possible, whether pay as you go is active, and how many servers the organization may have. |
+| `cloud_catalog` | read | What a new [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server can be: the databases (`engine`: `postgresql`, `mysql`, `mariadb` or `valkey`, with their versions and ports), each cloud's regions and sizes (CPUs, memory, disk), the price per hour and the most a month costs, the traffic included, what's sold out right now, where a standby is possible, the PostgreSQL extensions a server can have from the start (`extensions`), whether pay as you go is active, and how many servers the organization may have. |
 | `list_cloud_servers` | read | The servers Rowsafe created for the organization (Rowsafe Cloud, and servers in your own cloud accounts): status, region, size and price, the name apps connect to, who can connect, and the database once ready. |
 | `get_cloud_server` | read | One server: its status and progress (or what went wrong), size and price, how apps connect (the host name like `x7kq2mfa3pzd.cloud.rowsafe.sh`, the read-only host, port, `sslmode`), who can connect, and its database once ready. Can wait while it's being set up. |
 
@@ -210,7 +210,7 @@ An agent that needs a database for the app it's building follows [Need a databas
 | Tool | Access | What it does |
 |---|---|---|
 | `request_change` | write | Make a change to production: `action`, `database`, `params` and your `reason`, exactly like the dashboard's button. When it runs right away, the answer starts with *Done*, names the person it ran as, and the request is `approved` with `automatic: true` and its result. When it waits for a person, it returns the request with its link in the dashboard, and `autonomy_note` says why. |
-| `create_cloud_server` | write | Create a Rowsafe Cloud server: `name`, `region`, `size`, `engine` (PostgreSQL unless you pass `mysql`, `mariadb`, `valkey` or `clickhouse`), `engine_version`, `allowed_ips`, `standby` and `reason`. The same as `request_change` `create_cloud_server`. When a first payment is needed, an owner's agent gets `checkout_url` to give you; the server is created once paid. |
+| `create_cloud_server` | write | Create a Rowsafe Cloud server: `name`, `region`, `size`, `engine` (PostgreSQL unless you pass `mysql`, `mariadb`, `valkey` or `clickhouse`), `engine_version`, `allowed_ips`, `standby`, `extensions` and `reason`. The same as `request_change` `create_cloud_server`. When a first payment is needed, an owner's agent gets `checkout_url` to give you; the server is created once paid. |
 | `cloud_firewall` | write | Set who can connect to a Rowsafe Cloud server: `server` and the whole new `allowed_ips` list. The same as `request_change` `cloud_firewall`. |
 | `apply_fix` | write | Apply a fix Rowsafe proposed for a finding: `database`, `finding_id`, `fix_id`, and `confirm` when the fix restarts the database. Exactly like **Apply fix**: Rowsafe recomputes the fix and saves a Mark first when the fix says so. |
 | `describe_change` | read | The actions, by group, with their risk and the JSON schema of their params. For one action, also whether it would run right away here (as whom), and what would make it wait. |
@@ -235,6 +235,8 @@ The actions `request_change` can make:
 | Rowsafe Cloud | `create_cloud_server`, `cloud_firewall`, `resize_cloud_server`, `clone_to_new_server`, `delete_cloud_server` |
 
 The Rowsafe Cloud actions that add to the bill (`create_cloud_server`, `resize_cloud_server`, `clone_to_new_server`) write the size and price into the request; the agent tells you before making them. A first payment is always an owner's: an owner's agent gets the checkout link, an admin's agent's request waits for an owner. `delete_cloud_server` is destructive: when it runs right away, Rowsafe types the server's name for the agent and records that it did; when it waits, the person types it. See [Approvals](/docs/guides/approvals#rowsafe-cloud-requests).
+
+`manage_databases_users` turning on `vector`, `postgis` or `timescaledb` installs the package first, where root allowed PostgreSQL updates. `timescaledb` is loaded when PostgreSQL starts, so it needs `restart: true` in `params` unless it's loaded already: Rowsafe saves a Mark, then restarts PostgreSQL once (apps are disconnected for a few seconds), and the agent tells you first. See [Extensions](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb).
 
 When a change waits, clients that support MCP URL elicitation are asked to open the request's page; others show the link. A change that ran right away has no link to open.
 
@@ -286,7 +288,7 @@ There are also two prompts: `incident_triage` checks the fleet, reads the eviden
 | `get_approval` | `id` (required), `wait_seconds` |
 | `list_approvals` | `status` (`pending`, `approved`, `failed`, `denied`, `expired`, `cancelled`), `limit` (1 to 100, default 20) |
 | `cancel_approval` | `id` (required) |
-| `create_cloud_server` | `name`, `region`, `size` and `reason` (required), `engine` (`postgresql` by default, `mysql`, `mariadb`, `valkey` or `clickhouse`, as `cloud_catalog` offers them: MySQL not on Arm sizes, ClickHouse on sizes with 4 GB of memory or more), `engine_version` (PostgreSQL 15 to 18, default 17; ClickHouse 26.3 or 26.8, default 26.8; the others one each), `allowed_ips`, `standby` (PostgreSQL only), `wait_seconds`. |
+| `create_cloud_server` | `name`, `region`, `size` and `reason` (required), `engine` (`postgresql` by default, `mysql`, `mariadb`, `valkey` or `clickhouse`, as `cloud_catalog` offers them: MySQL not on Arm sizes, ClickHouse on sizes with 4 GB of memory or more), `engine_version` (PostgreSQL 15 to 18, default 17; ClickHouse 26.3 or 26.8, default 26.8; the others one each), `allowed_ips`, `standby` (PostgreSQL only), `extensions` (PostgreSQL 15 to 18: any of `vector` (pgvector), `postgis` (PostGIS) and `timescaledb` (TimescaleDB, Apache-2.0 edition), installed and turned on in the `postgres` database and every database created later; `cloud_catalog` lists them per engine), `wait_seconds`. |
 | `cloud_firewall` | `server`, `allowed_ips` and `reason` (required), `wait_seconds` |
 | `apply_fix` | `database`, `finding_id`, `fix_id` and `reason` (required), `confirm`, `wait_seconds` |
 | `cloud_catalog`, `list_cloud_servers` | none |

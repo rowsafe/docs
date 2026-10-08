@@ -33,7 +33,7 @@ See [How AI agents act](/docs/guides/agent-autonomy) for the rules and the safet
 
 ## Need a database?
 
-When the app an agent is building needs PostgreSQL and has none, the agent can create one in [Rowsafe Cloud](/docs/guides/rowsafe-cloud): a server Rowsafe runs and protects from the first minute (backups, Proof, Pulse), billed to your organization. It costs money, so **the agent tells you the size and the price and gets your OK first**. Then it creates the server as you, right away if you're an owner or admin. It waits for an owner or admin instead when your team chose **Ask me first**, or when you're a member (see [How AI agents act](/docs/guides/agent-autonomy)).
+When the app an agent is building needs a database and has none, the agent can create one in [Rowsafe Cloud](/docs/guides/rowsafe-cloud): a server Rowsafe runs and protects from the first minute (backups, Proof, Pulse), billed to your organization. It costs money, so **the agent tells you the size and the price and gets your OK first**. Then it creates the server as you, right away if you're an owner or admin. It waits for an owner or admin instead when your team chose **Ask me first**, or when you're a member (see [How AI agents act](/docs/guides/agent-autonomy)).
 
 <Steps>
 <Step>
@@ -43,7 +43,7 @@ When the app an agent is building needs PostgreSQL and has none, the agent can c
 </Step>
 <Step>
 
-**It creates the server** (`create_cloud_server`), with a name, the region, the size and the addresses the app connects from, once you said yes. The agent tells you what it created.
+**It creates the server** (`create_cloud_server`), with a name, the region, the size and the addresses the app connects from, once you said yes. PostgreSQL unless the app needs MySQL, MariaDB or Valkey (then `request_change` `create_cloud_server` with `engine`). The agent tells you what it created.
 
 The first server needs a card, once (pay as you go), and only an owner pays. If you're an owner, the agent gives you a checkout link: add a card there, and the server is created right after. If you're an admin, the request waits for an owner, who approves it and pays (see [Approve and pay](/docs/guides/approvals#approve-and-pay)). When it waits for a person for any reason, the agent gives you the link to the request.
 
@@ -91,7 +91,7 @@ rowsafe env --on shop-db              # the app's database and login, DATABASE_U
 `rowsafe cloud create` shows the size and the price and asks before it creates anything. The first time, it gives you a link to add a card (an owner pays). `rowsafe env` makes the password on your computer and sends only its verifier, writes `DATABASE_URL` to `.env` and adds `.env` to `.gitignore`. Let your app's server in with `rowsafe cloud allow shop-db ADDRESS`. See [Rowsafe Cloud from the terminal](/docs/guides/rowsafe-cloud#from-the-terminal).
 
 <Callout title="Limits">
-  PostgreSQL only (15 to 18; 17 unless you ask otherwise). `create_app_database` works on Rowsafe Cloud servers running PostgreSQL 15 or newer, not on your own servers or servers in your own cloud account: there, create the database in the dashboard or with `rowsafe env`. The new user owns only its database, but like every user it can connect to the server's other databases, with only what's granted to everyone there.
+  PostgreSQL 15 to 18 (17 unless you ask otherwise), MySQL 8.4, MariaDB 11.8 or Valkey 8 ([Databases](/docs/guides/rowsafe-cloud#databases)). `create_app_database` works on Rowsafe Cloud servers running PostgreSQL 15 or newer, MySQL or MariaDB, not on your own servers or servers in your own cloud account: there, create the database in the dashboard or with `rowsafe env` (PostgreSQL). On MySQL and MariaDB it always waits for an owner or admin, whose browser shows the password once. Valkey has no separate databases: make the app's login in the dashboard. The new user owns only its database, but like every user it can connect to the server's other databases, with only what's granted to everyone there.
 </Callout>
 
 ## Preview migrations and test on safe copies

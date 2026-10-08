@@ -88,7 +88,7 @@ PostgreSQL stores only a SCRAM verifier the agent computes, so the password isn'
 
 ## A database for an AI agent's app
 
-On a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server running PostgreSQL 15 or newer, an AI agent building an app can create the app's own database with `create_app_database` (see [Need a database?](/docs/guides/ai-agents#need-a-database)): right away from a local `rowsafe mcp` for an owner's or admin's agent, otherwise once an owner or admin [approves](/docs/guides/approvals#a-database-for-an-app) it in the dashboard. Rowsafe then creates a new, empty database and a new user that owns it, like **Create database** does. Existing databases and users are untouched, and the new database is backed up with the rest of the server.
+On a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server running PostgreSQL 15 or newer, MySQL or MariaDB, an AI agent building an app can create the app's own database with `create_app_database` (see [Need a database?](/docs/guides/ai-agents#need-a-database)): right away from a local `rowsafe mcp` for an owner's or admin's agent, otherwise once an owner or admin [approves](/docs/guides/approvals#a-database-for-an-app) it in the dashboard. Rowsafe then creates a new, empty database and a new user that owns it, like **Create database** does. Existing databases and users are untouched, and the new database is backed up with the rest of the server.
 
 The password still never passes through Rowsafe:
 

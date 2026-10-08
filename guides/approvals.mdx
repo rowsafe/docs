@@ -94,9 +94,9 @@ Nothing is created or billed before a request that waits is approved (and, where
 
 ### A database for an app
 
-**Create a database for an app** makes a new, empty PostgreSQL database and a new user that owns it, on a Rowsafe Cloud server. Existing databases and users are untouched. The page shows the connection string without the password, and where the password comes from:
+**Create a database for an app** makes a new, empty database and a new user that owns it, on a Rowsafe Cloud server running PostgreSQL, MySQL or MariaDB. Existing databases and users are untouched. The page shows the connection string without the password, and where the password comes from:
 
-- **Made on the assistant's machine** (a local `rowsafe mcp`): Rowsafe only has its verifier and never sees the password. The assistant can connect once the database is created: right away for an owner's or admin's agent, or once you approve.
+- **Made on the assistant's machine** (a local `rowsafe mcp`, PostgreSQL): Rowsafe only has its verifier and never sees the password. The assistant can connect once the database is created: right away for an owner's or admin's agent, or once you approve.
 - **Made on the database server when you approve** (apps signed in with Rowsafe, such as the Claude Code and Codex plugins): it's shown only to you, once, in your browser. Put it in the app's environment (for example `DATABASE_URL` in `.env`), or give it to the assistant. So this one always waits for a person.
 
 See [Databases and users](/docs/guides/databases-and-users#a-database-for-an-ai-agents-app) for what the new user can reach.

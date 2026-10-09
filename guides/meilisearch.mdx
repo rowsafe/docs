@@ -67,7 +67,7 @@ All of this is in the dashboard, for owners and admins. See [Restore a database]
 - **Restore a copy** from a snapshot or a Mark. It runs as a temporary Meilisearch on the same server, on `127.0.0.1` only, with a master key of its own: production's keys don't open it. It is deleted when it expires; you can keep it up to 7 days.
 - **Compare** an index with production, by primary key: documents missing from production, documents changed since, and documents added since.
 - **Bring documents back** to the indexes you choose. Missing documents are added. Changed ones are set back only if you tick it.
-- **Rewind the whole database** puts every index back as it was, without a restart. Rowsafe copies the snapshot's indexes into production under temporary names (`rowsafe-restore-…`) while the live ones keep answering, then one swap puts them all in place at once. Indexes created after the snapshot are set aside too. The indexes as they were stay under the temporary names for 7 days: **Undo rewind** swaps them back. API keys are left as they are.
+- **Rewind the whole database** (Meilisearch 1.18 and newer) puts every index back as it was, without a restart. Rowsafe copies the snapshot's indexes into production under temporary names (`rowsafe-restore-…`) while the live ones keep answering, then one swap puts them all in place at once. Indexes created after the snapshot are set aside too. The indexes as they were stay under the temporary names for 7 days: **Undo rewind** swaps them back. API keys are left as they are.
 
 ## Pulse
 

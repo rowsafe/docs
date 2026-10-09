@@ -47,7 +47,7 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | `rowsafe ls` | Your databases. |
 | `rowsafe show [NAME]` | One database in detail. |
 | `rowsafe status [NAME]` | With a name: is it [protected](/docs/concepts/protection-status)? Without: fleet health. `--json` for details. |
-| `rowsafe adopt NAME` | Register an existing PostgreSQL (or, with `--engine`, MySQL, MariaDB, MongoDB, ClickHouse, Redis or Valkey) and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
+| `rowsafe adopt NAME` | Register an existing PostgreSQL (or, with `--engine`, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey, Qdrant or Meilisearch) and print a read-only plan. The [installer](/docs/reference/agent-configuration#installer) does this for you. |
 | `rowsafe plan [NAME]` | Run the read-only plan again. |
 | `rowsafe apply [NAME]` | Apply the plan. Never restarts PostgreSQL. |
 | `rowsafe verify [NAME]` | Check now that changes reach your bucket. Rowsafe also does this by itself once it notices the restart. Activates the schedules and queues the first full backup. |
@@ -60,8 +60,8 @@ The login is saved in your config directory (`~/.config/rowsafe/config.json` on 
 | Flag | Default | |
 |---|---|---|
 | `--host HOST` | | Host name or ID. Can be left out when the organization has one host. |
-| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MySQL's and MariaDB's (`3306`); MongoDB's port (`27017` by default); ClickHouse's HTTP port (`8123` by default); Redis's or Valkey's port (`6379` by default). |
-| `--engine ENGINE` | `postgresql` | `mysql` or `mariadb` ([Protect MySQL or MariaDB](/docs/guides/mysql)), `mongodb` ([Protect MongoDB](/docs/guides/mongodb)), `clickhouse` ([Protect ClickHouse](/docs/guides/clickhouse)), `redis` or `valkey` ([Protect Redis or Valkey](/docs/guides/redis)). |
+| `--port N` | `5432` | PostgreSQL's port (names the Unix socket); MySQL's and MariaDB's (`3306`); MongoDB's port (`27017` by default); ClickHouse's HTTP port (`8123` by default); Redis's or Valkey's port (`6379` by default); Qdrant's REST port (`6333` by default); Meilisearch's port (`7700` by default). |
+| `--engine ENGINE` | `postgresql` | `mysql` or `mariadb` ([Protect MySQL or MariaDB](/docs/guides/mysql)), `mongodb` ([Protect MongoDB](/docs/guides/mongodb)), `clickhouse` ([Protect ClickHouse](/docs/guides/clickhouse)), `redis` or `valkey` ([Protect Redis or Valkey](/docs/guides/redis)), `qdrant` ([Protect Qdrant](/docs/guides/qdrant)), `meilisearch` ([Protect Meilisearch](/docs/guides/meilisearch)). OpenSearch is set up by the installer ([Protect OpenSearch](/docs/guides/opensearch)). |
 | `--socket-dir DIR` | `/var/run/postgresql` | PostgreSQL's Unix socket directory. |
 | `--retention-full N` | `2` | Full backups to keep, 1 to 52 (MongoDB: `7`, one a day). |
 | `--no-wait` | | Return without waiting for the plan. |
@@ -80,7 +80,7 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe db create DB` | Create a database owned by a new user named like it; the password is shown once. `--owner USER` gives it to an existing user, `--new-owner USER` names the new one, `--extension EXT` (repeatable) turns extensions on, `--locale L` and `--template template0`. |
 | `rowsafe db drop DB` | Remove a database and everything in it, after a Mark. Asks you to type the name; `--yes` skips that. |
 | `rowsafe db users` | Users, the databases they can connect to and how their password is stored. |
-| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. Redis and Valkey: `--keys PATTERN` instead of `--db` (`"*"` for every key). |
+| `rowsafe db user add USER --db DB[,DB]` | A new user; `--access read_only`, `read_write` (default) or `owner`. The password is shown once. Redis and Valkey: `--keys PATTERN` instead of `--db` (`"*"` for every key). OpenSearch: `--db` takes indices and patterns (`logs-*`). Qdrant: an API key on the collections in `--db` (left out: every collection, for read-only and `owner` keys), `--expires DAYS` (admin keys always expire: 30 days by default, at most 90). Meilisearch: an API key on the indexes in `--db`. |
 | `rowsafe db user password USER` | A new password, shown once. |
 | `rowsafe db user remove USER` | Remove a user; `--reassign-to USER` gets what it owns. Asks first; `--yes` skips it. |
 | `rowsafe db ext on\|off DB EXTENSION` | Turn an extension on or off in one database. `--allow-untrusted` for extensions that can run programs on the server. `vector` (pgvector), `postgis` (PostGIS) and `timescaledb` (TimescaleDB) are installed first where root allowed PostgreSQL updates ([Extensions](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb)); `timescaledb` needs `--restart` unless it's loaded already: Rowsafe saves a Mark, then restarts PostgreSQL once. |
@@ -94,7 +94,7 @@ The databases, users and extensions inside a PostgreSQL server ([guide](/docs/gu
 | `rowsafe env [DATABASE]` | PostgreSQL. The app's own database and login, written to `.env` as `DATABASE_URL`. `DATABASE` defaults to this directory's name (`my-app` becomes `my_app`). Creates the database owned by a new user named like it, or, with `--reset-password`, gives an existing user a new password (apps using the old one stop connecting; asks first, `--yes` skips it). |
 | `rowsafe connect [DATABASE\|SERVER]` | PostgreSQL. Open `psql` as a temporary user made for this session and removed when you quit (what it created is handed to the database's owner). `--access read_only`, `read_write` or `owner` (default). `--user USER` connects as an existing user instead; psql asks for its password. `psql`'s own options go after `--`. |
 
-`--on NAME` chooses the server for both; without it, the usual [name rules](#database-names) apply. Both are for PostgreSQL today: on MySQL, MariaDB, Valkey and ClickHouse, make a login with `rowsafe db user add` (or in the dashboard) and use the database's own client.
+`--on NAME` chooses the server for both; without it, the usual [name rules](#database-names) apply. Both are for PostgreSQL today: on the other databases, make a login or API key with `rowsafe db user add` (or in the dashboard) and use the database's own client.
 
 **`env` flags:** `--file .env` (the file to write), `--name DATABASE_URL` (the variable), `--user USER` (the new owner's name), `--extension EXT` (repeatable, for a new database), `--force` (replace the variable when the file already has it; without it nothing changes), `--print` (also print the connection string with its password).
 
@@ -107,7 +107,7 @@ The password never passes through Rowsafe and isn't printed unless `--print`. `e
 | Command | What it does |
 |---|---|
 | `rowsafe cloud sizes` | The databases and their versions, then clouds, regions and sizes: CPUs, memory, disk, the price of an hour, the most a month costs, and what is sold out right now. `--cloud CLOUD`, `--region REGION`, `--json`. |
-| `rowsafe cloud create NAME` | A new server with PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse, backups, Proof and Pulse on. By default, the cheapest size free now, PostgreSQL 17, and only this computer may connect. Shows the size and price and asks first. The first server billed by the hour gives you a link to add a card, once (an owner of the organization pays); it's created right after. |
+| `rowsafe cloud create NAME` | A new server with PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch, backups, Proof and Pulse on. By default, the cheapest size free now, PostgreSQL 17, and only this computer may connect. Shows the size and price and asks first. The first server billed by the hour gives you a link to add a card, once (an owner of the organization pays); it's created right after. |
 | `rowsafe cloud list` | The servers Rowsafe created: status, size, price and who can connect. `--json`. |
 | `rowsafe cloud show [NAME]` | One server: status, size, price, where apps connect, who can connect, and whether the backup passphrase is saved. `--json`. |
 | `rowsafe cloud wait [NAME]` | Follow a server being created or resized until it's ready. `--timeout 30m`. |
@@ -119,13 +119,14 @@ The password never passes through Rowsafe and isn't printed unless `--print`. `e
 | `rowsafe cloud retry [NAME]` | Create a server that failed to set up again. `--wait`. |
 | `rowsafe cloud delete [NAME]` | Delete the server and the database on it. Asks you to type the name (`--yes` in scripts). Refuses until the backup passphrase is saved (clones aside). `--with-standby` deletes its standby too; `--wait`. |
 
-**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--engine postgresql|mysql|mariadb|valkey|clickhouse` (default `postgresql`), `--engine-version V` (PostgreSQL 15 to 18, default 17; MySQL 8.4; MariaDB 11.8; Valkey 8; ClickHouse 26.3 or 26.8, default 26.8), `--postgres 15|16|17|18` (the same as `--engine postgresql --engine-version`), `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (PostgreSQL only: a second server ready to take over; doubles the price), `--extensions vector,postgis,timescaledb` (PostgreSQL 15 to 18: pgvector, PostGIS and TimescaleDB's Apache-2.0 edition, installed and turned on in the `postgres` database and every new one; see [Extensions](/docs/guides/rowsafe-cloud#extensions)), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
+**`create` flags:** `--cloud hetzner`, `--region fsn1` (it decides the cloud), `--size small`, `--engine postgresql|mysql|mariadb|valkey|clickhouse|opensearch|qdrant|meilisearch` (default `postgresql`; `rowsafe cloud sizes` lists what's offered), `--engine-version V` (PostgreSQL 15 to 18, default 17; MySQL 8.4; MariaDB 11.8; Valkey 8; ClickHouse 26.3 or 26.8, default 26.8; OpenSearch 3; Qdrant 1.19; Meilisearch 1.54), `--postgres 15|16|17|18` (the same as `--engine postgresql --engine-version`), `--allow me|IP|CIDR` (repeatable; `none` lets nobody connect until `rowsafe cloud allow`), `--standby` (PostgreSQL only: a second server ready to take over; doubles the price), `--extensions vector,postgis,timescaledb` (PostgreSQL 15 to 18: pgvector, PostGIS and TimescaleDB's Apache-2.0 edition, installed and turned on in the `postgres` database and every new one; see [Extensions](/docs/guides/rowsafe-cloud#extensions)), `--wait`, `--yes`, `--json`. `clone` takes `--allow`, `--wait`, `--yes` and `--json` too.
 
 ```sh
 rowsafe cloud sizes
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
 rowsafe cloud create shop-mysql --engine mysql   # MySQL 8.4 (Intel and AMD sizes only)
 rowsafe cloud create events --engine clickhouse  # ClickHouse 26.8 (sizes with 4 GB of memory or more)
+rowsafe cloud create vectors --engine qdrant      # Qdrant 1.19 (sizes with 2 GB of memory or more; snapshots every hour)
 rowsafe cloud create search-db --extensions vector,postgis   # pgvector and PostGIS on from the start
 rowsafe env --on shop-db                     # DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user

@@ -1,9 +1,9 @@
 ---
 title: Create a server for me
-description: No server yet? Rowsafe creates one in your own cloud account (Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure or OVHcloud) with PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse, and backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, pgvector, PostGIS and TimescaleDB, SSH, resizing and deleting.
+description: No server yet? Rowsafe creates one in your own cloud account (Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure or OVHcloud) with PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch, and backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, pgvector, PostGIS and TimescaleDB, SSH, resizing and deleting.
 ---
 
-No server yet? Rowsafe can create one for you **in your own cloud account**, install PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse on it and protect it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), and Pulse watching its health.
+No server yet? Rowsafe can create one for you **in your own cloud account**, install PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch on it and protect it from the first minute: continuous backups you can restore to any second (snapshots for OpenSearch, Qdrant and Meilisearch), a restore tested every week (Proof), and Pulse watching its health.
 
 It's your server. It runs in your account, your cloud bills you for it, and you can log in to it yourself. Everything else in these docs works on it exactly as on a server you set up yourself.
 
@@ -55,7 +55,7 @@ In the dashboard, open **Servers**, click **Add server** and choose **Create a s
 - **Region**: the one closest to your app. Every query travels there and back.
 - **Server size**: the dashboard suggests the cheapest size with at least 2 CPUs and 4 GB of memory, a good start for most apps. You can make it bigger later with one click.
 - **Server name**: lowercase letters, digits and dashes, starting with a letter, like `shop-db`. It's also the database's name in Rowsafe.
-- **Database**: PostgreSQL 15 to 18 (**17** unless you pick another), MySQL 8.4, MariaDB 11.8, Valkey 8 (the open-source Redis) or ClickHouse 26.8 or 26.3 (**26.8** unless you pick another). MySQL needs a size with an Intel or AMD processor; ClickHouse needs a size with at least 4 GB of memory. A standby and Clone to a new server are PostgreSQL only. See [Databases](/docs/guides/rowsafe-cloud#databases).
+- **Database**: PostgreSQL 15 to 18 (**17** unless you pick another), MySQL 8.4, MariaDB 11.8, Valkey 8 (the open-source Redis), ClickHouse 26.8 or 26.3 (**26.8** unless you pick another), OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54 (Community Edition). MySQL needs a size with an Intel or AMD processor; ClickHouse and OpenSearch need a size with at least 4 GB of memory, Qdrant 2 GB. OpenSearch, Qdrant and Meilisearch are backed up as snapshots: restores go back to one, not to any second. A standby and Clone to a new server are PostgreSQL only. See [Databases](/docs/guides/rowsafe-cloud#databases).
 - **Extensions** (PostgreSQL 15 to 18, optional): tick pgvector, PostGIS or TimescaleDB to have them on from the start. See [Extensions](#extensions).
 
 </Step>
@@ -106,7 +106,7 @@ The server's page shows the progress. It takes about 5 minutes, and you can leav
 
 1. **Creating the server.** Your cloud creates a Debian server (Debian 13 where the cloud offers it, else 12) of the size you chose, with a firewall that only lets in the addresses you added. Everything Rowsafe creates is tagged `rowsafe` (`rowsafe=1` on AWS; on OVHcloud, which has no tags, its name and description say so).
 2. **Starting up.** At its first boot, the server runs the Rowsafe installer once, by itself. It carries a one-time token that works only for this server and expires soon, and no other secret.
-3. **Installing the database.** The version you picked, from the project's own repository (PostgreSQL, MySQL, MariaDB, ClickHouse; their signing keys checked) or Debian's own packages (Valkey), reachable from the network only with encryption (TLS, with a certificate made on the server) and a password. Then the extensions you ticked, and the Rowsafe agent, with the choices you made.
+3. **Installing the database.** The version you picked, from the project's own repository (PostgreSQL, MySQL, MariaDB, ClickHouse, OpenSearch; their signing keys checked), the project's own release checked against a checksum Rowsafe pins (Qdrant, Meilisearch) or Debian's own packages (Valkey), reachable from the network only with encryption (TLS, with a certificate made on the server) and a password or an API key. Then the extensions you ticked, and the Rowsafe agent, with the choices you made.
 4. **Turning on backups.** The first backup goes to Rowsafe Storage, encrypted on the server with a passphrase made on the server.
 5. **Ready.** The database is running and backed up, Proof tests a restore every week, and Pulse watches its health.
 
@@ -130,11 +130,11 @@ Until you do, the server's and the database's pages remind you, and you can't de
 
 ## Connect your app
 
-When the server is ready, its page shows **Connect your app**: the host (the server's address), the port (`5432` for PostgreSQL, `3306` for MySQL and MariaDB, `6380` for Valkey, `9440` and `8443` for ClickHouse, the last two with TLS only) and how to connect.
+When the server is ready, its page shows **Connect your app**: the host (the server's address), the port (`5432` for PostgreSQL, `3306` for MySQL and MariaDB, `6380` for Valkey, `9440` and `8443` for ClickHouse, `9200` for OpenSearch, `6333` and `6334` for Qdrant, `7700` for Meilisearch, all but the first three with TLS only) and how to connect.
 
-1. Click **Create database and user** (on Valkey, **Create a login for your app**). The password is made on the server and shown only to you, encrypted on the way; Rowsafe never sees it. See [Create databases and users](/docs/guides/databases-and-users).
+1. Click **Create database and user** (on Valkey, **Create a login for your app**; on Qdrant, **Make an API key for your app**; on OpenSearch and Meilisearch, an index and its user or key). The password or key is made on the server and shown only to you, encrypted on the way; Rowsafe never sees it. See [Create databases and users](/docs/guides/databases-and-users).
 2. Make sure your app's address is under **Who can connect**.
-3. Connect with `sslmode=require` (MySQL and MariaDB: `ssl-mode=REQUIRED`; Valkey: `rediss://`; ClickHouse: `clickhouse-client --secure` on 9440, or `https://` on 8443). The certificate is made on the server and isn't signed by a public authority, so `verify-full` doesn't accept it (Valkey and ClickHouse clients that check certificates need that turned off, like `redis-cli --insecure`, `clickhouse-client --accept-invalid-certificate` or `curl --insecure`).
+3. Connect with `sslmode=require` (MySQL and MariaDB: `ssl-mode=REQUIRED`; Valkey: `rediss://`; ClickHouse: `clickhouse-client --secure` on 9440, or `https://` on 8443). The certificate is made on the server and isn't signed by a public authority, so `verify-full` doesn't accept it (Valkey, ClickHouse, OpenSearch, Qdrant and Meilisearch clients that check certificates need that turned off, like `redis-cli --insecure`, `clickhouse-client --accept-invalid-certificate` or `curl --insecure`).
 
 On [Rowsafe Cloud](/docs/guides/rowsafe-cloud#connect-your-app), the host is a name that follows the primary, with a trusted certificate, so apps can use `verify-full` there.
 
@@ -209,7 +209,7 @@ Only **owners and admins** create, resize and delete servers, connect cloud acco
 
 ## Limits
 
-- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8 or ClickHouse 26.3 and 26.8.** MySQL runs on Intel and AMD sizes only; ClickHouse on sizes with 4 GB of memory or more. A standby and Clone to a new server are PostgreSQL only. pgvector, PostGIS and TimescaleDB (Apache-2.0 edition) on PostgreSQL 15 to 18 ([Extensions](#extensions)). For MongoDB, Redis or SQLite, install Rowsafe on a server you already have ([Quickstart](/docs/quickstart)).
+- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** MySQL runs on Intel and AMD sizes only; ClickHouse and OpenSearch on sizes with 4 GB of memory or more, Qdrant 2 GB. OpenSearch, Qdrant and Meilisearch restore to a snapshot, not to any second. A standby and Clone to a new server are PostgreSQL only. pgvector, PostGIS and TimescaleDB (Apache-2.0 edition) on PostgreSQL 15 to 18 ([Extensions](#extensions)). For MongoDB, Redis or SQLite, install Rowsafe on a server you already have ([Quickstart](/docs/quickstart)).
 - **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To use your own bucket instead, [move to it](/docs/guides/rowsafe-storage#move-to-your-own-bucket) on the server; that needs SSH. A [second copy](/docs/guides/second-copy) in your own bucket works too.
 - **One server per database.** A [standby](/docs/guides/standby) isn't available on Rowsafe Storage yet: move to your own bucket first.
 - The choices of what Rowsafe may do, and SSH keys, are set when the server is created. Changing them later needs you to log in to the server.

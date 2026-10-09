@@ -1,9 +1,9 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, pgvector, PostGIS and TimescaleDB with one switch, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, pgvector, PostGIS and TimescaleDB with one switch, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
 ---
 
-No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs the database you choose (PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse) and protects it from the first minute: continuous backups you can restore to any second, a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
+No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs the database you choose (PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch) and protects it from the first minute: continuous backups you can restore to any second (snapshots for OpenSearch, Qdrant and Meilisearch), a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
 
 It's the same server as [Create a server for me](/docs/guides/create-a-server), with one difference: **Rowsafe holds the cloud account and bills you**, by the hour, with Rowsafe included.
 
@@ -28,13 +28,22 @@ Pick the database when you create the server. The price is the same for each.
 | MariaDB | 11.8 LTS (supported until 2030) | port 3306 |
 | Valkey | 8, the open-source Redis: Redis clients and `redis-cli` work with it | port 6380, with TLS only (nothing listens on 6379 for apps) |
 | ClickHouse | 26.8 LTS (unless you pick another) or 26.3 LTS | port 9440 (native protocol) and 8443 (HTTPS), with TLS only (nothing listens on 9000 or 8123 for apps) |
+| OpenSearch | 3, one node | port 9200 (HTTPS), with a user and password |
+| Qdrant | 1.19, the open-source vector database | port 6333 (REST) and 6334 (gRPC), with TLS and an API key |
+| Meilisearch | 1.54, Community Edition | port 7700 (HTTPS), with an API key |
 
-Every server gets continuous backups to Rowsafe Storage, restore to any second, Marks, a weekly restore test (Proof) and Pulse. Logins from the network always use TLS (TLS 1.2 or newer on MySQL and MariaDB) and a password.
+Every server gets backups to Rowsafe Storage, Marks, a weekly restore test (Proof) and Pulse. Logins from the network always use TLS (TLS 1.2 or newer on MySQL and MariaDB) and a password or an API key.
+
+**Restores:** PostgreSQL, MySQL, MariaDB, Valkey and ClickHouse save every change, so you can restore to any second. OpenSearch, Qdrant and Meilisearch keep no log of their changes: they are backed up as snapshots (OpenSearch every 30 minutes, Qdrant and Meilisearch every hour) and at every Mark, and a restore goes back to one of them, not to any second.
 
 - **MySQL needs an Intel or AMD processor.** Oracle builds MySQL's packages for those only, so sizes with Arm processors aren't offered for MySQL: in Rowsafe Cloud, that's every AWS size.
 - **Valkey** is installed from Debian's own packages (Debian 12 or 13).
+- **OpenSearch needs 4 GB of memory**, half of it for OpenSearch itself. It's installed from OpenSearch's own packages (kept on 3.x), as one node, with its security plugin on and no demo users. See [Protect OpenSearch](/docs/guides/opensearch#on-servers-rowsafe-creates).
+- **Qdrant needs 2 GB of memory.** It's Qdrant's own release, pinned to an exact version and checked before it runs. Apps send an API key you make in [Databases & users](/docs/guides/qdrant#api-keys); admin keys always expire. gRPC picks up a renewed certificate at Qdrant's next restart, which Pulse offers. See [Protect Qdrant](/docs/guides/qdrant#on-servers-rowsafe-creates).
+- **Meilisearch is its Community Edition (MIT)**, from Meilisearch's own releases, checked against a checksum Rowsafe pins. Rowsafe never turns on Enterprise features. Apps send an API key you make in [Databases & users](/docs/guides/meilisearch#api-keys). See [Protect Meilisearch](/docs/guides/meilisearch#on-servers-rowsafe-creates).
 - **ClickHouse needs 4 GB of memory.** Sizes with less aren't offered for it. It's installed from ClickHouse's own packages, on Intel, AMD and Arm processors. Users made in [Databases & users](/docs/guides/databases-and-users) get limits so one query can't take the whole server: at most 40% of its memory and as many threads as it has processors.
-- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On MySQL, MariaDB, Valkey and ClickHouse, make the app's login in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
+- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On the other databases, make the app's login or API key in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
+- **Take it with you** isn't available for OpenSearch, Qdrant or Meilisearch yet. Their snapshots open without Rowsafe, on any server: see each guide's "Restore without Rowsafe".
 - **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
 
 ## Extensions
@@ -219,7 +228,7 @@ A [standby](#with-a-standby) is a second server, so it comes with its own allowa
 
 1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
 2. Under **Where should it run?**, choose **Rowsafe Cloud**.
-3. Under **Database**, pick PostgreSQL, MySQL, MariaDB, Valkey or ClickHouse.
+3. Under **Database**, pick PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch.
 4. Pick a region (the region decides the cloud), a size, a name and the version. For PostgreSQL, tick the [extensions](#extensions) you want (pgvector, PostGIS, TimescaleDB), if any.
 5. Add the addresses that may connect.
 6. Click **Create server**. The first time, an owner adds a card first.
@@ -233,7 +242,7 @@ The `rowsafe` CLI does the same as the dashboard, with your login (`rowsafe logi
 ```sh
 rowsafe cloud sizes                          # clouds, regions, sizes, prices, what's sold out now
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
-rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb, clickhouse (PostgreSQL is the default)
+rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb, clickhouse, opensearch, qdrant, meilisearch (PostgreSQL is the default)
 rowsafe cloud create search-db --extensions vector,postgis  # pgvector and PostGIS on from the start
 rowsafe env --on shop-db                     # the app's database and login: DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user removed when you quit
@@ -246,7 +255,7 @@ rowsafe cloud delete shop-db                 # asks you to type the name
 
 - **The first server** billed by the hour gives you a link to add a card, once. An owner of the organization pays there; the server is created right after, and nothing is billed before.
 - **Who can connect:** only the computer you ran it on, unless you say otherwise (`--allow ADDRESS`, or `--allow none` for nobody yet). Add your app's server later with `rowsafe cloud allow`.
-- **`rowsafe env` and `rowsafe connect` are for PostgreSQL** today. On MySQL, MariaDB, Valkey and ClickHouse, make the app's login in the dashboard (or with `rowsafe db user add`) and use the database's own client; `rowsafe cloud show` gives the host and port.
+- **`rowsafe env` and `rowsafe connect` are for PostgreSQL** today. On the other databases, make the app's login or API key in the dashboard (or with `rowsafe db user add`) and use the database's own client; `rowsafe cloud show` gives the host and port.
 - **Passwords never pass through Rowsafe.** `rowsafe env` makes the app's password on your computer and sends only its verifier. It writes `DATABASE_URL` to `.env` (a new file is readable only by you), adds `.env` to `.gitignore` in a git repository, and never prints the password unless you pass `--print`. `rowsafe connect` makes a temporary user whose password is encrypted for your terminal, and removes it when you quit psql.
 - **Save the passphrase.** `rowsafe cloud passphrase` gets it, encrypted for your terminal only, and records that you saved it. `rowsafe cloud delete` refuses a server whose passphrase was never saved.
 
@@ -254,14 +263,14 @@ Every command and flag is in the [CLI reference](/docs/reference/cli#rowsafe-clo
 
 ## Connect your app
 
-Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with the database's port (`5432`, `3306`, `6380` for Valkey, or `9440` and `8443` for ClickHouse): use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
+Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with the database's port (`5432`, `3306`, `6380` for Valkey, `9440` and `8443` for ClickHouse, `9200` for OpenSearch, `6333` and `6334` for Qdrant, or `7700` for Meilisearch): use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
 
 - **It follows the primary.** With a [standby](#with-a-standby), after a failover or a planned switchover (the maintenance window, a size change), Rowsafe points the name at the new primary **within about a minute**. Apps that can't wait that long can use the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover), which switch right away.
 - **A name for reads.** `x7kq2mfa3pzd-ro.cloud.rowsafe.sh` points at the standby when there is one, else at the primary: for reports and other read-only work.
 - **IPv4, and IPv6 when you use it.** The names have IPv4 addresses. They get an IPv6 address only when **Who can connect** includes an IPv6 address or range, so apps that prefer IPv6 don't try a path the firewall closes.
 - A new server's name works a minute or so after the server is ready. Until then, the page also shows the IP address.
 
-Then click **Create database and user** (on Valkey, **Create a login for your app**; see [Databases & users](/docs/guides/databases-and-users)) and make sure your app's address is under **Who can connect**. The password is made on the server and shown to you once.
+Then click **Create database and user** (on Valkey, **Create a login for your app**; on Qdrant, **Make an API key for your app**; on OpenSearch and Meilisearch, an index and its user or key; see [Databases & users](/docs/guides/databases-and-users)) and make sure your app's address is under **Who can connect**. The password is made on the server and shown to you once.
 
 ### Check the server's certificate
 
@@ -305,6 +314,28 @@ curl --user USER https://x7kq2mfa3pzd.cloud.rowsafe.sh:8443/ --data-binary 'SELE
 Valkey is `rediss://` (two s's: with TLS) on port 6380. Its plain port, 6379, is closed to the network.
 
 ClickHouse has two ports, both with TLS: **9440** for its native protocol (`clickhouse-client --secure`, Go, and drivers that take a `clickhouse://` URL with `secure=true`) and **8443** for HTTPS (curl, Python's clickhouse-connect, the Node.js client, JDBC and DBeaver). Its plain ports, 9000 and 8123, listen on the server itself only.
+
+### OpenSearch, Qdrant and Meilisearch
+
+They speak HTTPS on the same name, with the same certificate:
+
+```
+https://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:9200    # OpenSearch
+https://x7kq2mfa3pzd.cloud.rowsafe.sh:6333                  # Qdrant REST (gRPC: x7kq2mfa3pzd.cloud.rowsafe.sh:6334, TLS)
+https://x7kq2mfa3pzd.cloud.rowsafe.sh:7700                  # Meilisearch
+```
+
+From a terminal:
+
+```sh
+curl --user USER https://x7kq2mfa3pzd.cloud.rowsafe.sh:9200/                                          # OpenSearch
+curl -H "api-key: $QDRANT_API_KEY" https://x7kq2mfa3pzd.cloud.rowsafe.sh:6333/collections            # Qdrant
+curl -H "Authorization: Bearer $MEILISEARCH_KEY" https://x7kq2mfa3pzd.cloud.rowsafe.sh:7700/indexes   # Meilisearch
+```
+
+- **OpenSearch** clients take the URL and a user and password made in Databases & users. Its node-to-node port, 9300, listens on the server itself only.
+- **Qdrant** clients take the REST URL (or the gRPC address) and an API key. The key goes in the `api-key` header, never in the URL. The cluster port, 6335, is closed.
+- **Meilisearch** clients take the address and an API key: a search-only key for browsers, a key that can add documents for your backend. Meilisearch itself listens on the server only, behind Rowsafe's TLS front on 7700.
 
 ### When the name goes away
 
@@ -505,6 +536,8 @@ Move your database to your own server whenever you like, with about a minute of 
 
 It's the plain open-source database, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
 
+Not yet for OpenSearch, Qdrant or Meilisearch: their snapshots open without Rowsafe, on any server ([OpenSearch](/docs/guides/opensearch#restore-without-rowsafe), [Qdrant](/docs/guides/qdrant#restore-without-rowsafe), [Meilisearch](/docs/guides/meilisearch#restore-without-rowsafe)).
+
 ## Private connection from your AWS network
 
 <Callout title="Coming soon">
@@ -559,7 +592,8 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 
 ## Limits
 
-- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8 or ClickHouse 26.3 and 26.8.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse needs 4 GB of memory. See [Databases](#databases).
+- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse and OpenSearch need 4 GB of memory, Qdrant 2 GB. See [Databases](#databases).
+- **OpenSearch, Qdrant and Meilisearch restore to a snapshot**, not to any second, and Take it with you isn't available for them yet.
 - **pgvector, PostGIS and TimescaleDB** on PostgreSQL 15 to 18; TimescaleDB is the Apache-2.0 edition (no compression or continuous aggregates), and a PostgreSQL 15 to 16 upgrade with it isn't possible through Rowsafe yet. See [Extensions](#extensions).
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
 - **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.

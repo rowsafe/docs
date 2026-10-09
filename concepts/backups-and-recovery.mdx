@@ -63,5 +63,8 @@ Rowsafe proves every week that restoring works, with [Proof](/docs/concepts/rest
 | MongoDB | `mongodump`: a full backup every day | the oplog ([details](/docs/guides/mongodb#what-rowsafe-does)) | any second, or a Mark |
 | ClickHouse | ClickHouse's own `BACKUP`: weekly full, hourly differential | none | a backup (one every hour), or a Mark ([details](/docs/guides/clickhouse)) |
 | Redis, Valkey | a full snapshot (RDB), sent the way Redis sends one to a new replica | every change, from the agent attached as a replica ([details](/docs/concepts/redis)) | about a second, or exactly a Mark |
+| OpenSearch | OpenSearch's own snapshots: every 30 minutes, a full one every day | none | a snapshot, or a Mark ([details](/docs/guides/opensearch#restores-go-back-to-a-snapshot)) |
+| Qdrant | Qdrant's own full snapshot, every hour | none | a snapshot, or a Mark ([details](/docs/guides/qdrant#restores-go-back-to-a-snapshot)) |
+| Meilisearch | Meilisearch's own snapshot, every hour | none | a snapshot, or a Mark ([details](/docs/guides/meilisearch#restores-go-back-to-a-snapshot)) |
 
-Rewinding the whole database stops PostgreSQL, MySQL and MariaDB briefly while the data is swapped; MongoDB, ClickHouse, Redis and Valkey keep running.
+Rewinding the whole database stops PostgreSQL, MySQL and MariaDB briefly while the data is swapped; MongoDB, ClickHouse, Redis, Valkey, OpenSearch, Qdrant and Meilisearch keep running.

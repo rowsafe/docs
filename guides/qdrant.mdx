@@ -1,0 +1,228 @@
+---
+title: Protect Qdrant
+description: Hourly snapshots to your own bucket, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, API keys and updates for Qdrant 1.13 and newer on your own server or in Docker.
+---
+
+Rowsafe protects Qdrant, the open-source vector database (Apache-2.0): snapshots go to **your** bucket, encrypted on your server with a passphrase only you hold; **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** puts the whole server back, with **Undo** for 7 days; **Pulse** watches the server and fixes what it can.
+
+Qdrant keeps no log of its changes, so Rowsafe can't restore it to any second: see [Restores go back to a snapshot](#restores-go-back-to-a-snapshot) and [Limits](#limits).
+
+## Before you start
+
+- **Qdrant 1.13 or newer**, as a **single server**. Distributed (cluster) mode is refused when you turn backups on.
+- On a server with Debian or Ubuntu, or in Docker next to the official `qdrant/qdrant` image ([below](#docker)).
+- The `qdrant` program on the server, for Proof and Rewind. Backups work without it. In Docker, the agent image brings it.
+- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt) for the one-command install.
+
+## Turn on backups
+
+Run the install command on the server and approve the server in your browser when it prints the link:
+
+```bash
+curl -fsSL https://rowsafe.sh | sudo sh
+```
+
+The installer finds Qdrant. Nothing restarts and no setting changes.
+
+<Steps>
+<Step>
+**A key for Rowsafe.** Qdrant has no smaller role that can take a full snapshot, so Rowsafe needs a key with every right. The installer takes `ROWSAFE_QDRANT_API_KEY`, else the `api_key` in Qdrant's configuration file, else asks you once. If you set Qdrant's alternative key (`service.alt_api_key`), give that one: it is Rowsafe's own, and you can change it without touching your apps' key. The key is saved for the agent only and never sent to Rowsafe.
+</Step>
+<Step>
+**The plan.** You see what Rowsafe will do and say yes. Rowsafe checks that its key can manage snapshots and that a backup reaches your bucket, and takes the first snapshot.
+</Step>
+</Steps>
+
+With JSON Web Tokens on in Qdrant (`service.jwt_rbac`), the agent never sends its key at all. It signs a token for each request, valid for a few minutes, read-only for monitoring. Without them, it sends the key itself, only on the server or over TLS.
+
+On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`, and never reads Qdrant's files: everything goes through Qdrant's API.
+
+## What Rowsafe does
+
+| | How |
+|---|---|
+| Backup | Qdrant's own full snapshot of every collection and alias, downloaded over its API, encrypted on your server, stored in your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), then deleted from the server's disk. Every backup is full. Every hour by default. |
+| Kept | The newest 24 snapshots (**Snapshots to keep** in the database's settings), plus one a day for 7 days. |
+| [Marks](/docs/concepts/restore-points) | A snapshot taken on the spot, named after the Mark. Restoring to a Mark brings back exactly that moment. |
+| [Proof](/docs/concepts/restore-drills) | Weekly: restore the newest backup into a temporary Qdrant (on `127.0.0.1` only, with a key only the agent knows), check that every collection is there and healthy (green), with the points the backup recorded, that a search answers in each and that the aliases came back. Then delete it. |
+| [Rewind](/docs/guides/restore) | Restore a copy of a snapshot or a Mark into the same kind of temporary Qdrant, and see its collections and points. The copy is for Rowsafe only: apps can't connect to it. |
+| Rewind the whole database | Puts the server back to a snapshot or a Mark, in place, without a restart ([below](#rewind-the-whole-database)). **Undo** for 7 days. |
+| [Pulse](/docs/guides/monitoring) | Memory, collections, requests and failed requests, and the issues Qdrant itself reports, with fixes you apply in one click ([below](#pulse)). |
+| [Security check](/docs/guides/security) | Keys, TLS, JSON Web Tokens, CORS, snapshots fetched from any address, telemetry, the cluster port, and a look from the internet. |
+| [API keys](#api-keys) | Keys for your apps, read-only, read-write or admin, per collection. |
+| Restart | **Restart** in the dashboard, after you confirm. |
+| [Updates](#updates) | The newest release of your Qdrant series that Rowsafe checked, with one click. |
+
+Only collection and field names reach Rowsafe, never points, vectors or payloads.
+
+## Restores go back to a snapshot
+
+Qdrant keeps no log of its changes that Rowsafe could replay. So every restore (a Rewind copy, the whole database, Proof) goes back to a snapshot: the newest one taken at or before the moment you pick, or a Mark. With hourly snapshots, a restore can lose up to an hour of writes.
+
+- **Before a risky change** (a migration, a re-index, a script that deletes points), take a **Mark**: it is a snapshot of that exact moment.
+- **To lose less**, take snapshots more often in the database's settings. Each one is a full snapshot.
+- Pulse tells you when the newest snapshot is too old, with **Take a snapshot now**.
+
+## Rewind the whole database
+
+**Rewind the whole database** puts every collection back as it was in a snapshot or a Mark, through Qdrant's own API. Qdrant keeps running.
+
+1. Rowsafe downloads the snapshot and unpacks it on your server. Production keeps running.
+2. It keeps a snapshot of the server as it is now in your bucket, for **Undo**.
+3. It restores each collection from the snapshot, removes the collections that didn't exist then, and puts the aliases back as they were.
+
+Stop your app's writes while it runs: what is written during the rewind isn't in the data kept for Undo. **Undo rewind** puts everything back for 7 days. If the rewind stops part way, the data from before is kept and Undo restores it.
+
+Rowsafe's own collection, `rowsafe_keys` (the [API keys](#api-keys) made in Rowsafe), is never rewound, so keys made since keep working.
+
+Bringing back single points from a copy isn't available for Qdrant: rewind the whole database instead.
+
+## API keys
+
+In [Databases & users](/docs/guides/databases-and-users), Qdrant's "users" are **API keys** for your apps. The agent makes each key on your server, as a JSON Web Token signed with Rowsafe's key, and shows it once to the person who asked. Rowsafe can't read it. Qdrant's JSON Web Tokens must be on (`service.jwt_rbac: true`); the dashboard says so when they aren't.
+
+| Access | Reaches | Expires |
+|---|---|---|
+| Read-only | Every collection, or the ones you choose | Never, unless you choose (at most 365 days) |
+| Read-write | The collections you choose | Never, unless you choose (at most 365 days) |
+| Admin | Everything, including creating and deleting collections | Always: 30 days unless you choose, at most 90 |
+
+- **Removing** a read-only or read-write key, or making it a new token, ends the old token at once.
+- **Admin keys** can change everything in Qdrant, including Rowsafe's list of keys, so they always expire. Removing one ends it at once unless it was misused against that list; its expiry ends it for certain. If someone changes the list, the agent puts it back and Pulse offers **Remove every admin key**.
+- **To end every key at once**, root makes Rowsafe's key new on the server: every key made in Rowsafe is signed with it.
+- **Collections** are created by your apps (with their vector size and distance). You can remove one in the dashboard; Rowsafe takes a Mark first. Keys limited to it are removed with it; keys that also reached other collections need a new token.
+
+From the terminal:
+
+```bash
+rowsafe db user add search-app --db products --access read_only --on vectors
+rowsafe db user add admin-tool --access owner --expires 14 --on vectors
+```
+
+Qdrant's own keys (`api_key`, `read_only_api_key`) are root's, in its configuration. Rowsafe lists them as set or not, never their values, and never changes them.
+
+## Pulse
+
+Pulse reads Qdrant's metrics every minute and its detailed status every 5 minutes: each collection's state and size, memory against the server's, and the issues Qdrant itself reports.
+
+| Finding | Fix |
+|---|---|
+| Searches filter on a field without an index | **Create index on** the field: the payload index Qdrant suggests. Qdrant builds it in the background. |
+| Qdrant uses 85% or more of the server's memory | **Move** a large collection's **vectors to disk** (up to three are offered). Searches keep working, a little slower on a cold cache. |
+| A collection failed (red), or Qdrant started in recovery mode | **Restart**, so Qdrant loads its data again. |
+| gRPC still serves the previous certificate | **Restart**: gRPC loads a renewed certificate only when Qdrant starts. |
+| Snapshot files left on Qdrant's disk | **Delete leftover snapshots**. Your backups in the bucket aren't touched. |
+| Someone changed Rowsafe's list of keys | **Remove every admin key**. |
+| No snapshot for too long | **Take a snapshot now**. |
+
+Each fix asks you to confirm, and the agent checks again on the server before anything changes. Index and disk fixes act through Qdrant's API, without a restart.
+
+Security settings (a key, TLS, CORS, snapshots from any address, telemetry, the cluster port) live in Qdrant's configuration file, which only root changes, and take effect at a restart. The security check shows the exact lines under **Do it yourself**. **Who can connect** limits Qdrant's ports to your app servers, with root's `firewall` permission.
+
+## What Rowsafe may do
+
+**Rowsafe's key** has every right in Qdrant: Qdrant has no smaller role for snapshots. The agent uses it for snapshots, restores, fixes and API keys, each only when someone asks or for the backups you turned on. With JSON Web Tokens on, monitoring and checks use read-only tokens.
+
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`):
+
+| Permission | Lets Rowsafe |
+|---|---|
+| `restart` | restart Qdrant (**Restart**) |
+| `updates` | install the newest release of your Qdrant series |
+| `firewall` | limit who can reach Qdrant's ports |
+
+Rewinding the whole database needs no root permission: it goes through Qdrant's API.
+
+## Updates
+
+Rowsafe pins each Qdrant release it supports to its exact version and SHA-256. **Update** installs the newest pinned release of your series (1.19.x) from Qdrant's official release on GitHub, checks its SHA-256, and restarts Qdrant. It runs only when a person clicks it, or in Rowsafe Cloud's [maintenance window](/docs/guides/rowsafe-cloud#the-maintenance-window). It works for Qdrant at `/usr/bin/qdrant` on a server, not in Docker. See [Updates](/docs/guides/updates#allow-it-on-the-server) to allow it.
+
+## Docker
+
+Use the Qdrant agent image next to the official `qdrant/qdrant` image. It is built on the same image, so the `qdrant` program that Proof and Rewind copies run is Qdrant's own, of your version: `ghcr.io/rowsafe/agent:qdrant1.19`. It follows the newest Rowsafe release; to pin one, use the exact tag, like `<version>-qdrant1.19`.
+
+```yaml
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    env_file: qdrant.env          # QDRANT__SERVICE__API_KEY, QDRANT__SERVICE__ALT_API_KEY (Rowsafe's)
+    environment:
+      QDRANT__SERVICE__JWT_RBAC: "true"
+      QDRANT__SERVICE__ENABLE_SNAPSHOT_URL_RECOVERY: "false"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:qdrant1.19
+    hostname: db-1
+    environment:
+      ROWSAFE_QDRANT_URL: http://qdrant:6333
+    env_file: rowsafe-agent.env
+    volumes:
+      - rowsafe-state:/var/lib/rowsafe
+```
+
+The agent needs no access to Qdrant's files. Over plain HTTP on the compose network it sends only short-lived tokens, so JSON Web Tokens must be on (or use `https://` with `ROWSAFE_QDRANT_CA_FILE`). The full example is [`deploy/docker/compose.qdrant.example.yml`](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.qdrant.example.yml). Then, once:
+
+```bash
+docker compose exec rowsafe-agent rowsafe-agent qdrant login --port 6333
+rowsafe adopt vectors --host db-1 --engine qdrant --port 6333
+rowsafe apply vectors
+```
+
+`qdrant login` reads Rowsafe's key (paste it, one line) and saves it in the agent's volume only.
+
+The agent never updates itself in Docker. Update only its container (Qdrant keeps running) with `docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent`, or add the container control service for **Update now** and **Restart** in the dashboard: see [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Let Rowsafe restart the container](/docs/guides/docker#let-rowsafe-restart-the-container).
+
+## On servers Rowsafe creates
+
+[Rowsafe Cloud](/docs/guides/rowsafe-cloud#databases) and [Create a server for me](/docs/guides/create-a-server) can install Qdrant 1.19 for you:
+
+- From Qdrant's official release, pinned to an exact version and checked against its SHA-256 before anything runs (the Debian package on Intel and AMD, the static program on Arm).
+- Its own user and a sandboxed service, telemetry off, JSON Web Tokens on, no snapshots from URLs. Its keys are random and stay root's on the server.
+- Apps connect with TLS and an API key made in Databases & users: REST on port `6333`, gRPC on `6334`. The cluster port (`6335`) stays closed.
+- Sizes with 2 GB of memory or more.
+- The server's certificate renews by itself. REST picks it up within a minute; gRPC at Qdrant's next restart (Pulse says so and offers **Restart**).
+- A standby, Clone to a new server and private connections from AWS aren't offered for Qdrant.
+
+```python
+from qdrant_client import QdrantClient
+
+client = QdrantClient(
+    url="https://x7kq2mfa3pzd.cloud.rowsafe.sh:6333",
+    api_key="YOUR_KEY",
+)
+```
+
+Or in a `.env` file, as `rowsafe db user add` prints it:
+
+```
+QDRANT_URL=https://x7kq2mfa3pzd.cloud.rowsafe.sh:6333
+QDRANT_API_KEY=YOUR_KEY
+```
+
+## Restore without Rowsafe
+
+Your snapshots don't need Rowsafe. With your bucket settings and passphrase in the environment (as in `agent.env`), the agent lists a database's snapshots and decrypts one:
+
+```bash
+rowsafe-agent qdrant download-backup --stanza vectors
+rowsafe-agent qdrant download-backup --stanza vectors --label 20261003-140000F --to ./vectors.snapshot
+```
+
+The file is Qdrant's own full snapshot. Start an empty Qdrant of the same or a newer version from it: `qdrant --storage-snapshot ./vectors.snapshot`.
+
+## Limits
+
+- **No restore to any second**: restores go back to a snapshot (hourly by default) or a Mark. See [above](#restores-go-back-to-a-snapshot).
+- **Every backup is a full snapshot.** Qdrant writes it to its own disk first; Rowsafe deletes it after the upload. Leave room for one.
+- **Marks** stay while they are newer than the oldest snapshot kept, then go with it.
+- **Single servers only**: distributed (cluster) mode isn't supported.
+- **No single points back**: a Rewind copy is for looking at; to go back, rewind the whole database.
+- **Rewinding the whole database** needs room on the server to unpack the snapshot.
+- **Proof and Rewind copies** need the `qdrant` program on the server, the same version as the server or newer.
+- **API keys** need Qdrant's JSON Web Tokens on, and a key on Qdrant.
+- **Rowsafe's own key**: if you gave your `api_key`, changing it means giving Rowsafe the new one (run the installer again). Qdrant's alternative key avoids that.
+- **Security settings** change in Qdrant's configuration file and need a restart: Rowsafe shows how, it can't change them for you.
+- **Updates** stay within your Qdrant series and need Qdrant at `/usr/bin/qdrant` on a server. In Docker, change the image in your compose file.
+- **Not available for Qdrant**: Find the moment, safe copies, migration previews, clones, standby servers, Move in, connection pooling, Tuning, logs, file backups and a second copy.

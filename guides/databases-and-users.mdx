@@ -1,6 +1,6 @@
 ---
 title: Create databases and users
-description: Create databases, users and extensions inside your PostgreSQL, MySQL, MariaDB, MongoDB or ClickHouse server, and users on Redis and Valkey, from the dashboard or the CLI, with passwords only you ever see.
+description: Create databases, users and extensions inside your PostgreSQL, MySQL, MariaDB, MongoDB or ClickHouse server, users on Redis and Valkey, and users or API keys on OpenSearch, Qdrant and Meilisearch, from the dashboard or the CLI, with passwords only you ever see.
 ---
 
 In Rowsafe, a "database" is a whole database server (the examples use PostgreSQL; [the others](#mysql-mariadb-mongodb-and-clickhouse) work the same, in their own terms, and [Redis and Valkey](#redis-and-valkey) have users only). The **Databases & users** tab of that server shows what's inside it, the databases, the users and the extensions, and lets you create and remove them without logging in to the server.
@@ -116,6 +116,9 @@ The same page works for the other engines, in their own terms. Passwords are mad
 - **MongoDB:** users are created in `admin` (connect with `authSource=admin`) with `read`, `readWrite` or `dbOwner` on the databases you choose. A new database shows up in MongoDB once something is written to it.
 - **ClickHouse:** `CREATE DATABASE`, `CREATE USER` and `GRANT`. Users defined in ClickHouse's configuration files (like `default`) are listed but never changed. A server that keeps its users only in configuration files can't get new ones until SQL users are on: the page says so and shows the small file that turns them on. On servers Rowsafe creates, new users get limits so one query can't take the whole server (at most 40% of its memory, and as many threads as it has processors), which they can't raise.
 - **Redis and Valkey:** users only, see [below](#redis-and-valkey).
+- **OpenSearch:** a database is an index (or a data stream), users are the security plugin's, with read-only, read-and-write or owner access on the indices and patterns you list. See [Users and roles](/docs/guides/opensearch#users-and-roles).
+- **Qdrant:** users are API keys, read-only, read-write or admin, on the collections you pick; admin keys always expire (30 days unless you choose up to 90). Removing a read-only or read-write key ends it at once. Collections are created by your app. See [API keys](/docs/guides/qdrant#api-keys).
+- **Meilisearch:** a database is an index, users are API keys on the indexes you pick: search only, add and delete documents, or also change the index's settings. See [API keys](/docs/guides/meilisearch#api-keys).
 - **Rowsafe's own login** needs the rights to create users. Installs from before this feature can list but not change: the page shows the one command, for root on the server, that gives them.
 
 ## Redis and Valkey

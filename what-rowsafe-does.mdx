@@ -9,7 +9,7 @@ Once your database is set up (see the [Quickstart](/docs/quickstart)), most of R
 
 You don't have to do anything for these:
 
-- **Every change is saved.** Each change your database makes is copied to your storage bucket, at most about a minute behind. That is what lets you go back to any second. See [Backups and point-in-time recovery](/docs/concepts/backups-and-recovery).
+- **Every change is saved.** Each change your database makes is copied to your storage bucket, at most about a minute behind. That is what lets you go back to any second. See [Backups and point-in-time recovery](/docs/concepts/backups-and-recovery) OpenSearch, Qdrant and Meilisearch keep no such record, so they get a snapshot every 30 minutes or every hour instead, and a restore goes back to one of them ([OpenSearch](/docs/guides/opensearch), [Qdrant](/docs/guides/qdrant), [Meilisearch](/docs/guides/meilisearch)).
 - **Backups every night.** A full backup on Sundays, and a smaller one (only what changed since) the other nights, at 01:00 UTC. Rowsafe keeps two full backups by default, so you can go back about two weeks. Old backups are removed for you.
 - **Proof every week.** On Sunday evening, Rowsafe restores your latest backup into a private scratch copy on your server, checks it, and deletes it. So you know a restore works before you need one. See [Proof](/docs/concepts/restore-drills).
 - **Pulse watches the database.** Every minute the agent checks the database and the server: disk, connections, slow queries, cleanup, backups. You get a health score from 0 to 100, findings in plain words, and an **Apply fix** button for most of them. See [Pulse](/docs/guides/monitoring).

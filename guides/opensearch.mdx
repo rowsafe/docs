@@ -1,0 +1,159 @@
+---
+title: Protect OpenSearch
+description: Snapshots every 30 minutes to your own bucket, encrypted on your server, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, and users and roles for OpenSearch 2 and 3 on your own server.
+---
+
+Rowsafe protects OpenSearch with OpenSearch's own snapshots: they go to **your** bucket, encrypted on your server with a passphrase only you hold. **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted documents back or puts the whole server back; **Pulse** watches the server and fixes what it can. OpenSearch has fewer features than other databases in Rowsafe: see [Not yet](#not-yet) and [Limits](#limits).
+
+## Restores go back to a snapshot
+
+OpenSearch keeps no log of its changes, so Rowsafe can't restore it to **any second**. It restores to a snapshot instead:
+
+- one is taken **every 30 minutes**, so you lose at most half an hour of changes;
+- a **Mark** takes one on the spot. Make one before a migration, a reindex or a bulk delete, and you can go back to exactly that moment.
+
+Everywhere the dashboard offers a restore, you pick a snapshot or a Mark, not a time.
+
+## Before you start
+
+- **OpenSearch 2 or 3**, as **one node** (a single server). Clusters of several nodes are refused, with a plain message. So is a server that answers like Elasticsearch.
+- On **Debian or Ubuntu**, with the security plugin on (users and passwords) or off.
+- Its REST port is `9200` by default. Rowsafe talks to it on `127.0.0.1`, over HTTPS (plain HTTP if your server has TLS off).
+- The `opensearch` program from OpenSearch's package is on the server. Proof and Rewind copies run it; backups work without it.
+- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt).
+
+## Turn on backups
+
+Run the install command on the server and approve the server in your browser when it prints the link:
+
+```bash
+curl -fsSL https://rowsafe.sh | sudo sh
+```
+
+The installer finds OpenSearch:
+
+<Steps>
+<Step>
+**A folder for snapshots.** OpenSearch writes its snapshots to `/var/lib/rowsafe-opensearch/snapshots`, on the server's own disk. The installer adds that folder to `path.repo` in `opensearch.yml` and keeps the previous file next to it (`opensearch.yml.rowsafe-backup`). The agent joins the `opensearch` group to read the snapshots, never to write them.
+</Step>
+<Step>
+**Rowsafe's own OpenSearch user.** With the security plugin on, an administrator (a user with `all_access`, like `admin`) signs in once. Rowsafe creates its user, `rowsafe`, with a random password saved for the agent only. The administrator's password is used once and never saved. Without the security plugin, no login is needed.
+</Step>
+<Step>
+**One restart.** OpenSearch reads `path.repo` only when it starts. The installer asks before restarting it (a minute or so; apps reconnect). Say no and backups start after its next restart, whenever you do it.
+</Step>
+<Step>
+**The plan.** You see what Rowsafe will do and say yes. Rowsafe checks that a backup reaches your bucket and opens with your key, then takes the first snapshot.
+</Step>
+</Steps>
+
+Without a terminal, `--protect NAME` works too: set `ROWSAFE_OPENSEARCH_ADMIN_USER` and `ROWSAFE_OPENSEARCH_ADMIN_PASSWORD` (used once, never saved). It never restarts OpenSearch: backups start after its next restart.
+
+If OpenSearch still has its demo setup (demo users with published passwords, demo certificates), the installer warns you and goes on. Pulse keeps showing it until it's gone.
+
+## What Rowsafe does
+
+| | How |
+|---|---|
+| Backups | OpenSearch's own snapshot of every index and data stream, every 30 minutes, and a full one every day at 01:00 UTC. A snapshot only copies files that are new, so most are small. |
+| Encryption | The agent copies every new snapshot file to your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), encrypted on your server. OpenSearch never sees the bucket or its keys. |
+| Keeping | A week of daily snapshots, and every snapshot and Mark newer than the oldest of them. OpenSearch deletes the files no kept snapshot needs, and the bucket follows. |
+| [Marks](/docs/concepts/restore-points) | A snapshot taken on the spot, named after the Mark. |
+| [Proof](/docs/concepts/restore-drills) | Weekly: restore the newest snapshot **from your bucket** into a temporary OpenSearch on the same server (on `127.0.0.1` only, with a small memory limit and its own random login), check that every index came back green with all its documents, then delete it. |
+| [Rewind](/docs/guides/restore) | Restore a copy, compare it, bring documents back, or rewind the whole server in place, with **Undo** for 7 days ([below](#rewind)). |
+| [Pulse](/docs/guides/monitoring) | Cluster health, shards, disk, memory, slow-downs and security, with fixes ([below](#pulse)). |
+| Restart | **Restart** in the dashboard, after you confirm (with root's [permission](/docs/guides/permissions)). |
+| [Databases & users](/docs/guides/databases-and-users) | Indices and the security plugin's users ([below](#users-and-roles)). |
+
+## Rewind
+
+All of this is in the dashboard, for owners and admins.
+
+- **Restore a copy** at a snapshot or a Mark. It runs as a temporary OpenSearch on the same server, which only Rowsafe signs in to, until it expires.
+- **Compare** an index with production, by document `_id`: documents only in the copy (deleted since), documents that changed, and documents added since. A large index is compared on its first million documents, and the result says so.
+- **Bring back documents** into the indices you pick. They come back with their `_id`. A document that exists in production is never overwritten, unless you choose to include the changed ones. An index deleted since is made again with the copy's mappings.
+
+### Rewind the whole server
+
+**Rewind the whole database** puts every index and data stream back as it was at a snapshot or a Mark, through OpenSearch itself:
+
+1. Rowsafe takes a snapshot of everything as it is now, kept 7 days for **Undo rewind**.
+2. It deletes each index and data stream and restores it from the snapshot on the server's own disk. Indices created since are removed (they are in the Undo snapshot).
+
+Nothing restarts. Searches of an index fail for the moments it is being restored, and writes made while it runs are replaced. If the restore fails, the snapshot taken first is put back.
+
+## Pulse
+
+Pulse reads OpenSearch about once a minute: cluster health (green, yellow, red), shards, indices and documents, the disk against OpenSearch's limits (watermarks), memory (heap), long memory clean-ups (garbage collection), requests refused to protect memory (circuit breakers) or turned away when queues are full, and when the last snapshot was taken.
+
+Two fixes come with **Apply fix** and a confirmation. Each checks the problem is still there first:
+
+| Finding | Fix |
+|---|---|
+| Health is yellow: replicas have nowhere to go (one server can never hold a copy of its own data) | **Set replicas to 0** on those indices. Instant; no data moves. |
+| Writes are still refused after the disk filled up | **Allow writes again**: removes OpenSearch's read-only block, only once the disk has room again. |
+
+Security problems are in the [security check](/docs/guides/security): the security plugin off (also checked from the internet), TLS off, demo users that still sign in with their published passwords, demo certificates, the demo super administrator certificate (`CN=kirk`) trusted or its key readable by more than OpenSearch, and the node-to-node port (`9300`) open beyond the server. Fixing them means changing `opensearch.yml` and restarting, so each comes with the steps under **Do it yourself**.
+
+## Users and roles
+
+[Databases & users](/docs/guides/databases-and-users) works with the security plugin's own users. For OpenSearch, a "database" is an index or a data stream.
+
+- **Create an index** (empty), optionally with a user who owns it. **Remove** one: Rowsafe saves a Mark first.
+- **Add a user** with access to the indices or patterns you list (`logs-*`), at one of three levels: **read only** (search and read), **read and write** (also add, change and delete documents, create those indices and change their mappings), or **owner** (everything on those indices).
+- **New password** and **Remove user**. Passwords are made on your server and shown only to you: Rowsafe can't read them.
+
+OpenSearch's own users (`admin`, `kibanaserver` and the like), reserved and hidden users, administrators (`all_access`) and Rowsafe's own are listed but never changed. Without the security plugin there are no users, and the dashboard says so.
+
+## What Rowsafe may do
+
+**Rowsafe's OpenSearch user** (`rowsafe`) may read the server's health and stats, and take, list, delete and restore snapshots in its own folder. Only when someone asks in the dashboard, it creates, writes and deletes indices (Rewind, Databases & users), changes replicas and removes a full disk's read-only block. It manages users through the security plugin: the installer lists its role in `plugins.security.restapi.roles_enabled`.
+
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`): `restart` lets it restart OpenSearch (**Restart**). Rowsafe doesn't install OpenSearch's updates yet.
+
+## On servers Rowsafe creates
+
+In [Rowsafe Cloud](/docs/guides/rowsafe-cloud#databases) and [Create a server for me](/docs/guides/create-a-server), you can pick OpenSearch 3:
+
+- installed from OpenSearch's own packages (kept on 3.x), one node, with the Java it brings;
+- the security plugin on, no demo users or certificates, and one administrator, `admin`, whose password only root can read;
+- HTTPS on port `9200`; the node-to-node port `9300` stays on the server itself;
+- half the server's memory for OpenSearch (at most 31 GB), and its Performance Analyzer off. Sizes need 4 GB of memory or more.
+
+Apps connect over HTTPS on port `9200` with a user and password you make in [Databases & users](#users-and-roles). Standby servers, clones and private connections from AWS aren't offered for OpenSearch.
+
+## Restore without Rowsafe
+
+Your snapshots don't need Rowsafe to be restored. With your bucket settings and passphrase in the environment (the `ROWSAFE_REPO_*` lines of `/etc/rowsafe/agent.env`), the agent lists a database's snapshots and decrypts one into a folder:
+
+```bash
+set -a; . /etc/rowsafe/agent.env; set +a
+# --stanza is the database's "Bucket folder" (on its Settings page in the dashboard).
+rowsafe-agent opensearch download-backup --stanza search
+rowsafe-agent opensearch download-backup --stanza search --label 20261009-013000F --to /srv/os-restore
+```
+
+The folder is an ordinary OpenSearch snapshot repository. Make it readable by OpenSearch's user, add it to `path.repo` and restart OpenSearch; the agent prints the two requests that register it and restore the snapshot.
+
+## Not yet
+
+These Rowsafe features aren't available for OpenSearch yet:
+
+- Restores to any second, and Find the moment.
+- Updates and upgrades from the dashboard, Tuning, logs and recommendations.
+- Standby servers, clones, Move in, safe copies and migration previews.
+- Connection pooling, a second copy in another bucket, and backing up the files that go with the database.
+
+## Limits
+
+- **Restores go back to a snapshot**, every 30 minutes or a Mark, never to a second in between. See [above](#restores-go-back-to-a-snapshot).
+- **One node only.** Clusters of several nodes, and Elasticsearch, aren't supported.
+- **Not in Docker yet.** There is no OpenSearch agent image: install the agent on the server.
+- **Disk:** snapshots are kept on the server's own disk too (`/var/lib/rowsafe-opensearch/snapshots`), so it needs room for them.
+- **Users aren't in backups.** The security plugin's users and roles, and OpenSearch's other system indices, stay out of snapshots. Rewinds also leave server-wide things like index templates and ingest pipelines as they are now.
+- **Temporary servers** (Proof, Rewind copies) need about 700 MB of free memory. The agent checks first and refuses if there isn't enough, so production keeps its memory.
+- **Compare** looks at the first million documents of an index; the result says when it stopped there.
+- **Bringing documents back into a data stream** never overwrites changed ones: data streams only take new documents.
+- **Rewinding the whole server** makes searches of each index fail for the moments it is restored, and replaces writes made meanwhile.
+- **Security fixes** need a change to `opensearch.yml` and a restart, so they are steps you do yourself.
+- **The first restart:** backups start only after OpenSearch restarts once with Rowsafe's snapshot folder in `path.repo`.

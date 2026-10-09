@@ -87,8 +87,13 @@ Read [How Rowsafe works](/docs/concepts/how-it-works) for the details.
 | ClickHouse 24.8 and newer | **Supported** | Single servers on Debian 12/13, Ubuntu 22.04/24.04, and Docker (official `clickhouse/clickhouse-server` images, 25.8 to 26.8). See [Protect ClickHouse](/docs/guides/clickhouse) |
 | Redis 7.0 and newer, Valkey 7.2 and newer | **Supported** | Standalone servers (with or without replicas) on Debian 12/13, Ubuntu 24.04, Redis's own packages, and Docker (official `redis` 7.2 to 8.10 and `valkey/valkey` 7.2 to 9.2 images); not Redis Cluster or Sentinel. Every feature except connection pooling and migration previews. See [Protect Redis or Valkey](/docs/guides/redis) |
 | SQLite 3 | **Supported** | Database files your apps open, on local disk: Debian 12/13, Ubuntu 22.04/24.04, and Docker (the agent as a sidecar). Every feature that doesn't need a database server; restore to any second needs WAL mode. See [Protect SQLite](/docs/guides/sqlite) |
+| OpenSearch 2, 3 | **Supported** | One node on Debian 12/13, Ubuntu 22.04/24.04 (not Docker yet). Snapshots every 30 minutes instead of restores to any second. See [Protect OpenSearch](/docs/guides/opensearch) |
+| Qdrant 1.13 and newer | **Supported** | One node on Debian 12/13, Ubuntu 22.04/24.04, and Docker (official `qdrant/qdrant` image). Snapshots every hour instead of restores to any second. See [Protect Qdrant](/docs/guides/qdrant) |
+| Meilisearch 1.12 and newer | **Supported** | Community Edition, one instance on Debian 12/13, Ubuntu 22.04/24.04 (not Docker yet). Snapshots every hour instead of restores to any second. See [Protect Meilisearch](/docs/guides/meilisearch) |
 
 Every Rowsafe feature works for PostgreSQL, MySQL, MariaDB, MongoDB and ClickHouse, with a few exceptions: MongoDB needs no connection pooling (its drivers pool connections themselves). Redis and Valkey get everything except connection pooling (Redis doesn't need it) and migration previews (Redis has no schema): [what's not there](/docs/guides/redis#not-yet). The examples on most pages use PostgreSQL; each guide says what differs per database, and each database's guide lists its limits: [MySQL and MariaDB](/docs/guides/mysql#limits), [MongoDB](/docs/guides/mongodb#limits), [ClickHouse](/docs/guides/clickhouse#limits), [Redis and Valkey](/docs/guides/redis#limits).
+
+OpenSearch, Qdrant and Meilisearch, the search engines, keep no log of their changes, so they are backed up as snapshots and a restore goes back to one of them or a Mark, never to any second. They get Marks, Proof, Rewind, Pulse with one-click fixes, security checks and their own users or API keys, but no standby, pooling, tuning or logs: see each guide's limits ([OpenSearch](/docs/guides/opensearch#limits), [Qdrant](/docs/guides/qdrant#limits), [Meilisearch](/docs/guides/meilisearch#limits)).
 
 SQLite runs inside your app, with no database server, so it has backups, restore to any second, Marks, Proof, Rewind, Pulse with one-click fixes, files, a second copy, Find the moment, safe copies, migration previews, security checks, recommendations, index advice and clones, but no restart, standby, pooling, server updates, Databases & users, logs or tuning (there is no server). Moving in from Turso or Cloudflare D1 isn't available yet: see [its limits](/docs/guides/sqlite#limits).
 
@@ -155,6 +160,7 @@ One line each, grouped by what you want to do. The [features page](/features) li
 - [MySQL and MariaDB](/docs/guides/mysql), [MongoDB](/docs/guides/mongodb) and [ClickHouse](/docs/guides/clickhouse): the same protection for each.
 - [Redis and Valkey](/docs/guides/redis): backups, restore to any second, Proof, Rewind and Pulse.
 - [SQLite](/docs/guides/sqlite): the database files your apps use, protected where they are.
+- [OpenSearch](/docs/guides/opensearch), [Qdrant](/docs/guides/qdrant) and [Meilisearch](/docs/guides/meilisearch): search engines, backed up as snapshots, with Proof, Rewind and Pulse.
 - [Move in from a managed database](/docs/guides/move-in): from RDS, Supabase, Neon, Atlas, ClickHouse Cloud, DigitalOcean and others onto your own server.
 - [Plans and limits](/docs/concepts/plans-and-limits): every plan has every feature.
 

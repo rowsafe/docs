@@ -1,0 +1,160 @@
+---
+title: Protect Meilisearch
+description: Hourly snapshots to your own bucket, Marks, weekly Proof, Rewind (a copy, compare, bring documents back, rewind in place with Undo), Pulse with one-click fixes, a security check and API keys for Meilisearch Community Edition 1.12 and newer on your own server.
+---
+
+Rowsafe protects Meilisearch the way it protects your other databases: backups go to **your** bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), encrypted on your server with a passphrase only you hold; **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings documents back or puts every index back; **Pulse** watches the server and fixes what it can. Restores go back to an hourly snapshot or a Mark, not to any second: see [below](#restores-go-back-to-a-snapshot) and [Limits](#limits).
+
+<Callout>
+Rowsafe works with Meilisearch's **Community Edition** (MIT license) only. It never installs or turns on Enterprise Edition features (sharding, a network of instances, snapshots to S3).
+</Callout>
+
+## Before you start
+
+- **Meilisearch 1.12 or newer**, one instance, installed on the server itself (Debian or Ubuntu) and run by systemd. Meilisearch in Docker isn't supported yet.
+- Meilisearch has a **master key**. Without one it asks for no key at all: Rowsafe still backs it up, but Pulse warns that anyone who reaches it can read and change everything, and API keys can't be managed.
+- Its snapshot folder isn't in a home folder (`/home` or `/root`), where Rowsafe's agent may not read.
+- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt).
+
+## Turn on backups
+
+Run the install command on the server and approve the server in your browser when it prints the link:
+
+```bash
+curl -fsSL https://rowsafe.sh | sudo sh
+```
+
+The installer finds the Meilisearch running there. Nothing restarts:
+
+<Steps>
+<Step>
+**Rowsafe's own API key.** The installer reads Meilisearch's master key from its settings (its command line, environment or configuration file), or asks you for it. The agent uses it once to make its own API key, named `Rowsafe`, and never keeps it. Without a terminal, give it in `ROWSAFE_MEILISEARCH_MASTER_KEY` (used once, never saved). What the key may do is [below](#what-rowsafe-may-do).
+</Step>
+<Step>
+**Read access to Meilisearch's snapshot folder**, for the agent only (an ACL; owners and modes unchanged). The agent runs as its own system user, `rowsafe`.
+</Step>
+<Step>
+**The plan.** You see what Rowsafe will do and say yes. Nothing in Meilisearch's settings changes. Rowsafe checks that a backup reaches your bucket and opens with your key, and takes the first snapshot.
+</Step>
+</Steps>
+
+## What Rowsafe does
+
+| | How |
+|---|---|
+| Backup | Meilisearch's own snapshot (every index, its settings, the task queue and the API keys). The agent asks for one, reads the file Meilisearch writes, encrypts it on your server and uploads it. Searches go on. Every hour by default; every backup is whole. |
+| Keeping backups | Every snapshot of the last 48 hours, then the newest of each day (and those Marks point at), for 7 days by default. |
+| [Marks](/docs/concepts/restore-points) | A snapshot taken on the spot, named after the Mark. A restore to it brings back exactly that moment. |
+| [Proof](/docs/concepts/restore-drills) | Weekly: the newest snapshot is started as a temporary Meilisearch on `127.0.0.1`. Rowsafe checks that every index came back with its primary key, its settings and its number of documents, and that a search answers. Then it is deleted. |
+| [Rewind](/docs/guides/restore) | Restore a copy, compare it with production, bring documents back, or rewind every index in place, with **Undo** for 7 days ([below](#rewind)). |
+| [Pulse](/docs/guides/monitoring) | Indexes, disk, the task queue and indexing, with one-click fixes ([below](#pulse)). |
+| [Security check](/docs/guides/security) | Where Meilisearch listens, whether it uses TLS, whether it asks for a key at all, and API keys that can do everything. |
+| [API keys](#api-keys) | Indexes and API keys in **Databases & users**. |
+| Restart | **Restart** in the dashboard, after you confirm, when root allowed it. |
+
+Everything in your bucket is encrypted before it leaves the server, names included: the bucket shows when each snapshot was taken, never your indexes' names.
+
+## Restores go back to a snapshot
+
+Meilisearch keeps no log of changes that Rowsafe could copy between snapshots. So a restore goes back to one of the hourly snapshots, or to a Mark: when you pick a moment, Rowsafe uses the newest snapshot taken at or before it, and says when that was. Changes after that snapshot aren't in the restore.
+
+Before a risky change (a reindex, a migration, a bulk delete), save a **Mark**: it takes a snapshot on the spot. AI agents connected with [Guard](/docs/guides/ai-agents) can save one too.
+
+## Rewind
+
+All of this is in the dashboard, for owners and admins. See [Restore a database](/docs/guides/restore) for how the buttons work.
+
+- **Restore a copy** from a snapshot or a Mark. It runs as a temporary Meilisearch on the same server, on `127.0.0.1` only, with a master key of its own: production's keys don't open it. It is deleted when it expires; you can keep it up to 7 days.
+- **Compare** an index with production, by primary key: documents missing from production, documents changed since, and documents added since.
+- **Bring documents back** to the indexes you choose. Missing documents are added. Changed ones are set back only if you tick it.
+- **Rewind the whole database** puts every index back as it was, without a restart. Rowsafe copies the snapshot's indexes into production under temporary names (`rowsafe-restore-…`) while the live ones keep answering, then one swap puts them all in place at once. Indexes created after the snapshot are set aside too. The indexes as they were stay under the temporary names for 7 days: **Undo rewind** swaps them back. API keys are left as they are.
+
+## Pulse
+
+Pulse reads Meilisearch's statistics and task queue: the size on disk against what the data uses, each index's documents, tasks waiting, running and failed in the last 24 hours, the oldest waiting task and the last failure's message, the indexing memory limit, and whether Meilisearch sends usage data to its makers. Only index names, sizes and counts reach Rowsafe, never documents or keys.
+
+| Finding | Fix |
+|---|---|
+| An index takes more than twice the disk its data needs | **Compact** it: Meilisearch rewrites its files without the free space inside. Searches go on. It needs a recent Meilisearch. |
+| The task history is very long | **Clear old task history**: deletes the record of tasks that finished more than a week ago. Documents, indexes and waiting tasks are untouched. |
+| Tasks failed in the last 24 hours | The newest failure's message, so you can fix what your app sends. |
+| Indexing is more than 30 minutes behind | What slows it down, and what to change. |
+| Meilisearch sends usage data to its makers | How to turn it off at its next restart. |
+
+## API keys
+
+In **Databases & users**, databases are **indexes** and users are **API keys**:
+
+- **Create or remove an index.** Rowsafe saves a Mark first before removing one.
+- **Add an API key** on the indexes you choose: **read only** (searches), **read and write** (also adds and deletes documents) or **owner** (also changes the index's settings).
+- **New password** makes a new key with the same rights and removes the old one: Meilisearch can't change a key.
+
+A new key is made on your server and shown once, encrypted for the person who asked: Rowsafe never sees it. Apps send it in a header with each request, to `https://HOST:7700` (or `http://` when Meilisearch has no TLS). Rowsafe's own key and keys with every right are listed but never changed.
+
+## What Rowsafe may do
+
+**Rowsafe's API key** may, each only when someone asks or for the backups you turned on:
+
+- read the version, statistics, indexes, settings and tasks: backups, Proof and Pulse;
+- take snapshots: backups and Marks;
+- read and add documents: compare and bring documents back;
+- create, delete, swap and compact indexes, and delete finished tasks: Databases & users, the rewind in place and the fixes;
+- list, make and delete API keys: Databases & users.
+
+Meilisearch has no narrower right for making keys, so a key that can make keys could make one with every right. Rowsafe's key never leaves your server. Removing it stops Rowsafe's backups.
+
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions)): restarting Meilisearch (**Restart**) and the [firewall](/docs/guides/security#the-firewall). Rewinding the whole database needs no root permission: it swaps indexes inside Meilisearch.
+
+## On servers Rowsafe creates
+
+[Rowsafe Cloud](/docs/guides/rowsafe-cloud#databases) and [Create a server for me](/docs/guides/create-a-server) can give a new server Meilisearch:
+
+- **Meilisearch 1.54, Community Edition**, from Meilisearch's GitHub releases. Meilisearch publishes no checksums or signatures, so Rowsafe checks the program against the SHA-256 it pinned for that release.
+- A master key made on the server, readable by root only. Production mode, analytics off, a sandboxed service.
+- Apps connect with **HTTPS on port 7700** through Rowsafe's TLS front. Meilisearch itself listens on `127.0.0.1` only. Renewed certificates load without a restart.
+- The indexing memory limit is half the server's memory (between 256 MiB and 8 GiB).
+
+On the server's page, one click creates your app's index and an API key for it, and shows `MEILISEARCH_URL` and `MEILISEARCH_KEY` once. Put them in your app's environment, never in code. Give your backend a read-write key, and browsers a search-only key (make it in **Databases & users**).
+
+```python
+import os
+import meilisearch
+
+client = meilisearch.Client(os.environ["MEILISEARCH_URL"], os.environ["MEILISEARCH_KEY"])
+client.index("products").search("running shoes")
+```
+
+```bash
+curl -H "Authorization: Bearer $MEILISEARCH_KEY" "$MEILISEARCH_URL/health"
+```
+
+On a server in your own cloud account, the certificate is made on the server and isn't signed by a public authority, so clients that check certificates need to trust it. A standby, Clone and private connections from AWS aren't offered for Meilisearch.
+
+## Restore without Rowsafe
+
+Your backups don't need Rowsafe to be restored. With your bucket settings and passphrase in the environment (the `ROWSAFE_REPO_*` lines of `/etc/rowsafe/agent.env`), the agent lists a database's snapshots and decrypts one:
+
+```bash
+set -a; . /etc/rowsafe/agent.env; set +a
+# --stanza is the database's "Bucket folder" (on its Settings page in the dashboard).
+rowsafe-agent meilisearch download-backup --stanza search
+rowsafe-agent meilisearch download-backup --stanza search --label 20261003-140000F --to ./search.snapshot
+```
+
+The list shows each snapshot's Meilisearch version and its Mark. Start a Meilisearch of that version on an empty data folder with `--import-snapshot ./search.snapshot` and your master key.
+
+## Not available for Meilisearch
+
+Restore to any second, Find the moment, updates and upgrades from Rowsafe, standby servers, connection pooling, Tuning, logs, recommendations, safe copies, migration previews, clones, Move in, a second copy, and backing up folders next to the database ([Files](/docs/guides/files)). The dashboard says so where you would look for them.
+
+## Limits
+
+- **Restores** go back to a snapshot (hourly by default) or a Mark, not to any second.
+- **In Docker**: not supported yet. Meilisearch must be installed on the server itself.
+- **One snapshot on the server**: Meilisearch writes each snapshot into its own folder, unencrypted, and the newest stays there until the next one replaces it.
+- **Temporary instances** (Proof, Rewind copies, the rewind in place) need free disk for about the snapshot and its unpacked indexes; the agent checks first. They use the server's own Meilisearch program: a snapshot from a newer Meilisearch can't be opened, and one from an older Meilisearch is upgraded as it opens.
+- **Proof** checks exact document counts only when nothing changed while the snapshot was written; otherwise it checks the indexes and their settings.
+- **Compare** reads up to 5 million documents per index, and counts changed documents only on indexes up to 200,000 documents. Indexes without a primary key are skipped. One bring-back writes at most 10 million documents.
+- **Rewinding the whole database** needs room on the disk for the restored indexes next to the live ones, and the indexes set aside take disk until Undo's 7 days end. Documents written while it runs end up in the indexes set aside. It isn't available when Meilisearch serves TLS itself with its own certificate: restore a copy and bring documents back instead.
+- **Compacting** an index needs a recent Meilisearch, and about the index's size free on the disk for a moment.
+- **Master key**: an instance without one can be backed up, but its API keys can't be managed. Rowsafe never sets a master key or TLS itself, since both change how apps connect.

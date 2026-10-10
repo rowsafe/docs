@@ -145,11 +145,12 @@ The list shows each snapshot's Meilisearch version and its Mark. Start a Meilise
 
 ## Not available for Meilisearch
 
-Restore to any second, Find the moment, updates and upgrades from Rowsafe, standby servers, connection pooling, Tuning, logs, recommendations, safe copies, migration previews, clones, Move in, a second copy, and backing up folders next to the database ([Files](/docs/guides/files)). The dashboard says so where you would look for them.
+Restore to any second, Find the moment, major upgrades, standby servers, connection pooling, Tuning, logs, recommendations, safe copies, migration previews, clones, Move in, a second copy, and backing up folders next to the database ([Files](/docs/guides/files)). The dashboard says so where you would look for them.
 
 ## Limits
 
 - **Restores** go back to a snapshot (hourly by default) or a Mark, not to any second.
+- **Updates** go to the newest release Rowsafe has tested, after a Mark, and only where Rowsafe's installer set Meilisearch up.
 - **In Docker**: not supported yet. Meilisearch must be installed on the server itself.
 - **One snapshot on the server**: Meilisearch writes each snapshot into its own folder, unencrypted, and the newest stays there until the next one replaces it.
 - **Temporary instances** (Proof, Rewind copies, the rewind in place) need free disk for about the snapshot and its unpacked indexes; the agent checks first. They use the server's own Meilisearch program: a snapshot from a newer Meilisearch can't be opened, and one from an older Meilisearch is upgraded as it opens.

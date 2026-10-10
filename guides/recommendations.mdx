@@ -36,7 +36,7 @@ rowsafe fix app                    # numbered list, asks which one
 rowsafe fix app fk_without_index:app.public.orders.orders_customer_id_fkey
 ```
 
-The same safety rules as every [Apply fix](/docs/guides/monitoring#what-keeps-it-safe) hold: only fixes Rowsafe proposed run, with its own parameters; the agent checks the conditions again right before it acts; one fix runs at a time per database; owners and admins only; everything is in the audit log; AI agents can read recommendations and apply a fix [as the person who connected them](/docs/guides/agent-autonomy), or a person [approves](/docs/guides/approvals) it.
+The same safety rules as every [Apply fix](/docs/guides/monitoring#what-keeps-it-safe) hold: only fixes Rowsafe proposed run, with its own parameters; the agent checks the conditions again right before it acts; one fix runs at a time per database; owners and admins only; everything is in the audit log; AI agents can read recommendations and apply a fix [as the person who connected them](/docs/guides/agent-autonomy), an owner or admin.
 
 | Recommendation | Button | What Rowsafe does |
 |---|---|---|

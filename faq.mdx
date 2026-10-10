@@ -30,7 +30,7 @@ Every change is saved within about a minute, so you can go back to any second of
 
 Set up [Guard](/docs/guides/ai-agents). Before a migration or a risky command, the agent checks that the database can be restored and saves a **Mark**, a named moment you can rewind to. The Claude Code plugin also sets a Mark by itself before destructive commands. Agents can also [preview a migration](/docs/guides/preview-migrations) on a copy, and test against a masked [safe copy](/docs/guides/safe-copies) instead of production.
 
-An agent connected to Rowsafe acts as the person who connected it, with that person's rights in the dashboard, like a personal access token. When you ask it to apply a fix, restart or rewind, an owner's or admin's agent does it right away, with the same checks and a Mark first; it checks with you before anything disruptive, destructive or paid. Some changes always wait for a person, such as a destructive one with no backup yet. If you'd rather approve every change yourself, an owner chooses **Ask me first** in **Settings → AI agents** ([Approvals](/docs/guides/approvals)). If something breaks, you decide what to do. See [How AI agents act](/docs/guides/agent-autonomy).
+An agent connected to Rowsafe acts as the person who connected it, with that person's rights in the dashboard, like a personal access token. When you ask it to apply a fix, restart or rewind, an owner's or admin's agent does it right away, with the same checks and a Mark first; it checks with you before anything disruptive, destructive or paid. Rowsafe refuses some changes and says why, such as a member's, or a destructive one with no backup yet. To keep an agent from changing anything, connect it without **Act for you** or give it a read-only key. If something breaks, you decide what to do. See [How AI agents act](/docs/guides/agent-autonomy).
 
 </Accordion>
 <Accordion title="Can Rowsafe read my data?">
@@ -54,7 +54,7 @@ Proof and copies need free disk: about 1.3 × the database size plus 1 GB.
 
 Never on its own. Settings that need a restart (`archive_mode`, and `wal_level` if it is `minimal`) are written with `ALTER SYSTEM`. The installer asks whether to restart now: usually a few seconds, and open connections are dropped. Say no, and restart when it suits you: Rowsafe notices by itself.
 
-If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. The same permission lets them [rewind the whole database](/docs/guides/restore#rewind-the-whole-database), which stops PostgreSQL while Rowsafe restores it. An AI agent does either only as the owner or admin who connected it ([How AI agents act](/docs/guides/agent-autonomy)), or once an owner or admin approves it ([Approvals](/docs/guides/approvals)).
+If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. The same permission lets them [rewind the whole database](/docs/guides/restore#rewind-the-whole-database), which stops PostgreSQL while Rowsafe restores it. An AI agent does either only as the owner or admin who connected it ([How AI agents act](/docs/guides/agent-autonomy)).
 
 Two things restart or stop PostgreSQL without a click, and only if you turn them on yourself: [automatic minor updates](/docs/guides/updates#minor-updates) (Sundays at 03:00 in your time zone) and [automatic failover](/docs/guides/standby#automatic-failover) to a standby. Both are off by default.
 

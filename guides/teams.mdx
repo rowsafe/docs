@@ -41,7 +41,7 @@ rowsafe api-keys revoke key_...
 
   `rowsafe logout` and cancelling a request always work. A key that doesn't say who made it (*Made before Rowsafe recorded who made keys*) keeps working as before: there's no person to check. Replace it with a key made in the dashboard.
 - **Each key records who made it.** **Settings → API keys** shows it: the person who created it in the dashboard, or who approved the `rowsafe login`. AI agents using the key (a local `rowsafe mcp`, or the remote MCP endpoint) [act as that person](/docs/guides/agent-autonomy), with their role at the moment of each change.
-- **A key made by another key** (with `rowsafe api-keys create`) shows **Made by key ...**: no person made it, so AI agents using it always ask first, and every change they make waits for an owner or admin. For an agent that should act as you, create its key in the dashboard. Its own changes follow the role of the person behind the key that made it.
+- **A key made by another key** (with `rowsafe api-keys create`) shows **Made by key ...**: no person made it, so Rowsafe refuses the changes AI agents make with it. For an agent that should act as you, create its key in the dashboard. Its own changes follow the role of the person behind the key that made it.
 - Keys made before Rowsafe let agents act as their person keep asking first until the person who made the key clicks **Let agents using it act as me** (only they can), or makes a new one.
 - Revoking takes effect on the next request. A key can't revoke itself.
 - `rowsafe logout` revokes the key that `rowsafe login` created. Keys given with `--key` stay valid.

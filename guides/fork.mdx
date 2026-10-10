@@ -87,7 +87,7 @@ No server to put the copy on? On a PostgreSQL database's **Fork** tab, click **C
 
 Rowsafe creates the server, installs the source's PostgreSQL version on it and forks the database onto it: the steps are **Creating the server**, **Installing PostgreSQL**, **Copying your data** and **Ready**. When it's ready, the clone is a database like any fork, and the **Delete after** time starts counting. An hour before, the person who made it gets an email; then Rowsafe deletes the clone's server (never the source). You can change **Delete after** or delete it yourself at any time. If something fails, the server Rowsafe made is deleted again, and the page offers **Try again**.
 
-Owners, admins and read-write API keys can clone, and each clone is in the [audit log](/docs/guides/teams#audit-log). AI agents can clone onto a new Rowsafe Cloud server [as the person who connected them](/docs/guides/agent-autonomy), after telling you the price, since a clone is a new server that costs money (or a person [approves](/docs/guides/approvals) it).
+Owners, admins and read-write API keys can clone, and each clone is in the [audit log](/docs/guides/teams#audit-log). AI agents can clone onto a new Rowsafe Cloud server [as the person who connected them](/docs/guides/agent-autonomy), after telling you the price, since a clone is a new server that costs money.
 
 ## Fork with the CLI
 
@@ -289,7 +289,7 @@ The fork server receives the source's bucket keys and passphrase. It uses them o
 
 `ROWSAFE_STANDBY` in `/etc/rowsafe/agent.env` covers forks too. Because Rowsafe relays the keys, a compromised Rowsafe could present a key of its own as a fork target. With `pinned`, a server only hands its bucket settings to (or accepts them from) the fingerprints in `ROWSAFE_STANDBY_PEERS`, so that is ruled out. With `off`, it never hands them over: fork on the same server instead. See [Agent configuration](/docs/reference/agent-configuration#postgresql-and-the-server).
 
-Only owners and admins can fork, in the dashboard, with the CLI or with an API key that can write. AI assistants (the [MCP server](/docs/reference/mcp)) can ask for a fork, and it starts when an owner or admin [approves](/docs/guides/approvals) it. Even an owner's own agent [can't skip that](/docs/guides/agent-autonomy#when-a-person-still-decides): a person always compares the fork server's key. Every fork is in the [audit log](/docs/guides/teams#audit-log) as `database.fork`, with the server, the moment, whether it was masked and the fingerprint.
+Only owners and admins can fork, in the dashboard, with the CLI or with an API key that can write. AI assistants (the [MCP server](/docs/reference/mcp)) can't start a fork, not even an owner's own agent: a person always compares the fork server's key, so [Rowsafe refuses it](/docs/guides/agent-autonomy#when-rowsafe-refuses) and the agent asks you to fork in the dashboard or with the CLI. Every fork is in the [audit log](/docs/guides/teams#audit-log) as `database.fork`, with the server, the moment, whether it was masked and the fingerprint.
 
 ## Limits
 

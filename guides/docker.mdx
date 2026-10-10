@@ -275,7 +275,7 @@ Whoever can talk to the Docker socket controls the host: they can start a privil
 
 **Limits and log.** At most one restart a minute, and 20 stops and restarts an hour; starting is never limited, so a rollback can always start PostgreSQL again. Every request is logged with the caller's uid, the action, the container and the outcome: `docker compose logs rowsafe-docker-control`.
 
-**Who triggers it.** Only an owner or admin: in the dashboard, with `rowsafe restart` and a read-write API key, or through their AI agent on MCP ([acting as them](/docs/guides/agent-autonomy); a member's agent waits for an owner or admin to [approve](/docs/guides/approvals)). Every request is in the audit log.
+**Who triggers it.** Only an owner or admin: in the dashboard, with `rowsafe restart` and a read-write API key, or through their AI agent on MCP ([acting as them](/docs/guides/agent-autonomy); a member's agent is refused). Every request is in the audit log.
 
 **If the agent container is compromised,** the attacker can stop, start or restart your PostgreSQL container (a few rate-limited outages), which is less than what the agent's access to the database already allows. They can't reach any other container or the host.
 

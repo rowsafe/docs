@@ -13,7 +13,7 @@ It's the same server as [Create a server for me](/docs/guides/create-a-server), 
 
 ## From your coding agent
 
-Building an app with Claude Code, Codex or another AI agent? It can create a Rowsafe Cloud server when the app needs a database. It picks the region and the cheapest size that fits, tells you the price and gets your OK, then creates it as you (an owner's or admin's agent, right away; the first time, an owner adds a card at a checkout link). Once the server is ready, it creates the app's own database and login and puts the connection string in the app's `.env`. Rowsafe never sees the password. See [Need a database?](/docs/guides/ai-agents#need-a-database) and [How AI agents act](/docs/guides/agent-autonomy): an owner can set a monthly budget for agents, or make every change wait for approval.
+Building an app with Claude Code, Codex or another AI agent? It can create a Rowsafe Cloud server when the app needs a database. It picks the region and the cheapest size that fits, tells you the price and gets your OK, then creates it as you (an owner's or admin's agent, right away; the first time, an owner adds a card at a checkout link). Once the server is ready, it creates the app's own database and login and puts the connection string in the app's `.env`. Rowsafe never sees the password. See [Need a database?](/docs/guides/ai-agents#need-a-database) and [How AI agents act](/docs/guides/agent-autonomy): an owner can set a monthly budget for agents.
 
 Prefer the terminal? `rowsafe cloud create shop-db`, then `rowsafe env --on shop-db`: see [From the terminal](#from-the-terminal).
 
@@ -365,7 +365,7 @@ How billing changes:
 - **A month never costs more than the monthly price of the biggest size the server had that month.** Moving up from Small to Large mid-month: at most Large's monthly price. Moving down from Large to Small: that month still costs at most Large's price, and from the next month at most Small's.
 - Settings → Billing shows the hours so far and the most this month can cost.
 
-Owners and admins can change the size, in the dashboard or with `rowsafe cloud resize`; every change is in the audit log. AI agents change it [as the person who connected them](/docs/guides/agent-autonomy) (right away for an owner's or admin's agent, within the agents' budget if an owner set one), or an owner or admin [approves](/docs/guides/approvals) it. Servers paid by the month (not offered today) keep their size.
+Owners and admins can change the size, in the dashboard or with `rowsafe cloud resize`; every change is in the audit log. AI agents change it [as the person who connected them](/docs/guides/agent-autonomy) (an owner's or admin's agent, within the agents' budget if an owner set one). Servers paid by the month (not offered today) keep their size.
 
 ### A server with a standby
 
@@ -518,7 +518,7 @@ This happens **even if the window is turned off or postponed**: it is the one ca
 
 On the server's page, in **Updates and maintenance**, an owner or admin clicks **Change window** to pick another day, hour or time zone, or to turn the window off. With the window off, nothing is applied for you except critical fixes (above); updates that need a restart then wait until someone clicks **Apply now**, **Update** or **Reboot**. Every change is in the activity log.
 
-AI assistants (MCP) can see the window, the next date and what's waiting, but can't change the window, postpone it or apply anything. They can list servers and save Marks. They create, resize, restart or delete servers [as the person who connected them](/docs/guides/agent-autonomy), or ask an owner or admin to approve it.
+AI assistants (MCP) can see the window, the next date and what's waiting, but can't change the window, postpone it or apply anything. They can list servers and save Marks. They create, resize, restart or delete servers [as the person who connected them](/docs/guides/agent-autonomy), when that person is an owner or admin.
 
 ### Your own servers are not affected
 

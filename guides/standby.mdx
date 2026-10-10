@@ -253,7 +253,7 @@ A ClickHouse standby follows its primary **through your bucket**, like a Postgre
 
 All of it is in the CLI: `rowsafe standby`, `add`, `promote`, `rebuild`, `unfence`, `failover` and `remove`. See [CLI reference](/docs/reference/cli#standby).
 
-AI assistants can read a standby's status (the `standby_status` MCP tool). They can promote or remove one, and change the failover settings, [as the person who connected them](/docs/guides/agent-autonomy): right away for an owner's or admin's agent, otherwise once an owner or admin [approves](/docs/guides/approvals). Creating or rebuilding a standby always waits for a person, who compares the server's key.
+AI assistants can read a standby's status (the `standby_status` MCP tool). They can promote or remove one, and change the failover settings, [as the person who connected them](/docs/guides/agent-autonomy): when that person is an owner or admin; otherwise Rowsafe refuses. Creating or rebuilding a standby needs a person, who compares the server's key: Rowsafe refuses it for agents, so do it in the dashboard or with the CLI.
 
 ## Redis and Valkey
 

@@ -293,7 +293,7 @@ rowsafe set app --retention-full 4 --proof-schedule "0 4 * * 3"
 | `rowsafe upgrade undo [NAME]` | Go back to the version the upgrade kept (for 7 days). |
 | `rowsafe upgrade cleanup [NAME]` | Remove the kept version and free its disk; the upgrade can't be undone afterwards. |
 
-They work only on servers where the installer allowed updates, and through MCP only as an owner or admin ([an agent acting as one](/docs/guides/agent-autonomy), or a request one [approves](/docs/guides/approvals)). Security updates and reboots are fixes: `rowsafe fix NAME`. See [Update and upgrade PostgreSQL](/docs/guides/updates).
+They work only on servers where the installer allowed updates, and through MCP only for [an agent acting as an owner or admin](/docs/guides/agent-autonomy). Security updates and reboots are fixes: `rowsafe fix NAME`. See [Update and upgrade PostgreSQL](/docs/guides/updates).
 
 ## Pulse: monitoring and alerts
 
@@ -337,7 +337,7 @@ They work only on servers where the installer allowed updates, and through MCP o
 | `--listen local\|private\|public` | `local` | This server only; also its private network; or every address (only where root allowed it: `--allow-pooler-public`). |
 | `--port N` | `6432` | PgBouncer's port. |
 
-Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. Read-only API keys can't change it; AI agents (MCP) change it [as their person](/docs/guides/agent-autonomy), or a person [approves](/docs/guides/approvals).
+Pooling only works on a server where the installer allowed it (`--allow-pooler`), and not in Docker. Read-only API keys can't change it; AI agents (MCP) change it [as their person](/docs/guides/agent-autonomy), if that person is an owner or admin.
 
 ## Settings and tuning
 

@@ -1,6 +1,6 @@
 ---
 title: Protect OpenSearch
-description: Snapshots every 30 minutes to your own bucket, encrypted on your server, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, and users and roles for OpenSearch 2 and 3 on your own server.
+description: Snapshots every 5 minutes to your own bucket, encrypted on your server, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, and users and roles for OpenSearch 2 and 3 on your own server.
 ---
 
 Rowsafe protects OpenSearch with OpenSearch's own snapshots: they go to **your** bucket, encrypted on your server with a passphrase only you hold. **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted documents back or puts the whole server back; **Pulse** watches the server and fixes what it can. OpenSearch has fewer features than other databases in Rowsafe: see [Not yet](#not-yet) and [Limits](#limits).
@@ -9,10 +9,10 @@ Rowsafe protects OpenSearch with OpenSearch's own snapshots: they go to **your**
 
 OpenSearch keeps no log of its changes, so Rowsafe can't restore it to **any second**. It restores to a snapshot instead:
 
-- one is taken **every 30 minutes**, so you lose at most half an hour of changes;
+- one is taken **every 5 minutes**, copying only what's new, so you lose at most 5 minutes of changes (owners can pick 15 or 30 minutes or every hour in **Settings**);
 - a **Mark** takes one on the spot. Make one before a migration, a reindex or a bulk delete, and you can go back to exactly that moment.
 
-Everywhere the dashboard offers a restore, you pick a snapshot or a Mark, not a time.
+Everywhere the dashboard offers a restore, you pick a snapshot or a Mark, not a time. If that snapshot was removed meanwhile (see [what's kept](#what-rowsafe-does)), a copy uses the nearest kept one before it, and a rewind in place stops and names it.
 
 ## Before you start
 
@@ -55,9 +55,9 @@ If OpenSearch still has its demo setup (demo users with published passwords, dem
 
 | | How |
 |---|---|
-| Backups | OpenSearch's own snapshot of every index and data stream, every 30 minutes, and a full one every day at 01:00 UTC. A snapshot only copies files that are new, so most are small. |
+| Backups | OpenSearch's own snapshot of every index and data stream, every 5 minutes, and a full one every day at 01:00 UTC. A snapshot only copies files that are new, so most are small. When snapshots get slow, Rowsafe spaces them out so they never take more than about a quarter of the server's time. |
 | Encryption | The agent copies every new snapshot file to your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), encrypted on your server. OpenSearch never sees the bucket or its keys. |
-| Keeping | A week of daily snapshots, and every snapshot and Mark newer than the oldest of them. OpenSearch deletes the files no kept snapshot needs, and the bucket follows. |
+| Keeping | Every snapshot for a day, one an hour for a week, and the daily full ones (7 by default) with every Mark since the oldest of them. OpenSearch deletes the files no kept snapshot needs, and the bucket follows. |
 | [Marks](/docs/concepts/restore-points) | A snapshot taken on the spot, named after the Mark. |
 | [Proof](/docs/concepts/restore-drills) | Weekly: restore the newest snapshot **from your bucket** into a temporary OpenSearch on the same server (on `127.0.0.1` only, with a small memory limit and its own random login), check that every index came back green with all its documents, then delete it. |
 | [Rewind](/docs/guides/restore) | Restore a copy, compare it, bring documents back, or rewind the whole server in place, with **Undo** for 7 days ([below](#rewind)). |
@@ -146,7 +146,7 @@ These Rowsafe features aren't available for OpenSearch yet:
 
 ## Limits
 
-- **Restores go back to a snapshot**, every 30 minutes or a Mark, never to a second in between. See [above](#restores-go-back-to-a-snapshot).
+- **Restores go back to a snapshot** (every 5 minutes by default) or a Mark, never to a second in between. See [above](#restores-go-back-to-a-snapshot).
 - **One node only.** Clusters of several nodes, and Elasticsearch, aren't supported.
 - **Not in Docker yet.** There is no OpenSearch agent image: install the agent on the server.
 - **Disk:** snapshots are kept on the server's own disk too (`/var/lib/rowsafe-opensearch/snapshots`), so it needs room for them.

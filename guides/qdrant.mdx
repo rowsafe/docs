@@ -1,6 +1,6 @@
 ---
 title: Protect Qdrant
-description: Hourly snapshots to your own bucket, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, API keys and updates for Qdrant 1.13 and newer on your own server or in Docker.
+description: Snapshots every 15 minutes to your own bucket, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, API keys and updates for Qdrant 1.13 and newer on your own server or in Docker.
 ---
 
 Rowsafe protects Qdrant, the open-source vector database (Apache-2.0): snapshots go to **your** bucket, encrypted on your server with a passphrase only you hold; **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** puts the whole server back, with **Undo** for 7 days; **Pulse** watches the server and fixes what it can.
@@ -41,8 +41,8 @@ On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`
 
 | | How |
 |---|---|
-| Backup | Qdrant's own full snapshot of every collection and alias, downloaded over its API, encrypted on your server, stored in your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), then deleted from the server's disk. Every backup is full. Every hour by default. |
-| Kept | The newest 24 snapshots (**Snapshots to keep** in the database's settings), plus one a day for 7 days. |
+| Backup | Qdrant's own snapshot of each collection that changed since the last backup, one at a time, downloaded over its API, encrypted on your server, stored in your bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), then deleted from the server's disk. Collections that didn't change cost nothing. Every 15 minutes by default (Qdrant 1.17 and newer; older ones take every collection, every hour). |
+| Kept | The newest 24 backups (**Snapshots to keep** in the database's settings), plus one an hour for a day and one a day for 7 days. |
 | [Marks](/docs/concepts/restore-points) | A snapshot taken on the spot, named after the Mark. Restoring to a Mark brings back exactly that moment. |
 | [Proof](/docs/concepts/restore-drills) | Weekly: restore the newest backup into a temporary Qdrant (on `127.0.0.1` only, with a key only the agent knows), check that every collection is there and healthy (green), with the points the backup recorded, that a search answers in each and that the aliases came back. Then delete it. |
 | [Rewind](/docs/guides/restore) | Restore a copy of a snapshot or a Mark into the same kind of temporary Qdrant, and see its collections and points. The copy is for Rowsafe only: apps can't connect to it. |
@@ -57,10 +57,10 @@ Only collection and field names reach Rowsafe, never points, vectors or payloads
 
 ## Restores go back to a snapshot
 
-Qdrant keeps no log of its changes that Rowsafe could replay. So every restore (a Rewind copy, the whole database, Proof) goes back to a snapshot: the newest one taken at or before the moment you pick, or a Mark. With hourly snapshots, a restore can lose up to an hour of writes.
+Qdrant keeps no log of its changes that Rowsafe could replay. So every restore (a Rewind copy, the whole database, Proof) goes back to a snapshot: the newest one taken at or before the moment you pick, or a Mark. With a snapshot every 15 minutes, a restore can lose up to 15 minutes of writes. If the snapshot for your moment was removed meanwhile, a copy uses the nearest kept one before it, and a rewind in place stops and names it.
 
 - **Before a risky change** (a migration, a re-index, a script that deletes points), take a **Mark**: it is a snapshot of that exact moment.
-- **To lose less**, take snapshots more often in the database's settings. Each one is a full snapshot.
+- **To lose less**, pick every 5 minutes in the database's **Settings** (or 30 minutes or every hour to take fewer).
 - Pulse tells you when the newest snapshot is too old, with **Take a snapshot now**.
 
 ## Rewind the whole database
@@ -214,8 +214,8 @@ The file is Qdrant's own full snapshot. Start an empty Qdrant of the same or a n
 
 ## Limits
 
-- **No restore to any second**: restores go back to a snapshot (hourly by default) or a Mark. See [above](#restores-go-back-to-a-snapshot).
-- **Every backup is a full snapshot.** Qdrant writes it to its own disk first; Rowsafe deletes it after the upload. Leave room for one.
+- **No restore to any second**: restores go back to a snapshot (every 15 minutes by default) or a Mark. See [above](#restores-go-back-to-a-snapshot).
+- **Each collection's snapshot is whole.** Qdrant writes it to its own disk first; Rowsafe deletes it after the upload. Leave room for your largest collection (for every collection on Qdrant before 1.17).
 - **Marks** stay while they are newer than the oldest snapshot kept, then go with it.
 - **Single servers only**: distributed (cluster) mode isn't supported.
 - **No single points back**: a Rewind copy is for looking at; to go back, rewind the whole database.

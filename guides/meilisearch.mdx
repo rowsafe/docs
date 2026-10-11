@@ -1,9 +1,9 @@
 ---
 title: Protect Meilisearch
-description: Hourly snapshots to your own bucket, Marks, weekly Proof, Rewind (a copy, compare, bring documents back, rewind in place with Undo), Pulse with one-click fixes, a security check and API keys for Meilisearch Community Edition 1.12 and newer on your own server.
+description: Snapshots every 15 minutes to your own bucket, Marks, weekly Proof, Rewind (a copy, compare, bring documents back, rewind in place with Undo), Pulse with one-click fixes, a security check and API keys for Meilisearch Community Edition 1.12 and newer on your own server.
 ---
 
-Rowsafe protects Meilisearch the way it protects your other databases: backups go to **your** bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), encrypted on your server with a passphrase only you hold; **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings documents back or puts every index back; **Pulse** watches the server and fixes what it can. Restores go back to an hourly snapshot or a Mark, not to any second: see [below](#restores-go-back-to-a-snapshot) and [Limits](#limits).
+Rowsafe protects Meilisearch the way it protects your other databases: backups go to **your** bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), encrypted on your server with a passphrase only you hold; **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings documents back or puts every index back; **Pulse** watches the server and fixes what it can. Restores go back to a snapshot (every 15 minutes) or a Mark, not to any second: see [below](#restores-go-back-to-a-snapshot) and [Limits](#limits).
 
 <Callout>
 Rowsafe works with Meilisearch's **Community Edition** (MIT license) only. It never installs or turns on Enterprise Edition features (sharding, a network of instances, snapshots to S3).
@@ -42,8 +42,8 @@ The installer finds the Meilisearch running there. Nothing restarts:
 
 | | How |
 |---|---|
-| Backup | Meilisearch's own snapshot (every index, its settings, the task queue and the API keys). The agent asks for one, reads the file Meilisearch writes, encrypts it on your server and uploads it. Searches go on. Every hour by default; every backup is whole. |
-| Keeping backups | Every snapshot of the last 48 hours, then the newest of each day (and those Marks point at), for 7 days by default. |
+| Backup | Meilisearch's own snapshot (every index, its settings, the task queue and the API keys). The agent asks for one, reads the file Meilisearch writes, encrypts it on your server and uploads it. Searches go on. Every 15 minutes by default; each snapshot is whole, so when nothing changed since the last one, Rowsafe keeps that one instead of copying it again. |
+| Keeping backups | Every snapshot for 6 hours, one an hour for 48 hours, then the newest of each day (and those Marks point at), for 7 days by default. |
 | [Marks](/docs/concepts/restore-points) | A snapshot taken on the spot, named after the Mark. A restore to it brings back exactly that moment. |
 | [Proof](/docs/concepts/restore-drills) | Weekly: the newest snapshot is started as a temporary Meilisearch on `127.0.0.1`. Rowsafe checks that every index came back with its primary key, its settings and its number of documents, and that a search answers. Then it is deleted. |
 | [Rewind](/docs/guides/restore) | Restore a copy, compare it with production, bring documents back, or rewind every index in place, with **Undo** for 7 days ([below](#rewind)). |
@@ -56,7 +56,7 @@ Everything in your bucket is encrypted before it leaves the server, names includ
 
 ## Restores go back to a snapshot
 
-Meilisearch keeps no log of changes that Rowsafe could copy between snapshots. So a restore goes back to one of the hourly snapshots, or to a Mark: when you pick a moment, Rowsafe uses the newest snapshot taken at or before it, and says when that was. Changes after that snapshot aren't in the restore.
+Meilisearch keeps no log of changes that Rowsafe could copy between snapshots. So a restore goes back to one of the snapshots (every 15 minutes by default; 5 or 30 minutes or every hour in **Settings**), or to a Mark: when you pick a moment, Rowsafe uses the newest snapshot taken at or before it, and says when that was. Changes after that snapshot aren't in the restore. If the snapshot you picked was removed meanwhile, a rewind in place stops and names the nearest kept one.
 
 Before a risky change (a reindex, a migration, a bulk delete), save a **Mark**: it takes a snapshot on the spot. AI agents connected with [Guard](/docs/guides/ai-agents) can save one too.
 
@@ -149,7 +149,7 @@ Restore to any second, Find the moment, major upgrades, standby servers, connect
 
 ## Limits
 
-- **Restores** go back to a snapshot (hourly by default) or a Mark, not to any second.
+- **Restores** go back to a snapshot (every 15 minutes by default) or a Mark, not to any second.
 - **Updates** go to the newest release Rowsafe has tested, after a Mark, and only where Rowsafe's installer set Meilisearch up.
 - **In Docker**: not supported yet. Meilisearch must be installed on the server itself.
 - **One snapshot on the server**: Meilisearch writes each snapshot into its own folder, unencrypted, and the newest stays there until the next one replaces it.

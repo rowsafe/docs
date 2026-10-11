@@ -126,7 +126,7 @@ rowsafe cloud sizes
 rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
 rowsafe cloud create shop-mysql --engine mysql   # MySQL 8.4 (Intel and AMD sizes only)
 rowsafe cloud create events --engine clickhouse  # ClickHouse 26.8 (sizes with 4 GB of memory or more)
-rowsafe cloud create vectors --engine qdrant      # Qdrant 1.19 (sizes with 2 GB of memory or more; snapshots every hour)
+rowsafe cloud create vectors --engine qdrant      # Qdrant 1.19 (sizes with 2 GB of memory or more; snapshots every 15 minutes)
 rowsafe cloud create search-db --extensions vector,postgis   # pgvector and PostGIS on from the start
 rowsafe env --on shop-db                     # DATABASE_URL in .env
 rowsafe connect shop-db                      # psql, as a temporary user

@@ -34,7 +34,7 @@ Pick the database when you create the server. The price is the same for each.
 
 Every server gets backups to Rowsafe Storage, Marks, a weekly restore test (Proof) and Pulse. Logins from the network always use TLS (TLS 1.2 or newer on MySQL and MariaDB) and a password or an API key.
 
-**Restores:** PostgreSQL, MySQL, MariaDB, Valkey and ClickHouse save every change, so you can restore to any second. OpenSearch, Qdrant and Meilisearch keep no log of their changes: they are backed up as snapshots (OpenSearch every 30 minutes, Qdrant and Meilisearch every hour) and at every Mark, and a restore goes back to one of them, not to any second.
+**Restores:** PostgreSQL, MySQL, MariaDB, Valkey and ClickHouse save every change, so you can restore to any second. OpenSearch, Qdrant and Meilisearch keep no log of their changes: they are backed up as snapshots (OpenSearch every 5 minutes, Qdrant and Meilisearch every 15 minutes) and at every Mark, and a restore goes back to one of them, not to any second.
 
 - **MySQL needs an Intel or AMD processor.** Oracle builds MySQL's packages for those only, so sizes with Arm processors aren't offered for MySQL: in Rowsafe Cloud, that's every AWS size.
 - **Valkey** is installed from Debian's own packages (Debian 12 or 13).

@@ -42,7 +42,8 @@ Every server gets backups to Rowsafe Storage, Marks, a weekly restore test (Proo
 - **Qdrant needs 2 GB of memory.** It's Qdrant's own release, pinned to an exact version and checked before it runs. Apps send an API key you make in [Databases & users](/docs/guides/qdrant#api-keys); admin keys always expire. gRPC picks up a renewed certificate at Qdrant's next restart, which Pulse offers. See [Protect Qdrant](/docs/guides/qdrant#on-servers-rowsafe-creates).
 - **Meilisearch is its Community Edition (MIT)**, from Meilisearch's own releases, checked against a checksum Rowsafe pins. Rowsafe never turns on Enterprise features. Apps send an API key you make in [Databases & users](/docs/guides/meilisearch#api-keys). See [Protect Meilisearch](/docs/guides/meilisearch#on-servers-rowsafe-creates).
 - **ClickHouse needs 4 GB of memory.** Sizes with less aren't offered for it. It's installed from ClickHouse's own packages, on Intel, AMD and Arm processors. Users made in [Databases & users](/docs/guides/databases-and-users) get limits so one query can't take the whole server: at most 40% of its memory and as many threads as it has processors.
-- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On the other databases, make the app's login or API key in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
+- **PostgreSQL, MySQL and MariaDB only, for now:** a [standby](#with-a-standby) and [Clone to a new server](#copies-for-a-test-or-an-ai-agent).
+- **PostgreSQL only, for now:** [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On the other databases, make the app's login or API key in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
 - **Take it with you** isn't available for OpenSearch, Qdrant or Meilisearch yet. Their snapshots open without Rowsafe, on any server: see each guide's "Restore without Rowsafe".
 - **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
 
@@ -198,7 +199,7 @@ Regions: London, Beauharnois (while OVHcloud has servers free there).
 
 ### Copies for a test or an AI agent
 
-[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a database (as it is now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click. It's billed by the hour like any Rowsafe Cloud server, and you can have Rowsafe delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud Flex size cost about $0.09.
+[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a PostgreSQL, MySQL or MariaDB database (as it is now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click. It's billed by the hour like any Rowsafe Cloud server, and you can have Rowsafe delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud Flex size cost about $0.09.
 
 ## Bandwidth
 
@@ -373,7 +374,7 @@ Owners and admins can change the size, in the dashboard or with `rowsafe cloud r
 On a server [with a standby](#with-a-standby), **Change size** (on either server's page) changes **both servers**, one at a time, so the database isn't offline for minutes:
 
 1. Rowsafe saves a Mark, then changes the **standby's** server. The primary keeps serving; reads on the standby pause meanwhile.
-2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves, and the [server's name](#connect-your-app) follows within about a minute; reads on the standby continue.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops taking writes cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves, and the [server's name](#connect-your-app) follows within about a minute; reads on the standby continue.
 3. The old primary becomes the standby again on its own data (no copy), then gets the new size, while the database keeps running.
 
 The two servers **swap roles**: the server that was the standby holds the database afterwards. That's fine, and Rowsafe doesn't switch back (it would only pause writes again). Both servers' pages show each step. The prices shown are for both servers (twice one server's), and each server is billed at its own size by the hour, so for a while one has the new size and the other the old.
@@ -386,12 +387,12 @@ Servers [in your own cloud account](/docs/guides/create-a-server) with a standby
 
 A standby is a **second server of the same size** that keeps a live, read-only copy of the database, a moment behind the primary. If the primary goes down, the standby takes over, and your apps reconnect to it on their own.
 
-Standbys are for PostgreSQL servers.
+Standbys are for PostgreSQL, MySQL and MariaDB servers.
 
 - **When you create a server**, turn on **With a standby**. **Fail over automatically** is ticked; untick it if you'd rather switch yourself.
 - **On a server you already have**, open its page and click **Add a standby**. The price is shown before you confirm. Nothing on the primary restarts.
 
-Rowsafe creates the second server right after the first one is ready, copies the database there from the latest backup, and keeps it in sync by streaming every change over an encrypted connection. The server's page shows the steps: **Creating the standby server**, **Installing PostgreSQL**, **Copying the database**, **Standby ready**. For a big database, copying takes longer.
+Rowsafe creates the second server right after the first one is ready, copies the database there from the latest backup, and keeps it in sync by streaming every change over an encrypted connection. The server's page shows the steps: **Creating the standby server**, **Installing** the database, **Copying the database**, **Standby ready**. MySQL and MariaDB standbys follow the primary by GTID over an encrypted connection, and stay read-only. For a big database, copying takes longer.
 
 ### Where the standby runs
 
@@ -419,12 +420,12 @@ Automatic failover only acts when **every** condition holds, and the server's pa
 
 - the primary has been **unreachable for about 3 minutes**, both for Rowsafe and for the standby;
 - the standby is running and was in sync, **at most about a minute behind** when the primary was last heard from;
-- nothing on purpose is going on: no restart, update or other change that stops PostgreSQL. Rowsafe also holds failover while it powers off or deletes one of the two servers itself.
+- nothing on purpose is going on: no restart, update or other change that stops the database. Rowsafe also holds failover while it powers off or deletes one of the two servers itself.
 
-Then Rowsafe stops the old primary for good (as soon as it can reach it again) and promotes the standby, and says so in an alert and in the activity log.
+Then Rowsafe fences the old primary for good as soon as it can reach it again (PostgreSQL is stopped; MySQL and MariaDB are made read-only) and promotes the standby, and says so in an alert and in the activity log.
 
 - **Up to about a minute of the newest changes can be lost.** The standby copies changes as they happen, not in lockstep with every commit (asynchronous streaming), so the last changes before the primary died may not have reached it. Usually it's under a second behind; Rowsafe doesn't fail over when it was further behind than a minute.
-- **One case to know: a network cut.** If the primary is cut off from Rowsafe and from the standby but your apps can still reach it, both servers could accept writes until the old primary is back on the network, and then Rowsafe stops it. The writes made to the old primary in between aren't on the new one. Keeping your apps on the same network path as the standby, or connecting through a [Rowsafe pooler](/docs/guides/connection-pooling), avoids it. See [Standby](/docs/guides/standby) for the details.
+- **One case to know: a network cut.** If the primary is cut off from Rowsafe and from the standby but your apps can still reach it, both servers could accept writes until the old primary is back on the network, and then Rowsafe fences it. The writes made to the old primary in between aren't on the new one. Keeping your apps on the same network path as the standby, or connecting through a [Rowsafe pooler](/docs/guides/connection-pooling), avoids it. See [Standby](/docs/guides/standby) for the details.
 
 Turn automatic failover off or on any time on the database's **Standby** page. Without it, you switch with one click (**Promote**) when the primary is down.
 
@@ -436,13 +437,15 @@ The server's page shows **connection strings that follow the primary**: both ser
 postgresql://USER@PRIMARY_ADDRESS:5432,STANDBY_ADDRESS:5432/DBNAME?target_session_attrs=read-write
 ```
 
-Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) can use the [server's name](#connect-your-app), which follows the primary within about a minute. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
+Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) can use the [server's name](#connect-your-app), which follows the primary within about a minute.
+
+MySQL and MariaDB drivers don't pick the primary among several addresses: apps use the [server's name](#connect-your-app), which follows the primary within about a minute of a switch. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
 
 ### After a failover
 
-The standby is the primary now, and the old primary is stopped. On the old primary's page, click **Make it the standby again**: Rowsafe reuses its data where it can (else restores the latest backup there) and keeps it in sync, so you have a standby again. Or click **Remove the standby** to delete that server.
+The standby is the primary now, and the old primary is fenced (stopped; MySQL and MariaDB: read-only). On the old primary's page, click **Make it the standby again**: Rowsafe reuses its data where it can (else restores the latest backup there) and keeps it in sync, so you have a standby again. Or click **Remove the standby** to delete that server.
 
-After a **planned** switchover (the maintenance window, or a size change, below), Rowsafe does this by itself: the old primary stopped cleanly, so it becomes the standby on its own data, in seconds, without copying the database.
+After a **planned** switchover (the maintenance window, or a size change, below), Rowsafe does this by itself: the old primary stopped taking writes cleanly, so it becomes the standby on its own data, in seconds, without copying the database.
 
 ### Updates and size changes with a standby
 
@@ -496,8 +499,8 @@ Rowsafe saves a [Mark](/docs/concepts/restore-points) first, then does each step
 
 A server [with a standby](#with-a-standby) is maintained **one server at a time**, in the same window (the standby server has the primary's window):
 
-1. Rowsafe saves a Mark, then applies what needs a restart to the **standby's** server (its own PostgreSQL update, restart or reboot). The primary keeps serving.
-2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops cleanly and the standby takes over. Nothing is lost; reads on the standby continue, apps using the connection strings that follow the primary reconnect by themselves, and the [server's name](#connect-your-app) follows within about a minute.
+1. Rowsafe saves a Mark, then applies what needs a restart to the **standby's** server (its own database update, restart or reboot). The primary keeps serving.
+2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops taking writes cleanly and the standby takes over. Nothing is lost; reads on the standby continue, apps using the connection strings that follow the primary reconnect by themselves, and the [server's name](#connect-your-app) follows within about a minute.
 3. The old primary becomes the standby again on its own data (no copy), and gets the same updates.
 
 The email the day before says "a few seconds while Rowsafe switches to the standby" instead of a restart's or a reboot's downtime. The servers **swap roles** and stay that way; Rowsafe doesn't switch back. Automatic failover waits throughout, so planned maintenance never triggers a failover.
@@ -593,7 +596,7 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 
 ## Limits
 
-- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse and OpenSearch need 4 GB of memory, Qdrant 2 GB. See [Databases](#databases).
+- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** A standby and Clone to a new server are for PostgreSQL, MySQL and MariaDB, private connections for PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse and OpenSearch need 4 GB of memory, Qdrant 2 GB. See [Databases](#databases).
 - **OpenSearch, Qdrant and Meilisearch restore to a snapshot**, not to any second, and Take it with you isn't available for them yet.
 - **pgvector, PostGIS and TimescaleDB** on PostgreSQL 15 to 18; TimescaleDB is the Apache-2.0 edition (no compression or continuous aggregates), and a PostgreSQL 15 to 16 upgrade with it isn't possible through Rowsafe yet. See [Extensions](#extensions).
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).

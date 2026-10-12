@@ -43,7 +43,7 @@ Every server gets backups to Rowsafe Storage, Marks, a weekly restore test (Proo
 - **Meilisearch is its Community Edition (MIT)**, from Meilisearch's own releases, checked against a checksum Rowsafe pins. Rowsafe never turns on Enterprise features. Apps send an API key you make in [Databases & users](/docs/guides/meilisearch#api-keys). See [Protect Meilisearch](/docs/guides/meilisearch#on-servers-rowsafe-creates).
 - **ClickHouse needs 4 GB of memory.** Sizes with less aren't offered for it. It's installed from ClickHouse's own packages, on Intel, AMD and Arm processors. Users made in [Databases & users](/docs/guides/databases-and-users) get limits so one query can't take the whole server: at most 40% of its memory and as many threads as it has processors.
 - **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On the other databases, make the app's login or API key in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
-- **Take it with you** isn't available for OpenSearch, Qdrant or Meilisearch yet. Their snapshots open without Rowsafe, on any server: see each guide's "Restore without Rowsafe".
+- **OpenSearch, Qdrant and Meilisearch move by snapshots** when you [take them with you](#opensearch-qdrant-and-meilisearch-by-snapshots): writes pause while the last snapshot is restored on your server, and there's no switching back. Their snapshots also open without Rowsafe, on any server: see each guide's "Restore without Rowsafe".
 - **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
 
 ## Extensions
@@ -537,7 +537,24 @@ Move your database to your own server whenever you like, with about a minute of 
 
 It's the plain open-source database, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
 
-Not yet for OpenSearch, Qdrant or Meilisearch: their snapshots open without Rowsafe, on any server ([OpenSearch](/docs/guides/opensearch#restore-without-rowsafe), [Qdrant](/docs/guides/qdrant#restore-without-rowsafe), [Meilisearch](/docs/guides/meilisearch#restore-without-rowsafe)).
+### OpenSearch, Qdrant and Meilisearch, by snapshots
+
+These keep no log of their changes, so they move by snapshots:
+
+1. On your server, install the same database, the same version or newer, and leave it empty. Then install Rowsafe there and answer yes to **receiving a database** (or add `--move-target` to the install command). It must run on the server itself, not in Docker.
+2. On the Rowsafe Cloud server's page, click **Take it with you** and pick your server. Rowsafe restores the latest snapshot there, then each new one, while the database keeps running. Your backup passphrase goes from one server to the other encrypted; Rowsafe never sees it.
+3. Click **Switch now**. Apps can't write to the Rowsafe Cloud server from then on (searches still work), one last snapshot is taken and restored on your server, and your server takes the writes. Nothing is lost. The bigger the data, the longer the last restore takes.
+4. Make your app's users (OpenSearch) or API keys (Qdrant, Meilisearch) on your server in [Databases & users](/docs/guides/databases-and-users): they belong to each server and don't move. Point your app at your server and check it works, then click **Finish**: the Rowsafe Cloud server is deleted and its billing stops.
+
+There's no switching back: until you finish, the Rowsafe Cloud server keeps the data as it was at the switchover, with writes blocked. Backups go on from your server, into the same folder.
+
+What each one needs, and what stays behind:
+
+- **OpenSearch**: one node, the same version or newer, with room for every kept snapshot plus the data. Indices, data streams, aliases, ingest pipelines and templates move. Users and roles, ISM policies, stored scripts, cluster settings and OpenSearch Dashboards objects don't. Setting it up to receive restarts OpenSearch once if it needs a snapshot folder.
+- **Qdrant**: the same version or newer, one node, with API keys turned on. Collections and aliases move; API keys don't.
+- **Meilisearch**: 1.18 or newer and at least the version on Rowsafe Cloud, with a master key. Indexes (documents and settings) move; API keys, experimental features, webhooks and chat settings don't.
+
+Their snapshots also open without Rowsafe, on any server ([OpenSearch](/docs/guides/opensearch#restore-without-rowsafe), [Qdrant](/docs/guides/qdrant#restore-without-rowsafe), [Meilisearch](/docs/guides/meilisearch#restore-without-rowsafe)).
 
 ## Private connection from your AWS network
 
@@ -594,7 +611,7 @@ Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, w
 ## Limits
 
 - **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse and OpenSearch need 4 GB of memory, Qdrant 2 GB. See [Databases](#databases).
-- **OpenSearch, Qdrant and Meilisearch restore to a snapshot**, not to any second, and Take it with you isn't available for them yet.
+- **OpenSearch, Qdrant and Meilisearch restore to a snapshot**, not to any second. Taking them with you pauses writes while the last snapshot is restored on your server, with no switching back.
 - **pgvector, PostGIS and TimescaleDB** on PostgreSQL 15 to 18; TimescaleDB is the Apache-2.0 edition (no compression or continuous aggregates), and a PostgreSQL 15 to 16 upgrade with it isn't possible through Rowsafe yet. See [Extensions](#extensions).
 - **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
 - **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.

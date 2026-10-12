@@ -201,10 +201,10 @@ docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 **Not available for SQLite:**
 
 - [Tuning](/docs/guides/tuning) doesn't apply: there is no server to tune, and your app sets SQLite's options when it opens the file.
-- [Moving in](/docs/guides/move-in) from Turso or Cloudflare D1 isn't available yet.
 
 Also good to know:
 
+- Turso and Cloudflare D1 databases [move in](/docs/guides/move-in#sqlite-from-turso-or-cloudflare-d1) as a one-time copy into a protected file: stop your app's writes there first; Turso's vector indexes aren't copied.
 - **Restores to any second and Marks need WAL mode.** In rollback-journal mode, a file can only be restored to one of its backups (daily by default).
 - **Network drives are refused** (NFS, SMB/CIFS, sshfs and similar): SQLite's locking isn't reliable there.
 - **Let Rowsafe checkpoint.** If your app runs `PRAGMA wal_checkpoint(TRUNCATE)` or `RESTART` itself, Rowsafe steps aside after about two seconds, so your app isn't kept waiting, and then takes a fresh full copy to keep the stream of changes unbroken. That works, but it costs a full copy each time. Rowsafe checkpoints the file itself once changes are copied, so the `-wal` file doesn't grow.

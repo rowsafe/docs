@@ -184,6 +184,7 @@ The agent never updates itself in Docker. Update only its container (Qdrant keep
 - Sizes with 2 GB of memory or more.
 - The server's certificate renews by itself. REST picks it up within a minute; gRPC at Qdrant's next restart (Pulse says so and offers **Restart**).
 - A standby, Clone to a new server and private connections from AWS aren't offered for Qdrant.
+- To move it to a server of your own, use [Take it with you](/docs/guides/rowsafe-cloud#opensearch-qdrant-and-meilisearch-by-snapshots).
 
 ```python
 from qdrant_client import QdrantClient

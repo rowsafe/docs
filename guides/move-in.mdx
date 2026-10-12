@@ -1,13 +1,13 @@
 ---
 title: Move in from a managed database
-description: Move a PostgreSQL, MySQL, MongoDB, ClickHouse, Redis or Valkey database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime.
+description: Move a PostgreSQL, MySQL, MongoDB, ClickHouse, Redis or Valkey database from DigitalOcean, RDS, Aurora, Supabase, Neon, Heroku, Render, Railway, Crunchy Bridge, Cloud SQL or Azure onto your own server, with near-zero downtime, or a SQLite database from Turso or Cloudflare D1.
 ---
 
 Leave your managed database, keep the safety net. **Move in** copies a database from any provider onto a server Rowsafe protects, while your apps keep running, then you switch over in seconds. From then on it has continuous backups, [Rewind](/docs/guides/restore), the weekly [Proof](/docs/concepts/restore-drills) and [Pulse](/docs/guides/monitoring), like every database on that server.
 
 Everything runs on your server. Its Rowsafe agent connects to the old database with the credentials you give it; the data goes straight from the old database to your server, never through Rowsafe.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb), [ClickHouse](#clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs. ClickHouse moves as a one-time copy; Redis and Valkey from a managed provider too; the others can also keep a live sync until you switch over.
+It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite. This page describes PostgreSQL; [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb), [ClickHouse](#clickhouse), [Redis and Valkey](#redis-and-valkey) and [SQLite from Turso or Cloudflare D1](#sqlite-from-turso-or-cloudflare-d1) say what differs. ClickHouse moves as a one-time copy; Redis and Valkey from a managed provider and SQLite too; the others can also keep a live sync until you switch over.
 
 ## Before you start
 
@@ -223,4 +223,15 @@ Move a Redis or Valkey database from ElastiCache, MemoryDB, Upstash, Redis Cloud
 - **One-time copy** (every managed provider): every key is copied with its time to live, a batch at a time; a copy that stops continues where it was. Providers don't let anyone make their database read-only, so stop your apps' writes for the copy; the check estimates how long. Key counts are compared at the end.
 - **Live sync**: only from a Redis that lets replicas connect (usually one you run yourself), over a plain connection. Your server follows the source, your apps keep writing, and the switchover waits until every change arrived.
 - Rowsafe can make a login for your apps afterwards when `--redis-standby` was given at install. Redis Cluster sources aren't supported.
+
+## SQLite from Turso or Cloudflare D1
+
+Move a Turso or Cloudflare D1 database onto your own server: Rowsafe copies it once into a SQLite file it protects, then you point your app at that file.
+
+- **The file comes first.** Protect a SQLite file on your server with Rowsafe (it can be a new, empty one), then start Move in for it.
+- **What you give:** for Turso, the database URL (`libsql://DB-ORG.turso.io`) and a database token; for D1, your Cloudflare account ID, the database ID and an API token with D1 Edit. They're encrypted in your browser (or the CLI) for your server, so Rowsafe never sees them. From a terminal: `rowsafe migrate start NAME --turso libsql://DB-ORG.turso.io` or `--d1 ACCOUNT_ID/DATABASE_ID`.
+- **Stop your app's writes** at Turso or D1 before the copy: there's no live sync, and anything written after the export starts isn't copied.
+- Rowsafe builds the new file on your server from the provider's SQL export and checks it first. If your file already holds tables, it saves a Mark (or a backup) before replacing them, so [Rewind](/docs/guides/restore) can bring them back. Your app keeps running.
+- **Not copied:** Turso's vector indexes (plain SQLite has none) and Turso's and D1's own internal tables. Cloudflare can't export D1 databases that have virtual tables, and D1 answers no other queries while it exports.
+- Your server needs free disk for about the size of the database, twice.
 

@@ -128,7 +128,7 @@ client.index("products").search("running shoes")
 curl -H "Authorization: Bearer $MEILISEARCH_KEY" "$MEILISEARCH_URL/health"
 ```
 
-On a server in your own cloud account, the certificate is made on the server and isn't signed by a public authority, so clients that check certificates need to trust it. A standby, Clone and private connections from AWS aren't offered for Meilisearch.
+On a server in your own cloud account, the certificate is made on the server and isn't signed by a public authority, so clients that check certificates need to trust it. A standby, Clone and private connections from AWS aren't offered for Meilisearch. To move it to a server of your own, use [Take it with you](/docs/guides/rowsafe-cloud#opensearch-qdrant-and-meilisearch-by-snapshots).
 
 ## Restore without Rowsafe
 

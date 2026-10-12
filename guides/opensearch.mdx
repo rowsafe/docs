@@ -1,6 +1,6 @@
 ---
 title: Protect OpenSearch
-description: Snapshots every 5 minutes to your own bucket, encrypted on your server, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, and users and roles for OpenSearch 2 and 3 on your own server.
+description: Snapshots every 5 minutes to your own bucket, encrypted on your server, Marks, weekly Proof, Rewind with Undo, Pulse with one-click fixes, updates, and users and roles for OpenSearch 2 and 3 on your own server or in Docker.
 ---
 
 Rowsafe protects OpenSearch with OpenSearch's own snapshots: they go to **your** bucket, encrypted on your server with a passphrase only you hold. **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted documents back or puts the whole server back; **Pulse** watches the server and fixes what it can. OpenSearch has fewer features than other databases in Rowsafe: see [Not yet](#not-yet) and [Limits](#limits).
@@ -17,7 +17,7 @@ Everywhere the dashboard offers a restore, you pick a snapshot or a Mark, not a 
 ## Before you start
 
 - **OpenSearch 2 or 3**, as **one node** (a single server). Clusters of several nodes are refused, with a plain message. So is a server that answers like Elasticsearch.
-- On **Debian or Ubuntu**, with the security plugin on (users and passwords) or off.
+- On **Debian or Ubuntu**, or in **Docker** next to the official image ([below](#in-docker)), with the security plugin on (users and passwords) or off.
 - Its REST port is `9200` by default. Rowsafe talks to it on `127.0.0.1`, over HTTPS (plain HTTP if your server has TLS off).
 - The `opensearch` program from OpenSearch's package is on the server. Proof and Rewind copies run it; backups work without it.
 - You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt).
@@ -51,6 +51,73 @@ Without a terminal, `--protect NAME` works too: set `ROWSAFE_OPENSEARCH_ADMIN_US
 
 If OpenSearch still has its demo setup (demo users with published passwords, demo certificates), the installer warns you and goes on. Pulse keeps showing it until it's gone.
 
+## In Docker
+
+OpenSearch in Docker (the official `opensearchproject/opensearch` image, 2.x or 3.x, one node) is protected by the agent running next to it, in its own image: `ghcr.io/rowsafe/agent:opensearch3` (or `:opensearch2` for OpenSearch 2). That image is built on OpenSearch's own, so Proof and Rewind copies run a temporary OpenSearch inside the agent's container. Your OpenSearch image stays as it is.
+
+OpenSearch writes its snapshots to a volume that both containers mount at `/var/lib/rowsafe-opensearch/snapshots`: OpenSearch writes there, the agent only reads (through OpenSearch's group) and copies each new file to your bucket, encrypted in its container.
+
+```yaml
+services:
+  # Once: gives the snapshot folder to OpenSearch's user (uid 1000).
+  opensearch-snapshots:
+    image: opensearchproject/opensearch:3.9.0
+    user: "0"
+    entrypoint: ["sh", "-c", "chown 1000:1000 /var/lib/rowsafe-opensearch/snapshots && chmod 0750 /var/lib/rowsafe-opensearch/snapshots"]
+    volumes:
+      - rowsafe-snapshots:/var/lib/rowsafe-opensearch/snapshots
+
+  opensearch:
+    image: opensearchproject/opensearch:3.9.0
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      path.repo: /var/lib/rowsafe-opensearch/snapshots
+      DISABLE_SECURITY_PLUGIN: "true"        # see below to keep it on
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ports:
+      - "127.0.0.1:9200:9200"               # this host only
+    volumes:
+      - opensearchdata:/usr/share/opensearch/data
+      - rowsafe-snapshots:/var/lib/rowsafe-opensearch/snapshots
+    depends_on:
+      opensearch-snapshots:
+        condition: service_completed_successfully
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:opensearch3
+    hostname: db-1                          # the name Rowsafe shows for this host
+    restart: unless-stopped
+    environment:
+      ROWSAFE_OPENSEARCH_URL: http://opensearch:9200
+    depends_on:
+      - opensearch
+    env_file: rowsafe-agent.env             # ROWSAFE_* settings, chmod 600
+    volumes:
+      - rowsafe-state:/var/lib/rowsafe
+      - rowsafe-snapshots:/var/lib/rowsafe-opensearch/snapshots:ro
+
+volumes:
+  opensearchdata:
+  rowsafe-snapshots:
+  rowsafe-state:
+```
+
+Then add it like any database: `rowsafe adopt search --host db-1 --engine opensearch --port 9200` and `rowsafe apply search`, or **Turn on backups** in the dashboard. The full example is [compose.opensearch.example.yml](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.opensearch.example.yml).
+
+- **Without the security plugin** (as above, with the port on this host only), the agent needs no login.
+- **With the security plugin on**, use your own certificates (not the demo ones, whose keys are published). Point the agent at `https://opensearch:9200`, mount the certificate of the authority that signed OpenSearch's and set `ROWSAFE_OPENSEARCH_CA_FILE` to it, then create Rowsafe's own user once (an administrator's password, typed once and never saved):
+
+  ```bash
+  docker compose exec -it rowsafe-agent rowsafe-agent opensearch login --admin-user admin
+  ```
+
+  Rowsafe never sends a password over plain HTTP to another container.
+- **Restart** and rewinds that need one go through the optional container control service ([Docker guide](/docs/guides/docker#let-rowsafe-restart-the-container)).
+- **Updates:** Rowsafe never changes your OpenSearch image. Pulse tells you when a newer release of your major version is out (the one in the agent's image), with the tag to use.
+- **The agent** never updates itself in Docker: `docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent` (OpenSearch keeps running), or **Update now** in the dashboard with the [container control service](/docs/guides/docker#update-the-agent-from-the-dashboard).
+
 ## What Rowsafe does
 
 | | How |
@@ -63,6 +130,7 @@ If OpenSearch still has its demo setup (demo users with published passwords, dem
 | [Rewind](/docs/guides/restore) | Restore a copy, compare it, bring documents back, or rewind the whole server in place, with **Undo** for 7 days ([below](#rewind)). |
 | [Pulse](/docs/guides/monitoring) | Cluster health, shards, disk, memory, slow-downs and security, with fixes ([below](#pulse)). |
 | Restart | **Restart** in the dashboard, after you confirm (with root's [permission](/docs/guides/permissions)). |
+| [Updates](/docs/guides/updates) | **Update** to the newest release of your major version (2.x or 3.x), after you confirm, with a Mark first ([below](#updates)). |
 | [Databases & users](/docs/guides/databases-and-users) | Indices and the security plugin's users ([below](#users-and-roles)). |
 
 ## Rewind
@@ -109,7 +177,19 @@ OpenSearch's own users (`admin`, `kibanaserver` and the like), reserved and hidd
 
 **Rowsafe's OpenSearch user** (`rowsafe`) may read the server's health and stats, and take, list, delete and restore snapshots in its own folder. Only when someone asks in the dashboard, it creates, writes and deletes indices (Rewind, Databases & users), changes replicas and removes a full disk's read-only block. It manages users through the security plugin: the installer lists its role in `plugins.security.restapi.roles_enabled`.
 
-**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`): `restart` lets it restart OpenSearch (**Restart**). Rowsafe doesn't install OpenSearch's updates yet.
+**Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`): `restart` lets it restart OpenSearch (**Restart**), and `updates` with it lets it install OpenSearch's updates (**Update**).
+
+## Updates
+
+On Debian and Ubuntu, OpenSearch comes from its own package source, one per major version. Rowsafe checks it, and when a newer release of your major version is out (3.7.0 to 3.9.0, say), Pulse and the database's **Updates** page offer **Update**:
+
+1. You confirm. Rowsafe saves a Mark first.
+2. The update helper installs only OpenSearch's own package (with its bundled plugins and Java), keeping your `opensearch.yml`, and restarts OpenSearch. Searches and writes fail for a minute or two.
+3. Rowsafe waits until OpenSearch answers again and shows both versions.
+
+It needs root's `restart` and `updates` [permissions](/docs/guides/permissions). Owners can also let Rowsafe do it on Sundays at 03:00, like other engines. Rowsafe refuses an update while OpenSearch has plugins installed outside its package (`opensearch-plugin install`): each must match OpenSearch's exact version, so OpenSearch wouldn't start. Update those together yourself, or remove them first.
+
+Moving to the next major version (2.x to 3.x) is an upgrade, which Rowsafe doesn't do for OpenSearch yet. In Docker, see [above](#in-docker).
 
 ## On servers Rowsafe creates
 
@@ -140,7 +220,7 @@ The folder is an ordinary OpenSearch snapshot repository. Make it readable by Op
 These Rowsafe features aren't available for OpenSearch yet:
 
 - Restores to any second, and Find the moment.
-- Updates and upgrades from the dashboard, Tuning, logs and recommendations.
+- Upgrades to the next major version, Tuning, logs and recommendations.
 - Standby servers, clones, Move in, safe copies and migration previews.
 - Connection pooling, a second copy in another bucket, and backing up the files that go with the database.
 
@@ -148,8 +228,9 @@ These Rowsafe features aren't available for OpenSearch yet:
 
 - **Restores go back to a snapshot** (every 5 minutes by default) or a Mark, never to a second in between. See [above](#restores-go-back-to-a-snapshot).
 - **One node only.** Clusters of several nodes, and Elasticsearch, aren't supported.
-- **Not in Docker yet.** There is no OpenSearch agent image: install the agent on the server.
-- **Disk:** snapshots are kept on the server's own disk too (`/var/lib/rowsafe-opensearch/snapshots`), so it needs room for them.
+- **In Docker,** the snapshot folder must be a volume both containers mount at the same path, and Rowsafe doesn't update your OpenSearch image: you change its tag.
+- **Updates** stay within your major version, need root's permission and restart OpenSearch; plugins installed by hand block them.
+- **Disk:** snapshots are kept on the server's own disk too (`/var/lib/rowsafe-opensearch/snapshots`, or its volume in Docker), so it needs room for them.
 - **Users aren't in backups.** The security plugin's users and roles, and OpenSearch's other system indices, stay out of snapshots. Rewinds also leave server-wide things like index templates and ingest pipelines as they are now.
 - **Temporary servers** (Proof, Rewind copies) need about 700 MB of free memory. The agent checks first and refuses if there isn't enough, so production keeps its memory.
 - **Compare** looks at the first million documents of an index; the result says when it stopped there.

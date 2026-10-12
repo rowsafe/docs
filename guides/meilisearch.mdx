@@ -1,6 +1,6 @@
 ---
 title: Protect Meilisearch
-description: Snapshots every 15 minutes to your own bucket, Marks, weekly Proof, Rewind (a copy, compare, bring documents back, rewind in place with Undo), Pulse with one-click fixes, a security check and API keys for Meilisearch Community Edition 1.12 and newer on your own server.
+description: Snapshots every 15 minutes to your own bucket, Marks, weekly Proof, Rewind (a copy, compare, bring documents back, rewind in place with Undo), Pulse with one-click fixes, a security check and API keys for Meilisearch Community Edition 1.12 and newer on your own server or in Docker.
 ---
 
 Rowsafe protects Meilisearch the way it protects your other databases: backups go to **your** bucket (or [Rowsafe Storage](/docs/guides/rowsafe-storage)), encrypted on your server with a passphrase only you hold; **Marks** save the moment before a risky change; a weekly **Proof** restores a copy and checks it; **Rewind** brings documents back or puts every index back; **Pulse** watches the server and fixes what it can. Restores go back to a snapshot (every 15 minutes) or a Mark, not to any second: see [below](#restores-go-back-to-a-snapshot) and [Limits](#limits).
@@ -11,7 +11,7 @@ Rowsafe works with Meilisearch's **Community Edition** (MIT license) only. It ne
 
 ## Before you start
 
-- **Meilisearch 1.12 or newer**, one instance, installed on the server itself (Debian or Ubuntu) and run by systemd. Meilisearch in Docker isn't supported yet.
+- **Meilisearch 1.12 or newer**, one instance, installed on the server itself (Debian or Ubuntu) and run by systemd, or in **Docker** next to the official image ([below](#in-docker)).
 - Meilisearch has a **master key**. Without one it asks for no key at all: Rowsafe still backs it up, but Pulse warns that anyone who reaches it can read and change everything, and API keys can't be managed.
 - Its snapshot folder isn't in a home folder (`/home` or `/root`), where Rowsafe's agent may not read.
 - You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt).
@@ -37,6 +37,62 @@ The installer finds the Meilisearch running there. Nothing restarts:
 **The plan.** You see what Rowsafe will do and say yes. Nothing in Meilisearch's settings changes. Rowsafe checks that a backup reaches your bucket and opens with your key, and takes the first snapshot.
 </Step>
 </Steps>
+
+## In Docker
+
+Meilisearch in Docker (the official `getmeili/meilisearch` image, Community Edition) is protected by the agent running next to it, in its own image: `ghcr.io/rowsafe/agent:meilisearch1`. That image is built on Meilisearch's own, so Proof and Rewind copies run a temporary Meilisearch inside the agent's container; it opens snapshots of Meilisearch 1.12 and newer (an older one is upgraded as it opens, in the copy only). Your Meilisearch image stays as it is.
+
+Meilisearch writes its snapshots into a volume the agent mounts too, read-only:
+
+```yaml
+services:
+  meilisearch:
+    image: getmeili/meilisearch:v1.54.3
+    restart: unless-stopped
+    env_file: meilisearch.env                  # MEILI_MASTER_KEY, chmod 600
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_SNAPSHOT_DIR: /meili_snapshots
+    ports:
+      - "127.0.0.1:7700:7700"                  # this host only
+    volumes:
+      - meilidata:/meili_data
+      - meilisnapshots:/meili_snapshots
+
+  rowsafe-agent:
+    image: ghcr.io/rowsafe/agent:meilisearch1
+    hostname: db-1                             # the name Rowsafe shows for this host
+    restart: unless-stopped
+    environment:
+      ROWSAFE_MEILISEARCH_URL: http://meilisearch:7700
+      ROWSAFE_MEILISEARCH_SNAPSHOT_DIR: /meili_snapshots
+    depends_on:
+      - meilisearch
+    env_file: rowsafe-agent.env                # ROWSAFE_* settings, chmod 600
+    volumes:
+      - rowsafe-state:/var/lib/rowsafe
+      - meilisnapshots:/meili_snapshots:ro
+
+volumes:
+  meilidata:
+  meilisnapshots:
+  rowsafe-state:
+```
+
+Then, once, give the agent its own API key: paste the master key and press Enter. The agent makes its key with it and never keeps the master key.
+
+```bash
+docker compose exec -it rowsafe-agent rowsafe-agent meilisearch login
+```
+
+Add it like any database: `rowsafe adopt search --host db-1 --engine meilisearch --port 7700` and `rowsafe apply search`, or **Turn on backups** in the dashboard. The full example is [compose.meilisearch.example.yml](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.meilisearch.example.yml).
+
+- The agent talks to Meilisearch over the compose network, like your apps; for `https://`, set `ROWSAFE_MEILISEARCH_CA_FILE` to the certificate of the authority that signed Meilisearch's when it isn't a public one.
+- **Rewind the whole database** works too: the temporary Meilisearch exports into your Meilisearch container, the only address it may reach.
+- **Restart** goes through the optional container control service ([Docker guide](/docs/guides/docker#let-rowsafe-restart-the-container)).
+- **Updates:** Rowsafe never changes your Meilisearch image. To update, save a Mark, then change its tag and recreate the container once with Meilisearch's dumpless upgrade (`MEILI_UPGRADE_DB=true` for that start).
+- **The agent** never updates itself in Docker: `docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent` (Meilisearch keeps running), or **Update now** in the dashboard with the [container control service](/docs/guides/docker#update-the-agent-from-the-dashboard).
 
 ## What Rowsafe does
 
@@ -150,8 +206,8 @@ Restore to any second, Find the moment, major upgrades, standby servers, connect
 ## Limits
 
 - **Restores** go back to a snapshot (every 15 minutes by default) or a Mark, not to any second.
-- **Updates** go to the newest release Rowsafe has tested, after a Mark, and only where Rowsafe's installer set Meilisearch up.
-- **In Docker**: not supported yet. Meilisearch must be installed on the server itself.
+- **Updates** go to the newest release Rowsafe has tested, after a Mark, and only where Rowsafe's installer set Meilisearch up (not in Docker).
+- **In Docker**, the snapshot folder must be a volume both containers mount, Rowsafe doesn't update your Meilisearch image, and the agent's image opens snapshots of Meilisearch up to the release it was built on (1.54): a newer Meilisearch waits for a newer agent image.
 - **One snapshot on the server**: Meilisearch writes each snapshot into its own folder, unencrypted, and the newest stays there until the next one replaces it.
 - **Temporary instances** (Proof, Rewind copies, the rewind in place) need free disk for about the snapshot and its unpacked indexes; the agent checks first. They use the server's own Meilisearch program: a snapshot from a newer Meilisearch can't be opened, and one from an older Meilisearch is upgraded as it opens.
 - **Proof** checks exact document counts only when nothing changed while the snapshot was written; otherwise it checks the indexes and their settings.

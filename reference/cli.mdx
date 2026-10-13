@@ -3,7 +3,42 @@ title: CLI reference
 description: Every rowsafe command, its flags, exit codes, environment variables and the .rowsafe.json project file.
 ---
 
-The `rowsafe` CLI talks to the Rowsafe API. Install it and log in as in the [Quickstart](/docs/quickstart#install-the-cli-and-log-in).
+The `rowsafe` CLI talks to the Rowsafe API. It runs on macOS and Linux (Intel/AMD and ARM).
+
+## Install
+
+On your Mac or Linux computer, no `sudo`:
+
+```sh
+curl -fsSL https://rowsafe.sh/cli | sh
+rowsafe login
+```
+
+The script downloads the latest release from [GitHub](https://github.com/rowsafe/rowsafe/releases) for your computer (Apple silicon gets the native build, also from a Rosetta terminal), checks it against the release's `SHA256SUMS`, and installs it to `/usr/local/bin` when you can write there, otherwise to `~/.local/bin`, which it adds to your shell's `PATH` (open a new terminal afterwards). Nothing else changes. [Read the script](https://github.com/rowsafe/rowsafe/blob/main/scripts/cli.sh).
+
+- **Update**: run the same command again.
+- **A specific version**: `curl -fsSL https://rowsafe.sh/cli | ROWSAFE_VERSION=0.10.12 sh`.
+- **Another folder**: `ROWSAFE_INSTALL_DIR=~/bin`; `ROWSAFE_NO_MODIFY_PATH=1` leaves your shell profile alone.
+- **Uninstall**: `rm "$(command -v rowsafe)"`, and `rowsafe logout` first to revoke its key.
+- **Windows**: use WSL.
+
+<Accordions>
+<Accordion title="Download it yourself">
+
+Pick the file for your computer from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest): `rowsafe-darwin-arm64` (Apple silicon), `rowsafe-darwin-amd64` (Intel Mac), `rowsafe-linux-amd64` or `rowsafe-linux-arm64`. Check it against `SHA256SUMS` (or its [build provenance](https://github.com/rowsafe/rowsafe/blob/main/docs/verifying-releases.md)), then:
+
+```sh
+chmod +x rowsafe-darwin-arm64 && sudo mv rowsafe-darwin-arm64 /usr/local/bin/rowsafe
+```
+
+A file downloaded with a browser on a Mac is blocked the first time ("cannot be verified"); remove that flag with `xattr -d com.apple.quarantine /usr/local/bin/rowsafe`. `curl` downloads aren't flagged.
+
+</Accordion>
+</Accordions>
+
+Log in with `rowsafe login`: it opens the dashboard in your browser, where you confirm a code. Over SSH, or with `--no-browser`, open the printed link on any device.
+
+## Help
 
 ```sh
 rowsafe help            # the short overview

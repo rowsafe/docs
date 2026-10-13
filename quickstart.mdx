@@ -142,42 +142,13 @@ Once there is a recent backup and a passing Proof, the database counts as [prote
 
 ## Install the CLI and log in
 
-You don't need the CLI to get started. It is useful for scripts, CI and AI agents. It is a single binary for macOS and Linux. Run this on your own computer:
-
-<Tabs items={["macOS (Apple silicon)", "macOS (Intel)", "Linux (x86-64)", "Linux (ARM64)"]}>
-<Tab value="macOS (Apple silicon)">
+You don't need the CLI to get started. It is useful for scripts, CI and AI agents. Run this on your own computer, macOS or Linux (no `sudo`):
 
 ```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-darwin-arm64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
+curl -fsSL https://rowsafe.sh/cli | sh
 ```
 
-</Tab>
-<Tab value="macOS (Intel)">
-
-```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-darwin-amd64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-<Tab value="Linux (x86-64)">
-
-```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-linux-amd64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-<Tab value="Linux (ARM64)">
-
-```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-linux-arm64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-</Tabs>
+It picks the right build, checks it, and puts `rowsafe` on your `PATH`. Run it again to update. Other ways: [Install the CLI](/docs/reference/cli#install).
 
 Then log in. This opens the dashboard in your browser, where you confirm a code:
 

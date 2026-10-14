@@ -1,23 +1,23 @@
 ---
 title: Find the moment
-description: Find out exactly when rows were deleted or changed, or a table was emptied or dropped, so you can rewind to just before it instead of guessing.
+description: Find exactly when rows were deleted or changed, or a table was emptied or dropped.
 ---
 
-Something went missing: customers are gone, orders all say "closed", a table is empty. Before you can [rewind](/docs/guides/restore), you need the moment it happened. **Find the moment** tells you: it lists each big delete, update, `TRUNCATE` and `DROP`, with the exact second it happened, the table, how many rows, and its transaction ID.
+Customers are gone, orders all say "closed", a table is empty. Before you [rewind](/docs/guides/restore), you need the moment. **Find the moment** lists each big delete, update, `TRUNCATE` and `DROP`, with its exact second, table, row count and transaction ID.
 
-It only reads. Nothing in the database changes, and your data never leaves your server: the Rowsafe agent reads the database's change log in your storage (PostgreSQL's WAL, MySQL's binary log, MongoDB's oplog, SQLite's WAL pages, the stream of changes Rowsafe follows for Redis and Valkey) on your server, and only names, times and counts reach Rowsafe.
+It only reads. The agent reads the change log in your storage, on your server. Only names, times and counts reach Rowsafe.
 
 ## In the dashboard
 
 1. Open the database, then **Rewind** → **Find the moment**.
-2. Pick the tables (or leave **All tables**), how far back to look (the last hour up to 7 days, or your own range), and what happened: deleted rows, changed rows, emptied tables, dropped tables.
-3. Click **Find the moment**. The agent picks up the search within seconds. A day of changes usually takes under a minute.
+2. Pick the tables (or **All tables**), how far back (an hour up to 7 days, or a range), and what happened: deleted rows, changed rows, emptied tables, dropped tables.
+3. Click **Find the moment**. A day of changes usually takes under a minute.
 
-You get the totals, a timeline (click a bar to list only what happened then) and the changes, newest first. Each transaction is one row, even when it touched several tables. A table changed the same way over and over (an hourly cleanup job, say) is folded into one row so the unusual change stands out.
+You get totals, a timeline (click a bar to filter) and the changes, newest first. Each transaction is one row. A table changed the same way again and again (an hourly cleanup, say) is folded into one row, so the unusual change stands out.
 
-**Rewind to just before this** takes you to Rewind with that point filled in: just before the transaction committed, so everything before it is kept and the change itself is left out. From there, restore a copy next to production, compare, and bring the rows back.
+**Rewind to just before this** opens Rewind at the moment just before that transaction committed. From there, restore a copy, compare, and bring the rows back.
 
-Any member of the organization can search. Rewinding needs the admin or owner role.
+Any member can search. Rewinding needs the admin or owner role.
 
 ## From a terminal
 
@@ -49,7 +49,7 @@ Rewind to just before the biggest one (a copy next to production; it never touch
 
 ## For AI agents
 
-The MCP tool `find_moment` does the same search, and it is read-only, so it is available to every key, including read-only ones. An assistant can answer "when were rows deleted from applications?" and give you the exact point, and it doesn't rewind anything unless you ask: then it does it [as the person who connected it](/docs/guides/agent-autonomy). See [Guard](/docs/guides/ai-agents).
+The MCP tool `find_moment` does the same read-only search, for every key, read-only ones too. An assistant can answer "when were rows deleted from applications?" with the exact point. It rewinds only if you ask, [as the person who connected it](/docs/guides/agent-autonomy). See [Guard](/docs/guides/ai-agents).
 
 ## By database
 
@@ -62,27 +62,27 @@ The MCP tool `find_moment` does the same search, and it is read-only, so it is a
 | ClickHouse | the record of the parts ClickHouse wrote, in your bucket | to the microsecond; a mutation is one change at its first part; `UPDATE` rows are those of the parts it rewrote ("up to"); `TRUNCATE` and `DROP PARTITION` show as emptied tables |
 | SQLite | the WAL pages in your bucket, replayed on a private copy on your server | to the millisecond Rowsafe copied each change; a `DELETE` without `WHERE` shows as every row deleted (SQLite has no `TRUNCATE`); needs WAL mode ([details](#sqlite)) |
 
-Rows are only counted on your server: their contents never leave it. **To the second** means **Rewind to just before this** goes back to the second before the change: other changes earlier in that same second aren't in the copy. The notes below describe PostgreSQL.
+Row contents never leave your server. **To the second** means the rewind goes back to the second before the change, so earlier changes in that same second aren't in the copy. The notes below are about PostgreSQL.
 
 ## What it shows, and what it can't
 
-- **Times are commit times.** A change becomes visible when its transaction commits, so that is the moment shown, with microseconds. Rewinding to one microsecond before it, or to just before its transaction ID, leaves it out and keeps everything before.
-- **Rows are counted exactly** for deletes and updates. For an emptied or dropped table, the count is PostgreSQL's last estimate of the table's size, marked "about".
-- **Rolled-back transactions don't count.** Only committed changes are listed; changes in a savepoint are counted with their transaction. Prepared (two-phase) transactions aren't listed.
-- **Not who did it.** PostgreSQL's change log doesn't record the user or the application, so neither does Rowsafe. Your application logs or `log_statement` can tell you who.
-- **Names of tables that are gone.** The agent notes table names every 15 minutes and keeps them for 8 days, so a table dropped or emptied later is still named. A table created and dropped within a few minutes may show as "a table Rowsafe couldn't name".
-- **The newest minute.** When your range ends now, the agent first sends the latest changes to your storage and waits up to a minute for them.
-- **Limits.** One search covers at most 7 days, lists the 100 biggest transactions, and reads at most about 8 GB of stored change log; over that, it searches the most recent part and says so. It can only look back as far as your oldest kept backup. `VACUUM FULL`, `CLUSTER` and table rewrites are not reported: they don't lose rows.
-- **ClickHouse.** The search reads the record of the parts ClickHouse wrote that Rowsafe keeps for restores to any second (see [Protect ClickHouse](/docs/guides/clickhouse#how-restores-to-any-second-work)), so it is quick and needs no extra disk. A `DELETE` (lightweight or `ALTER ... DELETE`) is counted exactly; an `UPDATE` shows the rows of the parts it rewrote ("up to"), since ClickHouse doesn't count the rows it changed; `TRUNCATE` and `DROP PARTITION` both show as an emptied table. Times are when ClickHouse wrote a change's first part, with microseconds.
-- **Cost on the server.** The search runs at low CPU and IO priority, downloads the change log for the range from your storage a few pieces at a time (16 MB each, deleted as soon as they are read), and needs about 1 GB of free disk under `/var/lib/rowsafe`.
+- **Times are commit times**, to the microsecond. Rewinding to just before leaves the change out and keeps everything before.
+- **Rows are counted exactly** for deletes and updates. Emptied or dropped tables show PostgreSQL's last size estimate, marked "about".
+- **Only committed changes.** Savepoint changes count with their transaction. Prepared (two-phase) transactions aren't listed.
+- **Not who did it.** The change log doesn't record the user or app. Check your app logs or `log_statement`.
+- **Names of tables that are gone.** The agent notes table names every 15 minutes and keeps them 8 days. A table created and dropped within minutes may show as "a table Rowsafe couldn't name".
+- **The newest minute.** If your range ends now, the agent first uploads the latest changes, waiting up to a minute.
+- **Limits.** One search: at most 7 days, the 100 biggest transactions, about 8 GB of change log (past that, the most recent part, and it says so). It can't look back past your oldest kept backup. `VACUUM FULL`, `CLUSTER` and table rewrites aren't reported: they don't lose rows.
+- **ClickHouse.** Reads the parts record Rowsafe keeps for [restores to any second](/docs/guides/clickhouse#how-restores-to-any-second-work): quick, no extra disk. `DELETE` (lightweight or `ALTER ... DELETE`) is counted exactly. `UPDATE` shows the rows of the parts it rewrote ("up to"). `TRUNCATE` and `DROP PARTITION` show as an emptied table. Times are when the first part was written.
+- **Cost on the server.** Low CPU and IO priority. The change log downloads in 16 MB pieces, deleted once read. Needs about 1 GB free under `/var/lib/rowsafe`.
 
 ## SQLite
 
-SQLite's change log holds pages, not statements: each transaction is the pages it wrote. So the agent works differently:
+SQLite's change log holds pages, not statements, so the search works differently:
 
-- **It replays, then compares.** The agent restores the file as it was at the start of your range into a private scratch file on your server (the newest backup before it plus every change up to it), then replays the range one transaction at a time. Before each transaction, it keeps the pages it will replace; after, it compares the rows on the pages that changed, table by table, by primary key (or row number). Rows that are gone were deleted, rows whose content changed were updated, and a table gone from the file was dropped. Values are compared as hashes on your server, never read out, and the scratch file is deleted when the search ends.
-- **Times are when Rowsafe copied each change**, within a second of its commit, to the millisecond. **Rewind to just before this** goes back one millisecond: when Rowsafe copied other changes in that same millisecond, the result says so, because the copy leaves them out too.
-- **What it lists.** Deleted rows, changed rows and dropped tables, counted exactly. A `DELETE` without `WHERE` shows as every row deleted (SQLite has no `TRUNCATE`). Added rows aren't listed. A `VACUUM` moves rows to other pages without changing them, so it isn't listed; a table rebuilt by a migration (create, copy, rename) is, with a note. A transaction too big to compare (it rewrote more than about 512 MB, a `VACUUM` of a large file for example) is listed as such, without counts.
-- **Needs WAL mode.** In rollback-journal mode there is no record of each change to read: Pulse offers to [turn WAL on](/docs/guides/sqlite#turn-on-continuous-backups).
-- **Cost on the server.** It needs about the database file's size free under `/var/lib/rowsafe`, for the scratch file, and stops after 10 minutes of replay: a busy week may need a few searches over shorter ranges, and the result says how far it got.
-- There is one database per file, so the database filter doesn't apply.
+- **It replays, then compares.** The agent restores the file as of the start of your range into a private scratch file, then replays one transaction at a time, comparing changed pages by primary key (or row number). Gone rows were deleted, changed rows updated, a missing table dropped. Values are compared as hashes on your server, and the scratch file is deleted after.
+- **Times are when Rowsafe copied each change**, within a second of commit, to the millisecond. **Rewind to just before this** goes back one millisecond; if other changes were copied in that same millisecond, the result says so, since the copy leaves them out too.
+- **What it lists.** Deleted rows, changed rows and dropped tables, counted exactly. A `DELETE` without `WHERE` shows as every row deleted. Added rows aren't listed. `VACUUM` isn't listed (rows don't change); a table rebuilt by a migration is, with a note. A transaction that rewrote more than about 512 MB (like a `VACUUM` of a large file) is listed without counts.
+- **Needs WAL mode.** Rollback-journal mode keeps no record of changes: Pulse offers to [turn WAL on](/docs/guides/sqlite#turn-on-continuous-backups).
+- **Cost on the server.** About the file's size free under `/var/lib/rowsafe`. It stops after 10 minutes of replay: split a busy week into shorter ranges. The result says how far it got.
+- One database per file, so the database filter doesn't apply.

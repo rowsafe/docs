@@ -1,23 +1,23 @@
 ---
 title: MCP server
-description: Connect Claude Code, Claude Desktop and other MCP clients to Rowsafe. Every tool, the safety model and setup.
+description: Connect Claude Code, Claude Desktop and other MCP clients to Rowsafe, with every tool listed.
 ---
 
-Rowsafe speaks the [Model Context Protocol](https://modelcontextprotocol.io). AI assistants can read what the dashboard shows ("is everything backed up?", "why did this alert fire?", "what is blocking the app?") and, when you allow it, set Marks (restore points), run backups, Proof and checks, and make changes to production or create a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server **as the person who connected them**, with that person's rights in the dashboard. The change runs right away, or Rowsafe refuses it, changes nothing and says why (for example, a member's agent: an owner or admin makes the change). See [How AI agents act](/docs/guides/agent-autonomy). The MCP tools are part of [Guard](/docs/guides/ai-agents), the safety net for AI agents.
+Rowsafe's [MCP](https://modelcontextprotocol.io) server lets AI assistants read what the dashboard shows and, if you allow it, set Marks, run backups, Proof and checks, change production, or create [Rowsafe Cloud](/docs/guides/rowsafe-cloud) servers. Changes run right away **as the person who connected the agent**, with that person's dashboard rights, or Rowsafe refuses them and says why ([How AI agents act](/docs/guides/agent-autonomy)). Part of [Guard](/docs/guides/ai-agents).
 
 | | Transport | Credentials | Write tools |
 |---|---|---|---|
 | `rowsafe mcp` | stdio, on your machine | The CLI's login, or `ROWSAFE_API_KEY` | Off by default. `--allow-restore-points` or `--allow-writes`. |
-| `https://api.rowsafe.sh/mcp` | Streamable HTTP | **Sign in with Rowsafe** (OAuth), or `Authorization: Bearer rsk_...` (an API key). | API keys: always listed; a read-only key can't use them. Signed-in apps: `create_restore_point` if you allowed Marks, and the write tools, `request_change`, the change tools and `create_app_database` if you allowed **Act for you**. |
+| `https://api.rowsafe.sh/mcp` | Streamable HTTP | **Sign in with Rowsafe** (OAuth), or `Authorization: Bearer rsk_...` | API keys: always listed (a read-only key can't use them). Signed-in apps: `create_restore_point` with **Save Marks**; write tools, `request_change`, the change tools and `create_app_database` with **Act for you**. |
 
-For the safety-net workflow with coding agents, see [Use Rowsafe with AI agents](/docs/guides/ai-agents). To add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf, see [Connect AI apps](/docs/guides/connect-ai-apps).
+ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf: see [Connect AI apps](/docs/guides/connect-ai-apps).
 
 ## Set up
 
 <Tabs items={["Claude Code", "Claude Desktop", "Remote endpoint"]}>
 <Tab value="Claude Code">
 
-Log in with the CLI first (`rowsafe login`), then pick a mode:
+Run `rowsafe login` first, then pick a mode:
 
 ```sh
 # Read-only
@@ -33,12 +33,12 @@ claude mcp add rowsafe -- rowsafe mcp --allow-writes
 claude mcp add --scope user rowsafe -e ROWSAFE_API_KEY=rsk_... -- rowsafe mcp
 ```
 
-`--scope project` writes `.mcp.json` into your repository for everyone: don't put a key in it. Use the stdio form (each developer's own login) there.
+`--scope project` writes `.mcp.json` into your repo for everyone. Don't put a key there; use the stdio form (each developer's own login).
 
 </Tab>
 <Tab value="Claude Desktop">
 
-Claude Desktop runs local servers from its config file: `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows (**Settings**, **Developer**, **Edit Config**).
+Edit the config (**Settings**, **Developer**, **Edit Config**): `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows.
 
 ```json title="claude_desktop_config.json"
 {
@@ -54,27 +54,29 @@ Claude Desktop runs local servers from its config file: `~/Library/Application S
 }
 ```
 
-Use the absolute path of `rowsafe` (`which rowsafe`): Desktop doesn't use your shell's `PATH`. Add `"--allow-restore-points"` or `"--allow-writes"` to `args` for write tools. Restart Claude Desktop afterwards.
+- Use the absolute path (`which rowsafe`): Desktop ignores your shell's `PATH`.
+- Add `"--allow-restore-points"` or `"--allow-writes"` to `args` for write tools.
+- Restart Claude Desktop.
 
-Or use a remote connector instead (**Settings**, **Connectors**, **Add custom connector**, `https://api.rowsafe.sh/mcp`), where you sign in with Rowsafe, with no key or local binary. See [Connect AI apps](/docs/guides/connect-ai-apps).
+Or, with no key or local binary: **Settings**, **Connectors**, **Add custom connector**, `https://api.rowsafe.sh/mcp`, and sign in with Rowsafe ([Connect AI apps](/docs/guides/connect-ai-apps)).
 
 </Tab>
 <Tab value="Remote endpoint">
 
-No local binary needed. Sign in with Rowsafe:
+No local binary. Sign in with Rowsafe:
 
 ```sh
 claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp
 ```
 
-Then run `/mcp` in Claude Code and choose **Authenticate**. Or connect with an API key, for CI:
+Then run `/mcp` in Claude Code and choose **Authenticate**. Or use an API key (CI):
 
 ```sh
 claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Authorization: Bearer rsk_..."
 ```
 
-- Every request needs an OAuth access token or an API key. Use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`) for an assistant that must never change anything.
-- The endpoint is stateless and answers with plain JSON.
+- Every request needs an OAuth token or an API key. For an assistant that must never change anything, use a [read-only key](/docs/guides/teams#api-keys) (`rowsafe api-keys create NAME --read-only`).
+- Stateless; answers with plain JSON.
 - Tool calls wait at most 45 seconds.
 
 </Tab>
@@ -82,99 +84,99 @@ claude mcp add --transport http rowsafe https://api.rowsafe.sh/mcp --header "Aut
 
 ## Sign in with Rowsafe (OAuth)
 
-The remote endpoint is an OAuth 2.1 protected resource, following the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (2026-07-28). MCP clients discover everything from the first `401`; you only give them the URL. See [Connect AI apps](/docs/guides/connect-ai-apps) for each client.
+The remote endpoint is an OAuth 2.1 protected resource per the [MCP authorization spec](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (2026-07-28). Clients discover everything from the first `401`: give them only the URL.
 
 | | |
 |---|---|
 | Protected resource metadata ([RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)) | `https://api.rowsafe.sh/.well-known/oauth-protected-resource/mcp`, named in `WWW-Authenticate` on every `401` |
 | Authorization server metadata ([RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)) | `https://api.rowsafe.sh/.well-known/oauth-authorization-server` (issuer `https://api.rowsafe.sh`) |
-| Client registration | Client ID metadata documents (an HTTPS `client_id`), or dynamic registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591)) at `/oauth/register`. Clients are public: no client secret. |
+| Client registration | Client ID metadata documents (an HTTPS `client_id`), or dynamic registration ([RFC 7591](https://www.rfc-editor.org/rfc/rfc7591)) at `/oauth/register`. Public clients, no secret. |
 | Grant | Authorization code with PKCE, `S256` only. The response carries `iss` ([RFC 9207](https://www.rfc-editor.org/rfc/rfc9207)). |
-| Redirect URIs | Exact match. Accepted: ChatGPT's, Claude's, VS Code's and Cursor's published callbacks, and loopback (`http://127.0.0.1`, `http://[::1]`, `http://localhost`, any port). |
+| Redirect URIs | Exact match. ChatGPT's, Claude's, VS Code's and Cursor's published callbacks, and loopback (`http://127.0.0.1`, `http://[::1]`, `http://localhost`, any port). |
 | Resource ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707)) | `https://api.rowsafe.sh/mcp`. Tokens work on `/mcp` only. |
-| Scopes | `rowsafe:read` (always), `rowsafe:marks` (optional, **Save Marks**: adds `create_restore_point`), `rowsafe:act` (optional, **Act for you**: adds the write tools, the copy tools, `request_change`, `create_cloud_server`, `cloud_firewall`, `apply_fix` and `create_app_database`, and lets the app act as the person who allowed it). `offline_access` is accepted; other scopes are ignored. |
-| Tokens | Access tokens: 1 hour. Refresh tokens: 30 days, single use, rotated on every refresh; using one twice disconnects the app. Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)) at `/oauth/revoke`. |
+| Scopes | `rowsafe:read` (always). `rowsafe:marks` (optional, **Save Marks**: adds `create_restore_point`). `rowsafe:act` (optional, **Act for you**: adds the write tools, copy tools, `request_change`, `create_cloud_server`, `cloud_firewall`, `apply_fix`, `create_app_database`, and lets the app act as the person who allowed it). `offline_access` accepted; other scopes ignored. |
+| Tokens | Access: 1 hour. Refresh: 30 days, single use, rotated each refresh; reusing one disconnects the app. Revocation ([RFC 7009](https://www.rfc-editor.org/rfc/rfc7009)) at `/oauth/revoke`. |
 
-A person approves each app in the dashboard, for one organization. Owners and admins only. The app then acts as that person. Apps are listed, with who allowed them and whether they act as them or can't make changes yet, and can be disconnected, in **Settings**, **Connected apps**.
+An owner or admin approves each app in the dashboard, for one organization; the app then acts as that person. **Settings**, **Connected apps** lists apps, who allowed them, whether they can act yet, and lets you disconnect them.
 
 ## Safety model
 
-- **Everything goes through the Rowsafe API**, with the same API key, checks, plan limits and audit log as the CLI. Every change a tool makes or asks for is in `rowsafe audit`, attributed to the key or app, and to the person it acts as.
-- **Tools can only do what the API can do.** They queue the fixed agent tasks and change schedules. Nothing runs commands or SQL on production or reads backup contents: Rowsafe can't do those at all.
-- **Changes to production run as the agent's person.** Restoring, bringing rows back, rewinding, restarting, applying fixes, changing settings, updates and upgrades, standbys, moves, pooling, security fixes, Rowsafe Cloud servers and the rest go through `request_change` (or `create_cloud_server`, `cloud_firewall` and `apply_fix`, and a database for an app through `create_app_database`). Each one is recorded, checked and written up. Then Rowsafe asks the dashboard for the role, right now, of the person behind the agent (who allowed the app, made the API key, or approved the CLI login): for an owner or admin, it makes the dashboard's own API call as that person, at once, with the same checks, confirmations and Marks, and restarts still run only on servers where root allowed them at install. The tools never call those endpoints themselves.
-- **Or Rowsafe refuses it, and nothing changes.** A member's agent, an API key made by another key, an app or key from before agents could act as their person, and the safety nets (no backup before a destructive change, a first payment only an owner makes, a server key to compare, the agents' budget) get a refusal with the reason, which the agent tells you. Nothing waits for a person. API keys and assistants can't change what AI agents may do. See [When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses).
-- **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools only, plus the copy tools, which never touch production (`preview_migration` runs SQL on a fresh copy as a regular role; `create_safe_copy` makes masked copies only, within your plan's limit). `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds the actions that don't touch production, `request_change`, `create_cloud_server`, `cloud_firewall`, `apply_fix` and `create_app_database`.
-- **No secrets through Rowsafe.** Passwords are set by people in the dashboard: new database users, password resets, restored copies, and safe copies made through the remote endpoint. The one exception is `create_app_database`: from a local `rowsafe mcp` the password is made on your machine and only its verifier is sent; on the remote endpoint the person creates the database in the dashboard, where the database server makes the password and only their browser sees it. Bucket keys and the passphrase never leave your server. Outputs are capped in size.
-- **Not exposed at all:** enrollment tokens, API keys, removing hosts, members and roles, plan changes, agent update settings, and what root allowed on a server.
-- **Annotations.** Read tools are marked read-only. `request_change`, `cloud_firewall`, `apply_fix`, `update_schedule` (lowering retention deletes old backups) and `delete_safe_copy` are marked destructive, so clients that confirm destructive calls will ask you. The tool descriptions also tell agents to confirm a disruptive, destructive or paid change with you in the chat first.
+- **Same API as the CLI.** Same key, checks, plan limits and audit log. Every change is in `rowsafe audit`, attributed to the key or app and the person it acts as.
+- **Only what the API can do.** Tools queue fixed agent tasks and change schedules. Nothing runs commands or SQL on production or reads backup contents: Rowsafe can't.
+- **Changes to production run as the agent's person.** Restores, rewinds, restarts, fixes, settings, updates, standbys, moves, pooling, security fixes, Rowsafe Cloud servers and the rest go through `request_change` (or `create_cloud_server`, `cloud_firewall`, `apply_fix`, `create_app_database`). Rowsafe checks the current role of the person behind the agent (who allowed the app, made the key, or approved the CLI login). Owner or admin: it makes the dashboard's own API call as them, at once, with the same checks, confirmations and Marks. Restarts still need root's permission at install. The tools never call those endpoints directly.
+- **Or Rowsafe refuses, and nothing changes.** For example: a member's agent, a key made by another key, an app or key from before agents could act, no backup before a destructive change, a first payment only an owner can make, a server key to compare, over the agents' budget. The agent tells you the reason. Nothing waits for a person. Keys and assistants can't change what AI agents may do. [When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses).
+- **Read-only unless you say otherwise.** `rowsafe mcp` registers read tools plus copy tools, which never touch production (`preview_migration` runs SQL on a fresh copy as a regular role; `create_safe_copy` makes masked copies only, within your plan). `--allow-restore-points` adds only `create_restore_point`. `--allow-writes` adds actions that don't touch production, `request_change`, `create_cloud_server`, `cloud_firewall`, `apply_fix` and `create_app_database`.
+- **No secrets through Rowsafe.** People set passwords in the dashboard: new users, resets, restored copies, safe copies made through the remote endpoint. Exception, `create_app_database`: from local `rowsafe mcp` the password is made on your machine and only its verifier is sent; on the remote endpoint the person creates the database in the dashboard, where only their browser sees the password. Bucket keys and the passphrase never leave your server. Outputs are size-capped.
+- **Not exposed:** enrollment tokens, API keys, removing hosts, members and roles, plan changes, agent update settings, what root allowed on a server.
+- **Annotations.** Read tools are marked read-only. `request_change`, `cloud_firewall`, `apply_fix`, `update_schedule` (lower retention deletes old backups) and `delete_safe_copy` are marked destructive, so clients that confirm destructive calls ask you. Tool descriptions also tell agents to confirm disruptive, destructive or paid changes with you in chat first.
 
 ## Tools
 
-**Read** tools are always there. **Marks** needs `--allow-restore-points` (or **Save Marks**). **Copies** never touch production: `rowsafe mcp` and API keys always get them; signed-in apps need **Act for you**. **Write** needs `--allow-writes`, a read-write API key, or **Act for you**.
+**Read**: always there. **Marks**: `--allow-restore-points` or **Save Marks**. **Copies** (never production): always for `rowsafe mcp` and API keys; signed-in apps need **Act for you**. **Write**: `--allow-writes`, a read-write key, or **Act for you**.
 
 ### Is it safe? Marks and Rewind
 
 | Tool | Access | What it does |
 |---|---|---|
-| `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) right now? |
-| `create_restore_point` | Marks | Set a Mark: name this moment, and wait until it is in your bucket. |
-| `list_restore_points` | read | Marks (restore points) with their status and the backup to restore from. |
-| `rewind_window` | read | How far back the database can be rewound: the earliest and latest second, the newest Marks, a restored copy if there is one, data kept aside by a rewind, and whether the whole database can be rewound on its server. |
-| `find_moment` | read | [Find the moment](/docs/guides/find-the-moment): when rows were deleted or changed, or a table emptied or dropped, with the exact time and the point just before it. Also lists earlier searches. |
+| `safety_check` | read | Is the database [protected](/docs/concepts/protection-status) now? |
+| `create_restore_point` | Marks | Set a Mark and wait until it's in your bucket. |
+| `list_restore_points` | read | Marks with status and the backup to restore from. |
+| `rewind_window` | read | How far back you can rewind: earliest and latest second, newest Marks, any restored copy, data kept aside by a rewind, and whether the whole database can be rewound on its server. |
+| `find_moment` | read | [Find the moment](/docs/guides/find-the-moment) rows were deleted or changed, or a table emptied or dropped: the exact time and the point just before. Also lists earlier searches. |
 
 ### Fleet, backups and tasks
 
 | Tool | Access | What it does |
 |---|---|---|
-| `fleet_health` | read | Every problem in the fleet, worst first, each with the next step. |
-| `get_org` | read | Plan, limits and usage, and the AI agents setting: `agent_autonomy` with `level` (`act`, the default, or `budget`), `budget_cents` (`null`: no budget), `unlimited`, `spend_cents` (what agents' servers cost a month now), `remaining_cents`, `set_by`, `acting_as` (the person this agent acts as) and `asks_first` (this app or key can't make changes until its person lets it act). Its text says who the agent acts as and what Rowsafe refuses. |
-| `list_hosts` | read | Hosts, online or not, agent version, update channel and state. |
+| `fleet_health` | read | Every problem in the fleet, worst first, with the next step. |
+| `get_org` | read | Plan, limits, usage, and the AI agents setting `agent_autonomy`: `level` (`act`, default, or `budget`), `budget_cents` (`null`: none), `unlimited`, `spend_cents` (agents' servers' monthly cost now), `remaining_cents`, `set_by`, `acting_as` (this agent's person) and `asks_first` (this app or key can't change anything until its person lets it act). Its text says who the agent acts as and what Rowsafe refuses. |
+| `list_hosts` | read | Hosts: online or not, agent version, update channel and state. |
 | `list_databases` | read | Databases with a health summary. |
-| `get_database` | read | One database in depth: settings, schedules, WAL, recent backups, Proof runs, tasks and problems. |
+| `get_database` | read | One database in depth: settings, schedules, WAL, recent backups, Proof runs, tasks, problems. |
 | `list_backups` | read | Backups, newest first. |
-| `list_drills` | read | Proof runs (restore tests) with failures and warnings. |
+| `list_drills` | read | Proof runs with failures and warnings. |
 | `list_tasks` | read | Tasks, filtered by database, status and type. |
-| `get_task` | read | One task with its result, the end of its log and the next step. |
-| `backup_storage` | read | What the backups take in each bucket, the estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is up to date. |
-| `files_status` | read | The folders backed up with a database (uploads, media): status, last snapshot, size, how far back; with `at`, the files backup nearest that time. |
+| `get_task` | read | One task: result, end of its log, next step. |
+| `backup_storage` | read | Backup size per bucket, estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is current. |
+| `files_status` | read | Folders backed up with a database: status, last snapshot, size, how far back; with `at`, the files backup nearest that time. |
 
 ### Pulse: health and monitoring
 
 | Tool | Access | What it does |
 |---|---|---|
-| `database_health` | read | Pulse: health score (0-100) and plain-language findings with what to do. Without a database, every database's score. |
+| `database_health` | read | Pulse: health score (0-100) and findings with what to do. Without a database: every score. |
 | `database_insights` | read | Largest tables, unused and duplicate indexes, estimated bloat, dead rows, tables that may need an index. |
-| `query_trends` | read | Queries that took the most time in a range, and which got slower; or one query over time. |
-| `recommendations` | read | [Recommendations](/docs/guides/recommendations): schema, query and capacity suggestions with why, what they cost and a plan, and indexes proven on a copy of the database with how much faster each query got. Without a database, each database's top one. |
-| `list_alerts` | read | Firing alerts (or resolved, or all), newest first, with the value against its threshold and the next step; one alert by ID; or the alert rules and where notifications go (channel names and kinds, never their addresses). |
-| `live_activity` | read | What a database runs right now, longest first, and lock chains: which session blocks which. It ends nothing. |
-| `database_metrics` | read | A database's and its server's numbers over time (CPU, memory, load, disk, connections, transactions, cache hits, locks, lag, size): min, average, max and the latest value, or the data points. |
-| `disk_forecast` | read | When the disk fills up: free space, growth per day and week, the estimated date. |
-| `uptime` | read | How often the database answered over 24 hours, 7 and 30 days, and the incidents when it didn't. |
-| `database_settings` | read | The database server's settings that matter (where Rowsafe reads them for the engine), explained, with the server's memory, CPUs and disk, what Rowsafe recommends for it, and recent changes. |
-| `get_logs` | read | The database server's log (where Rowsafe reads it for the engine; values removed on the server): errors, slow queries, lock waits, failed logins, or repeated messages with counts. |
-| `security_status` | read | The [security](/docs/guides/security) grade (A to F), findings worst first, a checklist, and the checks from the internet. Never shows passwords or keys. |
-| `weekly_pulse` | read | "Your weekly Pulse" for the last 7 days, as the email would say it. It sends nothing. |
-| `audit_log` | read | Who did what, and when: filter by target, action, actor and time. |
+| `query_trends` | read | Queries that took the most time, and which got slower; or one query over time. |
+| `recommendations` | read | [Recommendations](/docs/guides/recommendations): schema, query and capacity ideas with why, cost and a plan, and indexes proven on a copy with each query's speedup. Without a database: each one's top one. |
+| `list_alerts` | read | Firing, resolved or all alerts, newest first, with value vs threshold and next step; one alert by ID; or the alert rules and where notifications go (channel names and kinds, never addresses). |
+| `live_activity` | read | What a database runs now, longest first, and lock chains (who blocks whom). Ends nothing. |
+| `database_metrics` | read | Database and server numbers over time (CPU, memory, load, disk, connections, transactions, cache hits, locks, lag, size): min, average, max, latest, or data points. |
+| `disk_forecast` | read | When the disk fills: free space, growth per day and week, estimated date. |
+| `uptime` | read | How often the database answered over 24 hours, 7 and 30 days, and the incidents. |
+| `database_settings` | read | Server settings that matter, explained, with memory, CPUs, disk, what Rowsafe recommends, and recent changes. |
+| `get_logs` | read | The database's log (values removed on the server): errors, slow queries, lock waits, failed logins, or repeated messages with counts. |
+| `security_status` | read | [Security](/docs/guides/security) grade (A to F), findings worst first, a checklist, and checks from the internet. Never shows passwords or keys. |
+| `weekly_pulse` | read | "Your weekly Pulse" for the last 7 days. Sends nothing. |
+| `audit_log` | read | Who did what, when: filter by target, action, actor and time. |
 
 ### Running the database
 
 | Tool | Access | What it does |
 |---|---|---|
-| `updates_status` | read | [Updates](/docs/guides/updates): the running version, a newer minor version, newer majors, the server's security updates and reboot, automatic updates, and the newest upgrade check and rehearsal. |
-| `standby_status` | read | The database's [standby](/docs/guides/standby): in sync or not, streaming or through the bucket, how far behind, fenced old primaries, automatic failover, connection strings; with `candidates`, the servers that could hold one. |
-| `pooling_status` | read | [Connection pooling](/docs/guides/connection-pooling): on or off, whether root allowed it, its settings, connection strings (no passwords) and live pool numbers. |
-| `list_forks` | read | [Forks](/docs/guides/fork) and [move-ins](/docs/guides/move-in) with their progress, or one fork. |
-| `list_databases_on_server` | read | The databases, users and extensions inside one server, as last read. |
+| `updates_status` | read | [Updates](/docs/guides/updates): running version, newer minor and majors, the server's security updates and reboot, automatic updates, latest upgrade check and rehearsal. |
+| `standby_status` | read | The [standby](/docs/guides/standby): in sync or not, streaming or via the bucket, lag, fenced old primaries, automatic failover, connection strings; with `candidates`, servers that could hold one. |
+| `pooling_status` | read | [Connection pooling](/docs/guides/connection-pooling): on or off, whether root allowed it, settings, connection strings (no passwords), live pool numbers. |
+| `list_forks` | read | [Forks](/docs/guides/fork) and [move-ins](/docs/guides/move-in) with progress, or one fork. |
+| `list_databases_on_server` | read | Databases, users and extensions inside one server, as last read. |
 
 ### Copies: never production
 
 | Tool | Access | What it does |
 |---|---|---|
-| `preview_migration` | copies | [Preview a migration](/docs/guides/preview-migrations): run its SQL on a fresh copy of the database (never production) and get a verdict with suggestions. |
-| `get_preview` | read | A preview's result, when it wasn't done within the wait; without an ID, a database's recent previews. |
-| `create_safe_copy` | copies | Make a masked [safe copy](/docs/guides/safe-copies). Always masked. Locally the password is made on your machine and returned once; on the remote endpoint the copy starts without a password and the tool returns a dashboard link where you set it. |
-| `list_safe_copies` | read | Safe copies, their status and where to connect; with `masking`, which columns are masked and how. |
+| `preview_migration` | copies | [Preview a migration](/docs/guides/preview-migrations): run its SQL on a fresh copy and get a verdict with suggestions. |
+| `get_preview` | read | A preview's result, if not done within the wait; without an ID, a database's recent previews. |
+| `create_safe_copy` | copies | A [safe copy](/docs/guides/safe-copies), always masked. Locally the password is made on your machine and returned once; on the remote endpoint the copy starts without one and you set it at the returned dashboard link. |
+| `list_safe_copies` | read | Safe copies, status, where to connect; with `masking`, which columns are masked and how. |
 | `extend_safe_copy` | copies | Keep a safe copy longer (up to 168 hours from now). |
 | `delete_safe_copy` | copies | Delete a safe copy. |
 
@@ -183,40 +185,40 @@ A person approves each app in the dashboard, for one organization. Owners and ad
 | Tool | Access | What it does |
 |---|---|---|
 | `run_backup` | write | Queue a `full`, `diff` or `incr` backup. |
-| `run_drill` | write | Queue a Proof run (restore test). |
+| `run_drill` | write | Queue a Proof run. |
 | `verify_database` | write | Prove WAL reaches the bucket; activates the schedules. |
 | `update_schedule` | write, destructive | Change the schedules (UTC cron) and `retention_full`. |
-| `plan_adoption` | write | Register a database on a host and produce a read-only plan, or plan again. Turning backups on is a change (`request_change` `turn_on_backups`). |
-| `ack_alert` | write | Acknowledge a firing alert: no more repeat notifications. |
+| `plan_adoption` | write | Register a database on a host and make a read-only plan, or plan again. Turning backups on is a change (`request_change` `turn_on_backups`). |
+| `ack_alert` | write | Acknowledge a firing alert: no more repeats. |
 | `dismiss_recommendation` | write | Set a recommendation aside with a reason, or bring it back (`undo`). |
-| `run_index_check` | write | Look for missing indexes now, tested on a copy restored on the database's server. |
-| `check_upgrade` | write | The read-only preflight for a major upgrade: what blocks it and which modes are possible. |
-| `rehearse_upgrade` | write | Upgrade a throwaway copy, check it and measure the downtime, then delete it. A passed rehearsal allows the real upgrade. |
-| `run_security_check` | write | Read the security settings again now, and check the port from the internet again. |
-| `backup_files` | write | Back up the folders that go with a database now, optionally tagged with a name; with `check`, run the files Proof instead. |
+| `run_index_check` | write | Look for missing indexes now, tested on a copy on the database's server. |
+| `check_upgrade` | write | Read-only preflight for a major upgrade: blockers and possible modes. |
+| `rehearse_upgrade` | write | Upgrade a throwaway copy, check it, measure downtime, delete it. A passed rehearsal allows the real upgrade. |
+| `run_security_check` | write | Re-read security settings and re-check the port from the internet now. |
+| `backup_files` | write | Back up the database's folders now, optionally tagged; with `check`, run the files Proof instead. |
 
 ### Rowsafe Cloud
 
 | Tool | Access | What it does |
 |---|---|---|
-| `cloud_catalog` | read | What a new [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server can be: the databases (`engine`: `postgresql`, `mysql`, `mariadb`, `valkey`, `clickhouse`, `opensearch`, `qdrant` or `meilisearch` where offered, with their versions, ports, the memory they need and whether backups are snapshots only), each cloud's regions and sizes (CPUs, memory, disk), the price per hour and the most a month costs, the traffic included, what's sold out right now, where a standby is possible, the PostgreSQL extensions a server can have from the start (`extensions`), whether pay as you go is active, and how many servers the organization may have. |
-| `list_cloud_servers` | read | The servers Rowsafe created for the organization (Rowsafe Cloud, and servers in your own cloud accounts): status, region, size and price, the name apps connect to, who can connect, and the database once ready. |
-| `get_cloud_server` | read | One server: its status and progress (or what went wrong), size and price, how apps connect (the host name like `x7kq2mfa3pzd.cloud.rowsafe.sh`, the read-only host, port, `sslmode`), who can connect, and its database once ready. Can wait while it's being set up. |
+| `cloud_catalog` | read | What a new [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server can be: engines (`postgresql`, `mysql`, `mariadb`, `valkey`, `clickhouse`, `opensearch`, `qdrant`, `meilisearch` where offered) with versions, ports, memory needed and whether backups are snapshots only; each cloud's regions and sizes (CPUs, memory, disk); hourly price and monthly maximum; traffic included; what's sold out; where a standby is possible; PostgreSQL `extensions` available from the start; whether pay as you go is active; how many servers the organization may have. |
+| `list_cloud_servers` | read | Servers Rowsafe created for the organization (Rowsafe Cloud and your own cloud accounts): status, region, size, price, the name apps connect to, who can connect, and the database once ready. |
+| `get_cloud_server` | read | One server: status and progress (or what went wrong), size, price, how apps connect (host like `x7kq2mfa3pzd.cloud.rowsafe.sh`, read-only host, port, `sslmode`), who can connect, its database once ready. Can wait during setup. |
 
-An agent that needs a database for the app it's building follows [Need a database?](/docs/guides/ai-agents#need-a-database): `cloud_catalog`, `create_cloud_server` (after you agree to the price), `get_cloud_server`, `cloud_firewall` if needed, then `create_app_database`.
+An agent that needs a database for its app follows [Need a database?](/docs/guides/ai-agents#need-a-database): `cloud_catalog`, `create_cloud_server` (after you agree to the price), `get_cloud_server`, `cloud_firewall` if needed, then `create_app_database`.
 
 ### Changes to production
 
 | Tool | Access | What it does |
 |---|---|---|
-| `request_change` | write | Make a change to production: `action`, `database`, `params` and your `reason`, exactly like the dashboard's button. It runs right away: the answer starts with *Done*, names the person it ran as, and the change is `approved` (done) or `failed`, with its result and its page in the dashboard. Or Rowsafe refuses it: *Rowsafe refused this change, and nothing changed:* and the reason. |
-| `create_cloud_server` | write | Create a Rowsafe Cloud server: `name`, `region`, `size`, `engine` (PostgreSQL unless you pass `mysql`, `mariadb`, `valkey`, `clickhouse`, `opensearch`, `qdrant` or `meilisearch`), `engine_version`, `allowed_ips`, `standby`, `extensions` and `reason`. The same as `request_change` `create_cloud_server`. When a first payment is needed, an owner's agent gets `checkout_url` to give you; the server is created once paid. |
-| `cloud_firewall` | write | Set who can connect to a Rowsafe Cloud server: `server` and the whole new `allowed_ips` list. The same as `request_change` `cloud_firewall`. |
-| `apply_fix` | write | Apply a fix Rowsafe proposed for a finding: `database`, `finding_id`, `fix_id`, and `confirm` when the fix restarts the database. Exactly like **Apply fix**: Rowsafe recomputes the fix and saves a Mark first when the fix says so. |
-| `describe_change` | read | The actions, by group, with their risk and the JSON schema of their params. For one action, also as whom it would run here, and what would make Rowsafe refuse it. |
-| `get_approval` | read | One change an AI agent made: `approved` (done, with the tasks it started) or `failed` (with why). Older records may say `pending`, `denied`, `expired` or `cancelled`: those never ran. The name is kept for compatibility. |
-| `list_approvals` | read | Changes AI agents and API keys made in the organization, newest first. |
-| `create_app_database` | write | A new, empty database and a new user that owns it, for the app you are building, on a Rowsafe Cloud server running PostgreSQL (15 or newer), MySQL, MariaDB or ClickHouse. Rowsafe never sees the password: on PostgreSQL from a local `rowsafe mcp` it is made on your machine, the tool returns the full connection string at once, and the database is created right away as the person who connected the agent (an owner or admin). On MySQL, MariaDB and ClickHouse, and on the remote endpoint, the password must be made in a person's browser: the tool says so, and the person creates the database in the dashboard (Databases & users), which shows the connection string once. Valkey has no separate databases: make the app's login in the dashboard. On OpenSearch, Qdrant and Meilisearch, the person makes the app's user or API key in the dashboard (Databases & users), which shows it once; the tool says so. |
+| `request_change` | write | Change production: `action`, `database`, `params` and your `reason`, like the dashboard's button. Runs at once: the answer starts with *Done*, names the person it ran as, and the change is `approved` (done) or `failed`, with its result and dashboard page. Or: *Rowsafe refused this change, and nothing changed:* and the reason. |
+| `create_cloud_server` | write | Create a Rowsafe Cloud server: `name`, `region`, `size`, `engine` (PostgreSQL unless `mysql`, `mariadb`, `valkey`, `clickhouse`, `opensearch`, `qdrant` or `meilisearch`), `engine_version`, `allowed_ips`, `standby`, `extensions`, `reason`. Same as `request_change` `create_cloud_server`. When a first payment is needed, an owner's agent gets a `checkout_url` for you; the server is created once paid. |
+| `cloud_firewall` | write | Set who can connect to a Rowsafe Cloud server: `server` and the whole new `allowed_ips` list. Same as `request_change` `cloud_firewall`. |
+| `apply_fix` | write | Apply a fix Rowsafe proposed: `database`, `finding_id`, `fix_id`, and `confirm` if it restarts the database. Like **Apply fix**: Rowsafe recomputes the fix and saves a Mark first when the fix says so. |
+| `describe_change` | read | Actions by group, with risk and the JSON schema of their params. For one action, also whom it would run as here and what would make Rowsafe refuse it. |
+| `get_approval` | read | One change an agent made: `approved` (done, with its tasks) or `failed` (with why). Older records may say `pending`, `denied`, `expired` or `cancelled`: those never ran. Name kept for compatibility. |
+| `list_approvals` | read | Changes AI agents and API keys made, newest first. |
+| `create_app_database` | write | A new empty database and its owner user, for the app you're building, on a Rowsafe Cloud server running PostgreSQL 15+, MySQL, MariaDB or ClickHouse. Rowsafe never sees the password. PostgreSQL from local `rowsafe mcp`: made on your machine, created at once as the agent's person (an owner or admin), full connection string returned. MySQL, MariaDB, ClickHouse, and the remote endpoint: the tool says so, and the person creates it in the dashboard (**Databases & users**), which shows the connection string once. Valkey has no separate databases: make the app's login in the dashboard. OpenSearch, Qdrant and Meilisearch: the person makes the app's user or API key in the dashboard (**Databases & users**), shown once. |
 
 The actions `request_change` can make:
 
@@ -233,14 +235,12 @@ The actions `request_change` can make:
 | Alerts | `alert_rule` |
 | Rowsafe Cloud | `create_cloud_server`, `cloud_firewall`, `resize_cloud_server`, `clone_to_new_server`, `delete_cloud_server` |
 
-The Rowsafe Cloud actions that add to the bill (`create_cloud_server`, `resize_cloud_server`, `clone_to_new_server`) write the size and price into the change; the agent tells you before making them. A first payment is always an owner's: an owner's agent gets the checkout link, anyone else's is refused. `delete_cloud_server` is destructive: Rowsafe types the server's name for the agent and records that it did. See [Rowsafe Cloud changes](/docs/guides/agent-autonomy#rowsafe-cloud-changes).
+- **Paid.** `create_cloud_server`, `resize_cloud_server` and `clone_to_new_server` record the size and price; the agent tells you first. A first payment is always an owner's: an owner's agent gets the checkout link, others are refused. `delete_cloud_server` is destructive: Rowsafe types the server's name for the agent and records it. [Rowsafe Cloud changes](/docs/guides/agent-autonomy#rowsafe-cloud-changes).
+- **Extensions.** `manage_databases_users` turning on `vector`, `postgis` or `timescaledb` installs the package first where root allowed PostgreSQL updates. `timescaledb` needs `restart: true` in `params` unless already loaded: Rowsafe saves a Mark, then restarts PostgreSQL once (apps disconnect for a few seconds); the agent tells you first. [Extensions](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb).
+- **Always refused.** `create_standby`, `rebuild_standby`, `move_database` and `fork_database`: a person compares the server's key in the dashboard or CLI. A destructive action with no backup yet (the agent can `run_backup` and retry).
+- **Within a budget.** `create_cloud_server` runs on the owner's behalf, plus `create_app_database`, `cloud_firewall` and `clone_to_new_server` on servers created this way; everything else runs as the agent's person. [When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses).
 
-
-`manage_databases_users` turning on `vector`, `postgis` or `timescaledb` installs the package first, where root allowed PostgreSQL updates. `timescaledb` is loaded when PostgreSQL starts, so it needs `restart: true` in `params` unless it's loaded already: Rowsafe saves a Mark, then restarts PostgreSQL once (apps are disconnected for a few seconds), and the agent tells you first. See [Extensions](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb).
-
-Rowsafe refuses `create_standby`, `rebuild_standby`, `move_database` and `fork_database`: a person compares the server's key, in the dashboard or with the `rowsafe` CLI. It refuses a destructive action when it has no backup of the database yet (the agent can `run_backup` and try again). With **Within a budget**, `create_cloud_server` runs on the owner's behalf, plus `create_app_database`, `cloud_firewall` and `clone_to_new_server` on servers an agent created this way; everything else runs as the agent's person. See [When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses).
-
-There are also two prompts: `incident_triage` checks the fleet, reads the evidence behind each problem, and proposes next steps without changing anything; `fix_what_pulse_found` lists a database's findings Rowsafe can fix, lets you pick, and files each fix you picked with `request_change`.
+Two prompts: `incident_triage` checks the fleet, reads the evidence behind each problem, and proposes next steps without changing anything. `fix_what_pulse_found` lists a database's fixable findings, lets you pick, and files each with `request_change`.
 
 <Accordions>
 <Accordion title="Tool parameters">
@@ -265,34 +265,34 @@ There are also two prompts: `incident_triage` checks the fleet, reads the eviden
 | `list_drills` | `database` (required), `limit` (1 to 50, default 10) |
 | `list_tasks` | `database`, `status` (`queued`, `running`, `succeeded`, `failed`, `lost`, `cancelled`), `type` (`inspect`, `adopt`, `check`, `backup`, `drill`, `restore_point`, `restart`, `maintenance`, `rewind_copy`, `rewind_drop`, `rewind_compare`, `rewind_rows`, `rewind_in_place`, `rewind_undo`, `rewind_cleanup`), `limit` (1 to 100, default 20) |
 | `get_task` | `task_id` (required), `log_tail_bytes` (0 to 16000, default 4000) |
-| `find_moment` | `database` (required), `tables`, `db`, `since_hours` (up to 168, default 24) or `from`/`to`, `kinds` (`delete`, `update`, `truncate`, `drop`), `min_rows`, `wait_seconds` (default 55), `task_id` (the result of an earlier search), `list_searches` |
+| `find_moment` | `database` (required), `tables`, `db`, `since_hours` (up to 168, default 24) or `from`/`to`, `kinds` (`delete`, `update`, `truncate`, `drop`), `min_rows`, `wait_seconds` (default 55), `task_id` (an earlier search's result), `list_searches` |
 | `create_restore_point` | `database` (required), `name` (default `agent-<UTC time>`), `wait_seconds` (0 to 120, default 90; at most 45 on the remote endpoint) |
 | `plan_adoption` | `database` (required), `host`, `port`, `socket_dir`, `retention_full`, `wait_seconds` |
 | `run_backup` | `database` and `type` (required), `wait_seconds` |
 | `run_drill`, `verify_database`, `run_index_check`, `run_security_check` | `database` (required), `wait_seconds` |
-| `check_upgrade`, `rehearse_upgrade` | `database` (required), `to` (the major version; default the newest), `wait_seconds` |
+| `check_upgrade`, `rehearse_upgrade` | `database` (required), `to` (major version; default the newest), `wait_seconds` |
 | `backup_files` | `database` (required), `folders`, `mark`, `check`, `wait_seconds` |
 | `ack_alert` | `alert_id` (required) |
 | `dismiss_recommendation` | `database` and `id` (required), `reason` (`not_relevant`, `intended`, `later`, `wrong`), `note`, `undo` |
-| `preview_migration` | `database` and `sql` (required), `db` (the database inside the server, if it has several); `sql` is SQL, or for MongoDB plain mongosh calls, `label`, `wait_seconds` |
+| `preview_migration` | `database` and `sql` (required; SQL, or plain mongosh calls for MongoDB), `db` (the database inside the server, if several), `label`, `wait_seconds` |
 | `get_preview` | `id`, or `database` for its recent previews |
-| `create_safe_copy` | `database` (required), `allow_from` (addresses or ranges; default the caller's address), `listen` (`private`, `public` or a server address), `hours` (1 to 168, default 24), `db` |
+| `create_safe_copy` | `database` (required), `allow_from` (addresses or ranges; default the caller's), `listen` (`private`, `public` or a server address), `hours` (1 to 168, default 24), `db` |
 | `list_safe_copies` | `database` (required), `masking` |
 | `extend_safe_copy` | `database`, `id` and `hours` (1 to 168) (required) |
 | `delete_safe_copy` | `database` and `id` (required) |
 | `update_schedule` | `database` (required), and at least one of `schedule_full`, `schedule_diff` (`""` turns diffs off), `schedule_drill`, `retention_full` |
-| `request_change` | `action` and `reason` (required), `database` (every action but `alert_rule`, `create_cloud_server`, `cloud_firewall`, `resize_cloud_server` and `delete_cloud_server`), `params` (`describe_change` shows them; `confirm` is the database's name where the action asks for it; `server` is a Rowsafe Cloud server's name or ID) |
+| `request_change` | `action` and `reason` (required), `database` (every action but `alert_rule`, `create_cloud_server`, `cloud_firewall`, `resize_cloud_server` and `delete_cloud_server`), `params` (see `describe_change`; `confirm` is the database's name where asked; `server` is a Rowsafe Cloud server's name or ID) |
 | `describe_change` | `action` (optional) |
 | `get_approval` | `id` (required) |
 | `list_approvals` | `status` (`approved` or `failed`), `limit` (1 to 100, default 20) |
-| `create_cloud_server` | `name`, `region`, `size` and `reason` (required), `engine` (`postgresql` by default, `mysql`, `mariadb`, `valkey`, `clickhouse`, `opensearch`, `qdrant` or `meilisearch`, as `cloud_catalog` offers them: MySQL not on Arm sizes, ClickHouse and OpenSearch on sizes with 4 GB of memory or more, Qdrant 2 GB; OpenSearch, Qdrant and Meilisearch restore to a snapshot, not to any second), `engine_version` (PostgreSQL 15 to 18, default 17; ClickHouse 26.3 or 26.8, default 26.8; the others one each), `allowed_ips`, `standby` (PostgreSQL only), `extensions` (PostgreSQL 15 to 18: any of `vector` (pgvector), `postgis` (PostGIS) and `timescaledb` (TimescaleDB, Apache-2.0 edition), installed and turned on in the `postgres` database and every database created later; `cloud_catalog` lists them per engine). |
+| `create_cloud_server` | `name`, `region`, `size` and `reason` (required); `engine` (`postgresql` default, `mysql`, `mariadb`, `valkey`, `clickhouse`, `opensearch`, `qdrant`, `meilisearch`, as `cloud_catalog` offers: MySQL not on Arm sizes; ClickHouse and OpenSearch need 4 GB of memory or more, Qdrant 2 GB; OpenSearch, Qdrant and Meilisearch restore to a snapshot, not any second); `engine_version` (PostgreSQL 15 to 18, default 17; ClickHouse 26.3 or 26.8, default 26.8; others one each); `allowed_ips`; `standby` (PostgreSQL only); `extensions` (PostgreSQL 15 to 18: `vector` (pgvector), `postgis` (PostGIS), `timescaledb` (TimescaleDB, Apache-2.0 edition), on in the `postgres` database and every later one; `cloud_catalog` lists them per engine) |
 | `cloud_firewall` | `server`, `allowed_ips` and `reason` (required) |
 | `apply_fix` | `database`, `finding_id`, `fix_id` and `reason` (required), `confirm` |
 | `cloud_catalog`, `list_cloud_servers` | none |
-| `get_cloud_server` | `server` (required: its name or ID), `wait_seconds` |
+| `get_cloud_server` | `server` (required: name or ID), `wait_seconds` |
 | `create_app_database` | `database` (required: the Rowsafe Cloud server's database), `name` (required: the new database, like `shop`), `reason` (required), `owner` (default: the database's name), `extensions` |
 
-Tasks run in the background. Write tools return the task at once, or wait up to `wait_seconds` (at most 60, and 45 on the remote endpoint); then poll `get_task`.
+Tasks run in the background. Write tools return the task at once, or wait up to `wait_seconds` (at most 60; 45 on the remote endpoint); then poll `get_task`.
 
 </Accordion>
 </Accordions>
@@ -300,11 +300,11 @@ Tasks run in the background. Write tools return the task at once, or wait up to 
 ## Troubleshooting
 
 - **"not logged in"** in the client's MCP log: run `rowsafe login`, or set `ROWSAFE_API_KEY` in the server's environment.
-- **Tools missing:** write tools, `request_change` and the change tools only appear with `--allow-writes`, Marks with `--allow-restore-points`. Restart the client after changing flags. A signed-in app gets them only if you allowed **Act for you** (and **Save Marks**); connect it again to change that.
+- **Tools missing:** write tools, `request_change` and the change tools need `--allow-writes`; Marks need `--allow-restore-points`. Restart the client after changing flags. A signed-in app needs **Act for you** (and **Save Marks**); reconnect it to change that.
 - **`forbidden (403): This API key is read-only.`:** the key can only read.
-- **"Rowsafe refused this change, and nothing changed":** the reason follows (the person is a member, a first payment, no backup yet, a server key to compare, over the budget, ...); see [When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses). If it says the app or key was connected before agents could act as their person, that person clicks **Let it act as me** in **Settings → Connected apps** (or **Let agents using it act as me** under **API keys**), or connects it again.
+- **"Rowsafe refused this change, and nothing changed":** the reason follows ([When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses)). If the app or key predates agents acting as their person, that person clicks **Let it act as me** in **Settings → Connected apps** (or **Let agents using it act as me** under **API keys**), or reconnects it.
 - **A new Rowsafe Cloud server isn't created yet:** it waits for its first payment. An owner pays at the checkout link the agent gave.
-- **A 402 error:** a plan limit is reached. `get_org` shows your usage.
+- **A 402 error:** a plan limit is reached. `get_org` shows usage.
 - **Smoke test** without a client:
 
   ```sh

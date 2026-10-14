@@ -1,96 +1,96 @@
 ---
 title: Protect ClickHouse
-description: Backups to your own bucket, restores to any second, Marks, weekly Proof, Rewind, Find the moment, standby servers, Pulse, index advice, pooling and updates for ClickHouse 24.8 and newer on your own server or in Docker.
+description: Backups, restore to any second, Proof, Rewind and Pulse for ClickHouse 24.8 and newer.
 ---
 
-Rowsafe protects ClickHouse with everything it does for PostgreSQL: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; you can restore to **any second**; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted rows back or puts the whole server back; **Marks** save the exact moment before a risky change; **Pulse** watches the server and fixes what it can. See [Limits](#limits).
+Rowsafe protects ClickHouse like PostgreSQL: encrypted backups in your bucket, restore to any second, Marks, a weekly Proof, Rewind and Pulse. See [Limits](#limits).
 
 ## How restores to any second work
 
-ClickHouse never changes data in place. Every insert writes a new **part** (a folder of files), a merge writes a new part that replaces the ones it combined, and an `ALTER ... UPDATE/DELETE` or a `DELETE` writes a new version of each part it changes. ClickHouse records when each part was made, to the microsecond (`system.part_log`).
+ClickHouse never changes data in place. Inserts, merges, updates and deletes each write new **parts** (folders of files), and ClickHouse records when, to the microsecond (`system.part_log`).
 
-So the agent copies each new part to your bucket as it appears, encrypted on your server, and records when it appeared, along with every change to your tables' and databases' definitions. It reads the parts from ClickHouse's data folder and never writes there (on a server, the agent's user is in the `clickhouse` group; in Docker, mount ClickHouse's data volume into the agent read only, as below). To restore to a moment, Rowsafe takes the newest backup before it and adds every part made up to that moment: the result is your server exactly as it was then.
+- The agent copies each new part to your bucket as it appears, encrypted, with its time and every table definition change.
+- It only reads ClickHouse's data folder (on a server, via the `clickhouse` group; in Docker, a read-only mount).
+- A restore takes the newest backup before your moment and adds every part made up to it: your server exactly as it was.
 
 ## Before you start
 
-- ClickHouse **24.8 or newer** runs on Debian 12/13 or Ubuntu 22.04/24.04 (from ClickHouse's own packages, as `clickhouse-server.service`), or in the official `clickhouse/clickhouse-server` Docker image (agent images for 25.8, 26.3 and 26.8).
-- Its HTTP interface is on (port `8123` by default). Rowsafe talks to ClickHouse there, on `127.0.0.1`.
-- The `clickhouse` program is on the server. It comes with ClickHouse's server package. Proof and Rewind copies run it; backups work without it.
-- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt) for the one-command install.
+- ClickHouse **24.8 or newer** on Debian 12/13 or Ubuntu 22.04/24.04 (ClickHouse's own packages, `clickhouse-server.service`), or the official `clickhouse/clickhouse-server` Docker image (agent images for 25.8, 26.3 and 26.8).
+- The HTTP interface on (port `8123` by default). Rowsafe uses it on `127.0.0.1`.
+- The `clickhouse` program (in the server package). Proof and Rewind copies need it; backups don't.
+- A bucket and an encryption passphrase. See [Adopt an existing database](/docs/guides/adopt).
 
 ## Turn on backups
 
-Run the install command on the server and approve the server in your browser when it prints the link:
+Run this on the server, then approve the server in your browser when it prints the link:
 
 ```bash
 curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
-The installer finds ClickHouse. Nothing restarts:
+The installer finds ClickHouse. Nothing restarts.
 
 <Steps>
 <Step>
-**Rowsafe's own ClickHouse user.** Rowsafe needs a user, `rowsafe`, to take backups and read the server's health. The installer adds it as `/etc/clickhouse-server/users.d/rowsafe.xml` (owned by root, readable by ClickHouse only). The file holds only a hash of a random password, and the user can only connect from the server itself. ClickHouse loads it by itself within seconds, without a restart. The password is saved for the agent only (`/var/lib/rowsafe/engines/clickhouse/logins`, readable by the agent alone). What the user may do is [below](#what-rowsafe-may-do).
+**Rowsafe's ClickHouse user.** The installer adds user `rowsafe` in `/etc/clickhouse-server/users.d/rowsafe.xml` (root-owned, readable by ClickHouse only, holding only a password hash). It connects from this server only. ClickHouse loads it within seconds, no restart. The password is readable by the agent alone (`/var/lib/rowsafe/engines/clickhouse/logins`). Its rights are [below](#what-rowsafe-may-do).
 </Step>
 <Step>
-**If that isn't possible** (ClickHouse's users come from elsewhere), an administrator signs in once instead, and Rowsafe creates the same user with SQL. That password is used once and never saved.
+**If that isn't possible** (users come from elsewhere), an admin signs in once and Rowsafe creates the user with SQL. That password is never saved.
 </Step>
 <Step>
-**What Rowsafe may do** on the server (restarts, updates, tuning, pooling, the firewall), each only when someone clicks it and confirms.
+**What Rowsafe may do** on the server (restarts, updates, tuning, pooling, firewall), each only when someone clicks and confirms.
 </Step>
 <Step>
-**The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in ClickHouse's settings changes. Rowsafe checks that a backup reaches your bucket and opens with your key, and takes the first full backup.
+**The plan.** You review it and say yes. ClickHouse's settings don't change. Rowsafe checks a backup reaches your bucket and opens with your key, then takes the first full backup.
 </Step>
 </Steps>
 
 On a server without PostgreSQL, the agent runs as its own system user, `rowsafe`.
 
-Without a terminal, `--protect NAME` works for ClickHouse too. When the users file can't be used, it takes an administrator from `ROWSAFE_CLICKHOUSE_ADMIN_USER` and `ROWSAFE_CLICKHOUSE_ADMIN_PASSWORD` (used once, never saved).
+Unattended installs: `--protect NAME` works too. When the users file can't be used, set `ROWSAFE_CLICKHOUSE_ADMIN_USER` and `ROWSAFE_CLICKHOUSE_ADMIN_PASSWORD` (used once, never saved).
 
 ## What Rowsafe does
 
 | | How |
 |---|---|
-| Full backup | ClickHouse's own `BACKUP` of every database except the system ones. Every week by default. |
-| Differential backup | A `BACKUP` that copies only the data parts written since the last full backup. ClickHouse never changes a part once it is written, so this is small and quick. Every hour by default. |
-| Encryption | ClickHouse writes its backup to a small S3-compatible service inside the agent, which lives only for the length of the backup. The agent encrypts every file, and its name, before it goes to your bucket: the bucket shows when each backup was taken, never your databases' or tables' names. ClickHouse never sees your bucket's keys or your passphrase. |
-| Every change | Each new part, copied from ClickHouse's data folder as it appears (the agent looks every 15 seconds), encrypted on your server, with when ClickHouse made it. Changes to tables and databases are recorded too. |
-| Marks | A differential backup taken on the spot and named after the Mark. Restoring to a Mark brings back exactly that moment. |
-| Restore | To any second, or a Mark. Rowsafe starts from the newest backup before that moment and adds every part ClickHouse made up to it. |
-| Proof | Weekly: restore the server as it was a moment ago (the newest backup plus every change since) into a temporary ClickHouse on the same server (listening on `127.0.0.1` only, with its own data folder), check that every database and table came back and reads in full, then delete it. |
-| [Rewind](/docs/guides/restore) | Restore a copy as it was at any second or a Mark, next to production, on the same kind of temporary ClickHouse. Compare a table with production and bring missing rows back. ClickHouse tables have no unique key, so rows are compared on all their columns: a row is missing when production has fewer copies of it than the copy. |
-| Rewind the whole database | Puts every database back to any second or a Mark, in place. Rowsafe restores the backup into ClickHouse under other names (`rowsafe_rewind_<tag>_<db>`; ClickHouse keeps running), then swaps each table's data partition by partition (`REPLACE PARTITION`, hard links: no extra disk), so views, materialized views and dictionaries keep pointing at the same tables. Tables dropped since come back; tables created since are emptied. The data from before is kept in `rowsafe_before_<tag>_*` databases for 7 days (never backed up): **Undo rewind** swaps it back, **Delete the old data now** drops it. Pause inserts while it runs. |
-| Pulse | Queries, inserts, merges, memory, disk, data parts per partition, mutations, replication, broken parts and the queries running now. **Stop query** ends one (`KILL QUERY`) after checking it is still the same query. **Cancel mutation** stops an `ALTER ... UPDATE/DELETE` that can't finish (`KILL MUTATION`); parts it already changed stay changed. |
-| Queries | Every query from ClickHouse's query log, grouped with `normalizeQuery` (values replaced by `?`). |
-| [Recommendations](/docs/guides/recommendations#clickhouse) | Large tables without a sorting key (`ORDER BY tuple()`), tables split into too many partitions, the capacity checks, and skipping indexes and projections tested on a copy restored from your backups, with **Add** buttons. |
-| [Logs](/docs/guides/logs) | ClickHouse's error log (warnings and errors, with the query that failed), with values removed on your server. |
-| [Security](/docs/guides/security) | Where ClickHouse listens (also checked from the internet: a query without a password tells whether strangers get in), TLS, users without a password open to every network, administrators open to every network and old plaintext passwords, with the exact steps (the `default` user lives in configuration files), and the firewall. |
-| [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) | Memory per query and for the server, spilling to disk, queries and connections at once, threads and merges, explained, with **Tune for this server**. Root's helper writes them into Rowsafe's own files in `config.d` and `users.d`; ClickHouse picks most up within seconds. |
+| Full backup | ClickHouse's own `BACKUP` of every non-system database. Weekly by default. |
+| Differential backup | Only the parts written since the last full backup: small and quick. Hourly by default. |
+| Encryption | ClickHouse writes its backup to a short-lived S3-compatible service inside the agent, which encrypts every file and file name. Your bucket never shows database or table names. ClickHouse never sees your bucket keys or passphrase. |
+| Every change | Each new part, copied as it appears (checked every 15 seconds), encrypted, with its time. Table and database changes too. |
+| Marks | A differential backup taken on the spot. Restoring to a Mark is exact. |
+| Restore | To any second or a Mark: the newest backup before it, plus every part made up to it. |
+| Proof | Weekly: restore the latest moment into a temporary ClickHouse on the same server (`127.0.0.1` only, own data folder), check every database and table reads in full, then delete it. |
+| [Rewind](/docs/guides/restore) | A copy at any second or Mark, next to production. Compare a table and bring missing rows back. With no unique key, rows are compared on all columns: a row is missing when production has fewer copies of it. |
+| Rewind the whole database | Puts every database back in place. The backup is restored under other names (`rowsafe_rewind_<tag>_<db>`) while ClickHouse runs, then swapped in partition by partition (`REPLACE PARTITION`, hard links, no extra disk), so views and dictionaries keep working. Dropped tables come back; new tables are emptied. The old data stays in `rowsafe_before_<tag>_*` for 7 days (never backed up): **Undo rewind** or **Delete the old data now**. Pause inserts while it runs. |
+| Pulse | Queries, inserts, merges, memory, disk, parts per partition, mutations, replication, broken parts, running queries. **Stop query** (`KILL QUERY`, after checking it's the same query). **Cancel mutation** (`KILL MUTATION`) for a stuck `ALTER ... UPDATE/DELETE`; parts already changed stay changed. |
+| Queries | The query log, grouped with `normalizeQuery` (values replaced by `?`). |
+| [Recommendations](/docs/guides/recommendations#clickhouse) | Large tables without a sorting key (`ORDER BY tuple()`), too many partitions, capacity checks, and skipping indexes and projections tested on a restored copy, with **Add** buttons. |
+| [Logs](/docs/guides/logs) | Warnings and errors with the failing query, values removed on your server. |
+| [Security](/docs/guides/security) | Where ClickHouse listens (also tested from the internet), TLS, passwordless users and admins open to every network, old plaintext passwords, with exact steps, and the firewall. |
+| [Tuning](/docs/guides/tuning#mongodb-and-clickhouse) | Memory, spilling to disk, concurrency, threads and merges, explained, with **Tune for this server**. Written to Rowsafe's own files in `config.d` and `users.d`; most apply within seconds. |
 | Restart | **Restart** in the dashboard (or `rowsafe restart`), after you confirm. |
-| [Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse) | New releases of the version you run (25.8.x) with one click; moving to a newer version (25.3 to 25.8) is a major upgrade, rehearsed on a restored copy first, with undo for 7 days. |
-| [Connection pooling](/docs/guides/connection-pooling#clickhouse-chproxy) | chproxy in front of ClickHouse's HTTP interface: it limits how many queries each user runs at once and queues the rest. |
-| [Find the moment](/docs/guides/find-the-moment) | Every `DELETE` (lightweight or `ALTER ... DELETE`) with the rows it removed, every `UPDATE` with the rows of the parts it rewrote ("up to": ClickHouse doesn't count the rows an `UPDATE` changes), every `TRUNCATE` and `DROP PARTITION` with the rows they removed, and every dropped table, read from the record of changes on your server. Restoring to just before a change is a microsecond earlier. Only kinds, table names, times and counts reach Rowsafe. |
-| [Standby](/docs/guides/standby#clickhouse) | A second ClickHouse server that follows this one through your bucket (no Keeper, no connection between the servers), read-only, usually under a minute behind; promote it, or move to a new server. |
-| [Fork](/docs/guides/fork#clickhouse) | A new, independent database from any second or a Mark, restored straight into an empty ClickHouse server on a server you pick. |
-| [Move in](/docs/guides/move-in#clickhouse) | A one-time copy of a database from ClickHouse Cloud or any ClickHouse onto this server. |
-| [Databases & users](/docs/guides/databases-and-users) | Create databases and users with SQL (`CREATE DATABASE`, `CREATE USER`, `GRANT`): read-only, read-and-write or full access per database, new passwords (stored as SHA-256), remove users and databases (a Mark first). Users defined in ClickHouse's configuration files (like `default`) are listed but never changed. |
-| Guard | [Preview a migration](/docs/guides/preview-migrations#other-engines) on a copy, and [safe copies](/docs/guides/safe-copies#other-engines) with personal data masked. |
-| [Files](/docs/guides/files) | Back up the folders that go with the database (uploads), restored to the same moment as a backup. |
-| [Second copy](/docs/guides/second-copy) | Weekly full backups also go to a second bucket, encrypted with that bucket's own passphrase; Proof alternates between the two. |
-
-Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
+| [Updates](/docs/guides/updates#mysql-mariadb-mongodb-and-clickhouse) | New releases of your version (25.8.x) in one click. A newer version (25.3 to 25.8) is a major upgrade, rehearsed on a copy first, undo for 7 days. |
+| [Connection pooling](/docs/guides/connection-pooling#clickhouse-chproxy) | chproxy on the HTTP interface: limits queries per user and queues the rest. |
+| [Find the moment](/docs/guides/find-the-moment) | Every `DELETE`, `UPDATE` (rows "up to": ClickHouse doesn't count them), `TRUNCATE`, `DROP PARTITION` and dropped table, with rows removed. "Just before" is a microsecond earlier. Only kinds, table names, times and counts reach Rowsafe. |
+| [Standby](/docs/guides/standby#clickhouse) | A second server following this one through your bucket (no Keeper, no direct connection), read-only, usually under a minute behind. Promote it or move to a new server. |
+| [Fork](/docs/guides/fork#clickhouse) | A new database from any second or Mark, in an empty ClickHouse on a server you pick. |
+| [Move in](/docs/guides/move-in#clickhouse) | A one-time copy from ClickHouse Cloud or any ClickHouse. |
+| [Databases & users](/docs/guides/databases-and-users) | Create databases and users (read-only, read-and-write or full access per database), new passwords (SHA-256), remove them (a Mark first). Users from config files (like `default`) are listed, never changed. |
+| Guard | [Preview a migration](/docs/guides/preview-migrations#other-engines) on a copy, and masked [safe copies](/docs/guides/safe-copies#other-engines). |
+| [Files](/docs/guides/files) | Your app's folders (uploads), restored to the same moment. |
+| [Second copy](/docs/guides/second-copy) | Weekly full backups also go to a second bucket with its own passphrase; Proof alternates. |
 
 ## What Rowsafe may do
 
-**Rowsafe's ClickHouse user** (`rowsafe`, from this server only) may, each only when someone asks:
+**Rowsafe's ClickHouse user** (`rowsafe`, from this server only) may, only when someone asks:
 
-- `SELECT`, `BACKUP` and `S3` (to the agent's encrypting gateway on this server): back up every database, read the server's health and compare tables with a copy;
+- `SELECT`, `BACKUP` and `S3` (to the agent's encrypting gateway): backups, health and compare;
 - `INSERT`: bring rows back from a copy;
 - `KILL QUERY`, `ALTER UPDATE`, `ALTER DELETE`: stop a query or cancel a stuck mutation;
-- access management, and creating databases and tables, with `GRANT OPTION`: Databases & users;
-- `CREATE`, `DROP` and `ALTER TABLE`: add the indexes you pick, and rewind the whole server in place.
+- access management and creating databases and tables, with `GRANT OPTION`: Databases & users;
+- `CREATE`, `DROP` and `ALTER TABLE`: add indexes you pick, and rewind the whole server.
 
-On an empty server, the installer asks whether to keep it ready to receive clones (`--clickhouse-clones`): the user may then also create and drop databases, for a [fork](/docs/guides/fork#clickhouse) or a database [moved in](/docs/guides/move-in#clickhouse).
+On an empty server, `--clickhouse-clones` also lets it create and drop databases, for a [fork](/docs/guides/fork#clickhouse) or a [move in](/docs/guides/move-in#clickhouse).
 
 **Root decides** what Rowsafe may do on the server itself ([permissions](/docs/guides/permissions), `sudo rowsafe-allow`):
 
@@ -103,11 +103,11 @@ On an empty server, the installer asks whether to keep it ready to receive clone
 | `pooler` | install and manage chproxy |
 | `firewall` | limit who can reach ClickHouse's ports |
 
-Rewinding the whole database in place needs no root permission: it moves data inside ClickHouse.
+Rewinding the whole database needs no root permission: it moves data inside ClickHouse.
 
 ## Docker
 
-Use the ClickHouse agent image next to the official `clickhouse/clickhouse-server` image. It is built on the same image, so the `clickhouse` program that Proof and Rewind copies run is ClickHouse's own, of your version. There is one image per version: `ghcr.io/rowsafe/agent:clickhouse26.8`, `clickhouse26.3` and `clickhouse25.8`. These tags follow the newest Rowsafe release. To pin one, use the exact tag instead, like `<version>-clickhouse26.8`.
+Run the ClickHouse agent image next to the official `clickhouse/clickhouse-server` image. It's built on that image, so Proof and Rewind copies use your version's own `clickhouse`. Tags: `ghcr.io/rowsafe/agent:clickhouse26.8`, `clickhouse26.3` and `clickhouse25.8`, tracking the newest Rowsafe release. To pin one, use an exact tag like `<version>-clickhouse26.8`.
 
 ```yaml
 services:
@@ -132,7 +132,7 @@ services:
       - chdata:/var/lib/clickhouse:ro             # read only: the agent copies new parts from it
 ```
 
-ClickHouse sends its backups to the agent on port `9010`, inside the compose network. Don't publish that port. The agent reads ClickHouse's data volume, read only, to copy each new part as it appears (restores to any second). Then, once:
+ClickHouse sends backups to the agent on port `9010` inside the compose network. Don't publish that port. Then, once:
 
 ```bash
 docker compose exec rowsafe-agent rowsafe-agent clickhouse login --port 8123 --admin-user admin
@@ -140,19 +140,19 @@ rowsafe adopt events --host db-1 --engine clickhouse --port 8123
 rowsafe apply events
 ```
 
-`clickhouse login` reads the administrator's password from what you type (one line). It is used once and never saved. The full example is [`deploy/docker/compose.clickhouse.example.yml`](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.clickhouse.example.yml).
+`clickhouse login` asks for the admin password once and never saves it. Full example: [`deploy/docker/compose.clickhouse.example.yml`](https://github.com/rowsafe/rowsafe/blob/main/deploy/docker/compose.clickhouse.example.yml).
 
 ### Update the agent
 
-The agent never updates itself in Docker. To update it, download the newest image and recreate only the agent's container. ClickHouse keeps running:
+The agent never updates itself in Docker. Pull the newest image and recreate only the agent (ClickHouse keeps running):
 
 ```bash
 docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 ```
 
-Name the service: a plain `docker compose pull` also downloads a newer `clickhouse-server` image if there is one, and `docker compose up -d` then restarts ClickHouse to use it. The server's page in the dashboard says when a new version is out.
+Name the service: a plain `pull` and `up -d` can also upgrade and restart ClickHouse. The server's page says when a new version is out.
 
-To get **Update now** in the dashboard instead, add the container control service. It holds the Docker socket, so the agent never gets it:
+For **Update now** in the dashboard, add the container control service. It holds the Docker socket so the agent never does:
 
 ```yaml
 services:
@@ -181,13 +181,13 @@ volumes:
   rowsafe-control:
 ```
 
-When an owner or admin clicks **Update now** and confirms, the control service checks the new release's list of agent images against Rowsafe's release signature, downloads `ghcr.io/rowsafe/agent` for `clickhouse26.8` at the digest in that list, and recreates only the agent's container with the same settings. If the new agent doesn't report in within five minutes, the old container is started again and the dashboard says why. ClickHouse keeps running throughout. A backup or Proof that was running is reported as failed and runs again.
+When an owner or admin clicks **Update now** and confirms, the control service verifies the release's signed image list, pulls the agent at that digest and recreates only the agent's container. If the new agent doesn't report in within five minutes, the old one starts again and the dashboard says why. ClickHouse keeps running. A running backup or Proof is reported as failed and runs again.
 
-With `ROWSAFE_CONTROL_UPDATE_ONLY`, the control service can only update the agent's container: it refuses to stop, start or restart ClickHouse, whoever asks. How it works and what it can and can't do: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
+With `ROWSAFE_CONTROL_UPDATE_ONLY`, it refuses to stop, start or restart ClickHouse, whoever asks. Details: [Update the agent from the dashboard](/docs/guides/docker#update-the-agent-from-the-dashboard) and [Threat model](/docs/guides/docker#threat-model).
 
 ## Restore without Rowsafe
 
-The agent is open source, and your backups are ClickHouse's own backup format once decrypted. In the bucket, every file and its name are encrypted, so use the agent to download a backup: it decrypts both. On any Linux server with the agent and your bucket's settings: the `ROWSAFE_REPO_*` lines of `/etc/rowsafe/agent.env`, or the same values set by hand on a new server (the passphrase is the one you saved at install):
+Decrypted, your backups are ClickHouse's own backup format. The open-source agent downloads and decrypts them on any Linux server with your bucket settings (the `ROWSAFE_REPO_*` lines of `/etc/rowsafe/agent.env`, or set by hand with your saved passphrase):
 
 ```bash
 set -a; . /etc/rowsafe/agent.env; set +a
@@ -197,14 +197,14 @@ rowsafe-agent clickhouse download-backup --stanza analytics --label 20261002-010
 chown -R clickhouse:clickhouse /var/lib/clickhouse/backups/restore
 ```
 
-The first command lists the backups and Marks. The second decrypts one, and for a differential backup (or a Mark) the full backup it builds on too, then prints the `RESTORE` statement to run. With `/var/lib/clickhouse/backups/` in ClickHouse's `backups.allowed_path`, run it in `clickhouse-client`, for example:
+The first command lists backups and Marks. The second decrypts one (plus the full backup it builds on) and prints the `RESTORE` statement. With `/var/lib/clickhouse/backups/` in `backups.allowed_path`, run it in `clickhouse-client`:
 
 ```sql
 RESTORE ALL FROM File('/var/lib/clickhouse/backups/restore/20261002-010000F_20261002-140000D/')
   SETTINGS base_backup = File('/var/lib/clickhouse/backups/restore/20261002-010000F/')
 ```
 
-To get the server as it was at any second instead, give the moment with `--at`. The agent assembles an ordinary backup folder for it (the newest backup before that moment plus every part ClickHouse made up to it) and prints its `RESTORE` statement:
+For any second, add `--at`. The agent builds an ordinary backup folder for that moment and prints its `RESTORE` statement:
 
 ```bash
 rowsafe-agent clickhouse download-backup --stanza analytics --at 2026-10-02T14:31:07Z --to /var/lib/clickhouse/backups/moment
@@ -212,17 +212,17 @@ rowsafe-agent clickhouse download-backup --stanza analytics --at 2026-10-02T14:3
 
 ## Limits
 
-- **Tables without parts**: Log, TinyLog, StripeLog, Memory and similar tables, and tables kept on object storage (S3 disks), come back as of the newest backup before the moment you pick, not the second itself. On a standby they are as of the backup it started from (empty again if their definition changes).
-- **Short-lived tables**: a table created and dropped again within a few seconds, between two looks of the agent, may be missing from restores to moments in between.
-- **When the agent stops**: ClickHouse keeps a replaced part about 8 minutes (`old_parts_lifetime`). If the agent can't copy for longer, a moment that can't be rebuilt goes back to the newest backup before it, and the task says so.
-- **Standby servers** follow through the bucket (no streaming), so there is no automatic failover, and they need the agent installed natively next to an empty ClickHouse server (not in Docker). After a promotion, restores to a moment are exact from the new primary's first backup (within the hour).
-- **Clusters**: Rowsafe protects the ClickHouse server where the agent runs. A cluster with several shards isn't backed up as one. Replicated tables are backed up from this server's replica.
-- Bringing rows back isn't one transaction. If it stops half-way, what was written stays; running it again finishes the job without duplicates.
-- Rows aren't brought back into SummingMergeTree, AggregatingMergeTree, CollapsingMergeTree or VersionedCollapsingMergeTree tables: there, adding a row changes totals or cancels other rows. Restore a copy and copy what you need yourself.
-- Tables that read from another system (Kafka, MySQL, PostgreSQL, S3, URL and similar) and the views fed by them are backed up but left out of Proof and Rewind copies, so a test never reads from or writes to that system.
-- When a backup has replicated tables, Proof and Rewind copies start their own ClickHouse Keeper for them. Its internal port listens on all of the server's addresses while the copy exists (ClickHouse has no setting to limit it); the task log says so. Backups without replicated tables don't start one.
-- **Rewinding the whole database** needs room on ClickHouse's disk for the backup. Replicated tables, and tables whose columns or engine changed since the backup, can't be rewound in place; tables that read from another system are left as they are.
-- **Forks** can't hold `Replicated*` tables, and hold the real data (masking a fork is PostgreSQL's; use a [safe copy](/docs/guides/safe-copies) for masked data). ClickHouse users and grants aren't in backups.
-- **Connection pooling** covers ClickHouse's HTTP interface (chproxy), not the native protocol (port 9000).
-- **In Docker**, restart the container yourself (Rowsafe notices); Tuning and pooling need the agent installed on the server; for updates, pull the newest image of the same version and recreate the container.
-- **Older installs**: a user created before Databases & users, index advice or the rewind in place can list but not change; run the install command again once.
+- **Tables without parts** (Log, TinyLog, StripeLog, Memory and similar) and tables on object storage (S3 disks) restore as of the newest backup before your moment, not the second. On a standby, as of the backup it started from (empty again if their definition changes).
+- **Short-lived tables** created and dropped within a few seconds may be missing from restores to moments in between.
+- **When the agent stops** for longer than ClickHouse keeps replaced parts (about 8 minutes, `old_parts_lifetime`), a moment that can't be rebuilt goes back to the newest backup before it. The task says so.
+- **Standby servers** follow through the bucket (no streaming), so no automatic failover. They need the agent installed natively next to an empty ClickHouse (not in Docker). After a promotion, restores are exact from the new primary's first backup (within the hour).
+- **Clusters**: only the server where the agent runs is protected. Multi-shard clusters aren't backed up as one. Replicated tables are backed up from this server's replica.
+- **Bringing rows back** isn't one transaction. If it stops half-way, written rows stay; run it again to finish without duplicates.
+- **No bringing rows back** into SummingMergeTree, AggregatingMergeTree, CollapsingMergeTree or VersionedCollapsingMergeTree (adding rows changes totals or cancels rows). Restore a copy and copy what you need yourself.
+- **Tables that read from another system** (Kafka, MySQL, PostgreSQL, S3, URL...) and views fed by them are backed up but left out of Proof and Rewind copies, so tests never touch that system.
+- **Replicated tables in a backup** make Proof and Rewind copies start their own ClickHouse Keeper, whose internal port listens on all addresses while the copy exists (ClickHouse can't limit it); the task log says so.
+- **Rewinding the whole database** needs disk room for the backup. Replicated tables and tables whose columns or engine changed can't be rewound in place; tables reading from another system are left as they are.
+- **Forks** can't hold `Replicated*` tables and hold real data (use a [safe copy](/docs/guides/safe-copies) for masked data). Users and grants aren't in backups.
+- **Connection pooling** covers the HTTP interface (chproxy), not the native protocol (port 9000).
+- **In Docker**, restart the container yourself (Rowsafe notices). Tuning and pooling need the agent on the server. Update by pulling the newest image of the same version.
+- **Older installs**: a user created before Databases & users, index advice or rewind in place can list but not change. Run the install command again once.

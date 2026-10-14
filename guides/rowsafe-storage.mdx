@@ -1,11 +1,11 @@
 ---
 title: Rowsafe Storage
-description: Keep your backups without a bucket of your own, encrypted on your server so Rowsafe can't read them. Quotas, how access works, moving to your own bucket, and what happens to backups you no longer use.
+description: Keep backups without a bucket of your own, encrypted so Rowsafe can't read them.
 ---
 
-Setting up a bucket and an access key is the hardest part of getting started. With **Rowsafe Storage** you skip it: Rowsafe runs the bucket, and each organization gets its own private space in it. Servers Rowsafe [creates for you](/docs/guides/create-a-server) and [Rowsafe Cloud](/docs/guides/rowsafe-cloud) servers back up here from the first minute.
+**Rowsafe Storage** skips the bucket setup: Rowsafe runs the bucket, and your organization gets its own private space in it. Servers Rowsafe [creates for you](/docs/guides/create-a-server) and [Rowsafe Cloud](/docs/guides/rowsafe-cloud) servers use it from the first minute.
 
-**Your backups stay private.** They are encrypted on your server before they leave it, with a passphrase that is created on your server and that Rowsafe never has. We store your backups, but we can't read them, and neither can anyone who gets hold of the bucket.
+**Your backups stay private.** They're encrypted on your server with a passphrase Rowsafe never has. We store them but can't read them, and neither can anyone who gets the bucket.
 
 ## Use Rowsafe Storage
 
@@ -14,7 +14,7 @@ Setting up a bucket and an access key is the hardest part of getting started. Wi
 
 ### Choose it in the installer
 
-The install command from the dashboard asks first where backups go:
+The installer asks where backups go:
 
 ```text
 Where should backups go?
@@ -23,30 +23,28 @@ Where should backups go?
 Choose 1-2 [1]:
 ```
 
-Press Enter. In the dashboard's setup, Rowsafe Storage is already chosen, and the command it shows ends with `--storage rowsafe`, which skips this question.
+Press Enter. The dashboard's command already ends with `--storage rowsafe`, which skips this question.
 
 </Step>
 <Step>
 
 ### Save the passphrase
 
-The installer creates the encryption passphrase and shows it once. Save it in your password manager, then type its last 4 characters to confirm. [Why it matters](/docs/guides/adopt#create-the-passphrase-and-store-it-first).
+The installer shows the passphrase once. Save it in your password manager, then type its last 4 characters. [Why it matters](/docs/guides/adopt#create-the-passphrase-and-store-it-first).
 
 </Step>
 <Step>
 
 ### That's it
 
-The installer tests the storage (it writes, reads back and deletes a small file) and goes on to find PostgreSQL. **Settings → Storage** in the dashboard shows how much you use.
+The installer tests the storage and goes on to find your database. **Settings → Storage** shows your usage.
 
 </Step>
 </Steps>
 
-Without a terminal (cloud-init, configuration management), pass `--storage rowsafe`. The passphrase then comes from `ROWSAFE_REPO_CIPHER_PASS` in the environment; without it, the installer generates one and keeps it in `/etc/rowsafe/agent.env`. Copy it into your secret manager right away: `sudo grep CIPHER_PASS /etc/rowsafe/agent.env`.
+Without a terminal, pass `--storage rowsafe`. The passphrase comes from `ROWSAFE_REPO_CIPHER_PASS`; without it, the installer makes one and keeps it in `/etc/rowsafe/agent.env`. Copy it to your secret manager right away: `sudo grep CIPHER_PASS /etc/rowsafe/agent.env`.
 
 ## How much is included
-
-What each plan includes:
 
 | Plan | Rowsafe Storage |
 |---|---|
@@ -54,51 +52,53 @@ What each plan includes:
 | Pro | 250 GB |
 | Business | 2 TB |
 
-Usage counts everything Rowsafe keeps for you: your full and differential backups, plus every change saved since the oldest backup kept. It is measured every hour.
+Usage counts full and differential backups, plus every change since the oldest kept backup. Measured hourly.
 
-- **At 80%** Settings → Storage shows a warning, and an email goes to your [weekly Pulse](/docs/guides/monitoring) recipients and email alert channels.
-- **At 100%**, new full backups pause. Every change is still saved, so [Rewind](/docs/guides/restore) and restores keep working, and **nothing is ever deleted** to make room. Upgrade, keep fewer full backups, or move to your own bucket, and full backups resume by themselves.
+- **At 80%**: a warning in Settings → Storage, and an email to your [weekly Pulse](/docs/guides/monitoring) recipients and email alert channels.
+- **At 100%**: new full backups pause. Every change is still saved, so [Rewind](/docs/guides/restore) keeps working, and **nothing is ever deleted** to make room. Upgrade, keep fewer full backups, or move to your own bucket, and full backups resume.
 
 ## How access works
 
-Your server never holds a long-lived key to Rowsafe Storage. The agent gets **temporary access to your organization's space only**, valid for 7 days, and renews it every day by itself. It can't see other organizations' backups. A server you remove from Rowsafe gets no new access, and what it holds runs out within 7 days.
+Your server never holds a long-lived key. The agent gets **temporary access to your organization's space only**, valid 7 days, renewed daily. It can't see other organizations' backups. A removed server gets no new access, and its access runs out within 7 days.
 
-If your server can't reach Rowsafe for a while, nothing changes: backups and every change keep being saved until the access runs out, 6 days after the last renewal. If renewals keep failing, Rowsafe alerts you two days before that. When the server can reach Rowsafe again, it renews by itself.
+If the server can't reach Rowsafe, backups go on until access runs out, 6 days after the last renewal. Rowsafe alerts you two days before. Once it reconnects, it renews by itself.
 
 ## Move to your own bucket
 
-You can move whenever you like, for example to keep backups in your own cloud account. Because your bucket's keys must never leave your server, you do this on the server:
+Your bucket's keys must never leave your server, so you move on the server:
 
 1. [Create a bucket and an access key](/docs/guides/storage).
-2. On the server, run `curl -fsSL https://rowsafe.sh | sudo sh -s -- --setup-storage` and answer **y** to "Move them to your own bucket?". It asks for the bucket URL and key, tests them, and keeps your passphrase.
-3. Rowsafe takes a new full backup in your bucket right away, and every change is saved there from then on.
+2. Run `curl -fsSL https://rowsafe.sh | sudo sh -s -- --setup-storage` and answer **y** to "Move them to your own bucket?". It tests the bucket and keeps your passphrase.
+3. Rowsafe takes a new full backup in your bucket right away.
 
-The backups left in Rowsafe Storage are deleted 30 days later. **Restores and Rewind start from the first backup in your bucket**: the older points in time stay in Rowsafe Storage until they are deleted, but Rowsafe doesn't restore from them after the move.
+<Callout type="warn">
+**Restores and Rewind start from the first backup in your bucket.** Older backups stay in Rowsafe Storage for 30 days, then are deleted, but Rowsafe doesn't restore from them after the move.
+</Callout>
 
-To go back to Rowsafe Storage, run the same command and choose it again (or add `--storage rowsafe`).
+To go back, run the same command and choose Rowsafe Storage (or add `--storage rowsafe`).
 
 ## When backups are deleted
 
-Rowsafe never deletes your backups on its own, except in these cases, always after **30 days** and with an **email a week before**:
+Rowsafe deletes your backups only in these cases, always after **30 days** and with an **email a week before**:
 
 - You removed a database from Rowsafe.
 - A server moved to its own bucket.
 - Your organization is deleted.
 
-Settings → Storage lists what is scheduled and when. To keep a removed database's backups, add it back under the same name, on a server that uses Rowsafe Storage, before the date: the deletion is cancelled. Every deletion is recorded in the [audit log](/docs/guides/teams#audit-log).
+Settings → Storage lists what's scheduled. To keep a removed database's backups, add it back under the same name, on a server using Rowsafe Storage, before the date. Every deletion is in the [audit log](/docs/guides/teams#audit-log).
 
 ### Kept for you
 
-Rowsafe never deletes backups because an AI agent did something. When an [AI agent](/docs/guides/agent-autonomy) removes a database from Rowsafe, its backups are **kept**, with no date, and listed under **Kept for you** in Settings → Storage. Add the database back to use them again.
+When an [AI agent](/docs/guides/agent-autonomy) removes a database, its backups are **kept** with no date, under **Kept for you** in Settings → Storage. Add the database back to use them.
 
-To delete them, an owner clicks **Delete these backups**. Then the usual rules apply: they're deleted 30 days later, with an email a week before, and adding the database back before then keeps them. Admins and members see the list but can't delete them.
+Only an owner can click **Delete these backups**. Then the usual 30 days and email apply, and adding the database back still keeps them.
 
-There is no "download your backups" button: they are encrypted with your passphrase, so a copy from Rowsafe wouldn't help anyone without it. To keep your backups in your own hands, move to your own bucket.
+There's no "download your backups" button: they're encrypted with your passphrase, so a copy from Rowsafe wouldn't help. To hold them yourself, move to your own bucket.
 
 ## Good to know
 
-- If you remove a database but leave its WAL archiving on (the "keep archiving" option), PostgreSQL keeps writing to Rowsafe Storage until you turn archiving off; those files are deleted with the rest after 30 days.
-- Rowsafe Storage is offered by Rowsafe's hosted service. A self-hosted Rowsafe doesn't offer it unless its operator sets it up; the installer then asks for your bucket directly.
-- A [second copy](/docs/guides/second-copy) always goes to a bucket of your own; it works next to Rowsafe Storage.
-- A [standby](/docs/guides/standby) isn't available yet for a server on Rowsafe Storage: move it to your own bucket first.
-- Test the storage at any time: `sudo sh install.sh --check-storage`, or `rowsafe-agent storage test` as `postgres`.
+- A removed database with "keep archiving" on keeps writing WAL here until you turn archiving off. Those files go with the rest after 30 days.
+- Rowsafe Storage comes with Rowsafe's hosted service.
+- A [second copy](/docs/guides/second-copy) always goes to your own bucket, alongside Rowsafe Storage.
+- A [standby](/docs/guides/standby) isn't available yet on Rowsafe Storage: move to your own bucket first.
+- Test the storage: `sudo sh install.sh --check-storage`, or `rowsafe-agent storage test` as `postgres`.

@@ -1,9 +1,9 @@
 ---
 title: Update and upgrade your database
-description: Install your database's bug and security releases with one click (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey), keep the server's security updates current, and upgrade to a new major version after a rehearsal, with undo.
+description: Install bug and security releases with one click, and upgrade to a new major version after a rehearsal, with undo.
 ---
 
-Rowsafe keeps your database current on your own server. It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey; this page uses PostgreSQL, and [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs. Everything happens there, through the agent, and only when someone clicks and confirms (or opted in to automatic minor updates). Rowsafe saves a [Mark](/docs/concepts/restore-points) before each change.
+Rowsafe updates your database and its server when someone clicks and confirms (or turned on automatic minor updates), with a [Mark](/docs/concepts/restore-points) first. This page uses PostgreSQL; see [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey) for what differs.
 
 | What | How long PostgreSQL stops | Undo |
 |---|---|---|
@@ -13,12 +13,12 @@ Rowsafe keeps your database current on your own server. It works for PostgreSQL,
 | **Major upgrade**, e.g. 16 to 18 | Measured by the rehearsal: seconds to minutes | 7 days, see [Safe and Fast](#safe-or-fast) |
 
 <Callout title="Rowsafe Cloud servers">
-  On a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server, which Rowsafe hosts, security updates install by themselves (never restarting the database, never rebooting), and minor updates, restarts and reboots that are waiting are applied in a weekly [maintenance window](/docs/guides/rowsafe-cloud#updates-and-maintenance). Everything on this page still works there, any time you click.
+  On [Rowsafe Cloud](/docs/guides/rowsafe-cloud), security updates install by themselves (no database restart, no reboot), and updates that need a restart run in your weekly [maintenance window](/docs/guides/rowsafe-cloud#updates-and-maintenance). The buttons still work any time.
 </Callout>
 
 ## Allow it on the server
 
-Rowsafe can only do what root allowed on the server. The installer asks once, on a terminal:
+Root decides at install:
 
 | Question | Name |
 |---|---|
@@ -26,104 +26,85 @@ Rowsafe can only do what root allowed on the server. The installer asks once, on
 | `Install this server's security updates, when someone clicks Install? [y/N]` | `security-updates` |
 | `Reboot this server, when someone clicks Reboot? [y/N]` | `reboot` (asked after a yes to security updates) |
 
-They need restarts allowed too: updating the database restarts it, and the same helper does both. On other databases the question names them (*Install MySQL updates and upgrades...*). To change your answers later, on the server:
+Updates need restarts allowed too. To change it later:
 
 ```sh
 sudo rowsafe-allow restart updates        # allow PostgreSQL updates (and restarts)
 sudo rowsafe-allow --remove reboot        # stop allowing reboots
 ```
 
-See [Change what Rowsafe may do on a server](/docs/guides/permissions). The installer's options (`--allow-updates`, `--allow-security-updates`, `--allow-reboot` and their `--no-` forms) answer without asking.
-
-The database's **Updates** tab shows what is allowed on its server, and why a button is off.
+See [permissions](/docs/guides/permissions). The **Updates** tab shows what's allowed.
 
 ## Minor updates
 
-When a newer release of your major is available (from apt.postgresql.org, or your distribution's repository), [Pulse](/docs/guides/monitoring) shows **PostgreSQL 16.10 is available (bug and security fixes)** with an **Update to 16.10** button. The **Updates** tab has the same button. After you confirm, Rowsafe:
+When a new release is out, [Pulse](/docs/guides/monitoring) and the **Updates** tab show **Update to 16.10**. Rowsafe saves a Mark, installs only your major's packages, restarts PostgreSQL, updates pgvector, PostGIS or TimescaleDB in each database if needed, and checks backups still work. For example: "Updated PostgreSQL from 16.9 to 16.10 in 12 s; it didn't accept connections for 3 s."
 
-1. saves a Mark;
-2. installs only your major's own packages (`postgresql-16`, `postgresql-client-16`, `libpq5` and the `postgresql-16-*` extension packages you have), never another major;
-3. restarts PostgreSQL if the packages didn't, and waits until it answers;
-4. when the update brought a newer pgvector, PostGIS or TimescaleDB, updates the extension in each database that has it (`ALTER EXTENSION ... UPDATE`; TimescaleDB's package carries only one version, so its databases need this to keep working);
-5. checks that changes still reach your backups.
+**Install minor updates automatically** (on the **Updates** tab) updates on Sundays at 03:00 your time, with a Mark first.
 
-The result says what happened, for example "Updated PostgreSQL from 16.9 to 16.10 in 12 s; it didn't accept connections for 3 s."
+<Callout type="warn">
+  Updating PostgreSQL 16 also updates the server's other PostgreSQL 16 clusters, usually restarting them. The confirmation lists them.
+</Callout>
 
-From a terminal:
+<Accordions>
+<Accordion title="With the CLI">
 
 ```sh
 rowsafe update app              # shows the versions, asks you to type the name, updates
 rowsafe update app --auto on --timezone Europe/Berlin
 ```
 
-**Automatic minor updates.** Turn on **Install minor updates automatically** on the **Updates** tab (or `rowsafe update app --auto on`): Rowsafe then updates on Sundays at 03:00 in your time zone, with a Mark first, when a new release is available and the agent is online. If it isn't, it waits for the next Sunday. Every automatic update is in the audit log as `rowsafed`.
-
-<Callout type="warn">
-  Packages are per major, not per cluster: when you update PostgreSQL 16, the server's other PostgreSQL 16 clusters also run the new release after their next restart (the packages usually restart them right away). The confirmation lists them.
-</Callout>
+</Accordion>
+</Accordions>
 
 ## Security updates and reboots
 
-Pulse shows **12 security updates are waiting; a reboot is needed** with **Install security updates** and, if a reboot is needed, **Reboot the server**. The agent counts the upgrades that come from your distribution's security repository about every hour.
+Pulse shows **12 security updates are waiting; a reboot is needed**.
 
-- **Install security updates** installs only upgrades from the security repository. The database servers' own packages are left alone: they go through **Update** ([PostgreSQL](#minor-updates), [the others](#mysql-mariadb-mongodb-and-clickhouse)), which restarts the database in a controlled way. Services aren't restarted by the installation (`needrestart` only lists them); some updates, like a new kernel, only take effect after a reboot.
-- **Reboot the server** saves a Mark on the database, then reboots the whole server: everything on it stops for a minute or two, the database included. You type the server's name to confirm. The agent reports back once the server is up and the database answers.
+- **Install security updates** installs only your distribution's security upgrades. Database packages are left to **Update**. Nothing restarts; a new kernel needs a reboot.
+- **Reboot the server** saves a Mark, then reboots (a minute or two). Type the server's name to confirm.
 
 ### MySQL, MariaDB, MongoDB and ClickHouse
 
-**Update** works the same way for them: Rowsafe saves a Mark, the helper installs only that server's own packages (for example `mysql-community-server` and its client, `mariadb-server`, `mongodb-org-*`, `clickhouse-*`) at the newest release of the series you run (8.0, 10.11, 7.0, 25.8), from the server's own package sources (the vendor's repository or your distribution's), and restarts the server if the packages didn't. Rowsafe then waits until it answers. Tools versioned on their own (Percona XtraBackup, the MongoDB Database Tools and `mongosh`) are brought up to date with it. Automatic minor updates on Sundays work too.
+**Update** works the same: a Mark, then the newest release of your series from the server's own package sources. Automatic Sunday updates work.
 
-**Major upgrades** (MySQL 8.0 to 8.4, MariaDB 10.11 to 11.4, MongoDB 7.0 to 8.0, ClickHouse 25.3 to 25.8) follow the same three steps as PostgreSQL's, in Safe mode:
+**Major upgrades** (MySQL 8.0 to 8.4, MariaDB 10.11 to 11.4, MongoDB 7.0 to 8.0, ClickHouse 25.3 to 25.8) use the same three steps, in Safe mode:
 
-1. **Check** lists the newer versions this server's package sources offer (add the vendor's repository for the version first: Rowsafe installs only from the server's own sources) and what blocks the upgrade. MongoDB goes one major version at a time, and only when its featureCompatibilityVersion matches the running version; MySQL 8.4 warns about accounts that log in with `mysql_native_password`, which 8.4 turns off by default.
-2. **Rehearse** downloads the new version's server package as the agent's user (checked by apt like any package, never installed), restores your latest backup into a private copy with the version you run, then starts the new version on that copy: MySQL upgrades its data by itself, MariaDB runs `mariadb-upgrade`, MongoDB sets its featureCompatibilityVersion, ClickHouse reads every table back. Nothing on the server changes.
-3. **Upgrade** saves a Mark, then the helper keeps your installed packages and a copy of the data directory, stops the server, installs the new version and starts it (running `mariadb-upgrade` for MariaDB, setting the featureCompatibilityVersion for MongoDB). If it fails, the old version and data are put back.
+1. **Check** lists newer versions in the server's package sources (add the vendor's repository first) and what blocks the upgrade. MongoDB goes one major at a time. MySQL 8.4 warns about `mysql_native_password` accounts.
+2. **Rehearse** starts the new version on a private copy of your latest backup. Nothing on the server changes.
+3. **Upgrade** saves a Mark, keeps your packages and a copy of the data, then installs the new version. If it fails, the old one is put back.
 
-**Undo** (for 7 days) puts the kept data and packages back; what was written since is kept aside on the server. Removing the kept version (or 7 days) frees the disk. It needs free disk about the data's size. In Docker, the check lists the image change to make in your compose file.
-
-On the server, root allows it with `sudo rowsafe-allow updates` (with restarts: the installer asks *Install MySQL updates and upgrades, when someone clicks Update?*); the allow list then holds `database`. In Docker, pull the newest image of the same version and recreate the container; Rowsafe notices the new version.
+**Undo** (7 days) puts the old version back; later writes are kept aside. It needs free disk about the data's size. In Docker, pull the new image and recreate the container.
 
 ### Redis and Valkey
 
-**Update** works the same way on a Debian or Ubuntu server: the helper installs only Redis's own packages (`redis-server`, `redis-tools`, `redis-sentinel` and `redis`, from packages.redis.io or your distribution) or Valkey's (`valkey-server`, `valkey-tools`, `valkey-sentinel`), at the newest release of the series you run (8.2, 7.4, 8.1...), restarts the server if the packages didn't, and waits until it answers and has loaded its data. Apps are disconnected for a few seconds. Automatic minor updates on Sundays work too. Root allows it with `sudo rowsafe-allow updates` (the installer asks *Install Redis updates, when someone clicks Update?*); the allow list then holds `database`.
+**Update** works the same on Debian or Ubuntu, at the newest release of your series. Apps are disconnected for a few seconds. Automatic Sunday updates work.
 
-- **Your distribution's fixes.** Debian and Ubuntu ship fixes of their Redis and Valkey without changing the version number (Debian 12's Redis stays 7.0.15). Rowsafe compares the packages themselves: Pulse shows **A security update of Redis 7.0.15 is available** (or just *an update*) and **Install the update** installs it.
-- **The October 2025 security releases.** Redis 8.2.2, 8.0.4, 7.4.6, 7.2.11 and 6.2.20, and Valkey 8.1.4, 8.0.6 and 7.2.11, fix CVE-2025-49844 (a flaw in Lua scripts that lets anyone who can sign in and run a script take over the server) and CVE-2025-46817, CVE-2025-46818 and CVE-2025-46819. When an update brings that fix, Pulse calls it a security update and marks it critical. Rowsafe goes by the version number, so it can't see a fix your distribution added without changing it.
-- **A Mark first, when there can be one.** On a server Rowsafe can't follow (scheduled snapshots only), there are no Marks: the update runs without one, and the confirmation says so.
-- **Major upgrades** (Redis 7.2 to 7.4 or 8.x, Valkey 8.1 to 9.0) follow the [steps below](#major-upgrades), with the series your server's package sources offer (Redis 8 comes from packages.redis.io). The rehearsal restores your newest backup and the changes since into a temporary server with the version you run, saves it, then opens it with the new version and checks every numbered database has its keys. The upgrade keeps a copy of Redis's data folder and the installed packages for 7 days, so **Undo** puts the old version and its data back; an older Redis can't read what a newer one wrote, so what was written after the upgrade is set aside. Rowsafe refuses to upgrade a server that keeps nothing on its own disk (snapshots and the append-only file both off): the restart would empty it. Turn on snapshots first in **Tuning**. Redis 8 is published under other licenses than Redis 7 (RSALv2, SSPLv1 or AGPLv3); the check says so.
-- **Updates and upgrades need snapshots on**: a server that keeps nothing on its own disk would come back empty from the restart, so Pulse offers **Turn on snapshots** first instead of **Update**.
-- **In Docker**, Rowsafe can't replace your Redis or Valkey image. The agent image is built on the official image of your series (`redis8.2`, `valkey8.1`), so it knows that series' newest release when it was built, and Pulse shows when yours is older, with the step to run yourself:
+- **Snapshots must be on**, or the restart would empty the server. Pulse offers **Turn on snapshots** first.
+- **Distribution fixes** that keep the version number (Debian 12 stays 7.0.15) show as **A security update of Redis 7.0.15 is available**.
+- **October 2025 security releases** (Redis 8.2.2, 8.0.4, 7.4.6, 7.2.11, 6.2.20; Valkey 8.1.4, 8.0.6, 7.2.11) fix CVE-2025-49844, a Lua flaw that lets anyone who can sign in take over the server. Pulse marks them critical.
+- **No Mark** on a server with scheduled snapshots only. The confirmation says so.
+- **Major upgrades** (Redis 7.2 to 7.4 or 8.x, Valkey 8.1 to 9.0) follow the [steps below](#major-upgrades), with **Undo** for 7 days. Redis 8 has other licenses (RSALv2, SSPLv1 or AGPLv3); the check says so.
+- **In Docker**, Pulse shows when your image is old, with the step:
 
 ```sh
 docker compose pull redis && docker compose up -d redis
 ```
 
-Redis restarts: apps are disconnected for a few seconds. A tag pinned to a release (`redis:8.2.1`) needs changing to the series (`redis:8.2`) first. Rowsafe notices the new version by itself.
+Change a pinned tag (`redis:8.2.1`) to the series (`redis:8.2`) first.
 
 ## Major upgrades
 
-Open the database's **Updates** tab, or use `rowsafe upgrade`. An upgrade has three steps.
+On the **Updates** tab, three steps.
 
 ### 1. Check
 
-**Check** looks at the server and changes nothing:
-
-- the new major is available from the server's package sources (apt.postgresql.org has every supported version);
-- every extension package you use (`postgresql-16-*`) exists for the new major, and [TimescaleDB](#timescaledb) can move with it;
-- enough free disk for each mode;
-- the database isn't a read-only replica; replicas that stream from it are listed (they must be set up again afterwards);
-- pgBackRest supports the new major (PostgreSQL 17 needs 2.53, 18 needs 2.55);
-- the cluster is managed by Debian's PostgreSQL tools, and upgrades are allowed on the server.
+**Check** changes nothing. It checks the new major and your extension packages are available, [TimescaleDB](#timescaledb) can move, there's free disk, pgBackRest is new enough (2.53 for 17, 2.55 for 18), and lists replicas that will need setting up again.
 
 ### 2. Rehearse
 
-**Rehearse** is required before the upgrade. Rowsafe restores the latest backup into a scratch copy on the server (like [Proof](/docs/concepts/restore-drills): no network listener, no archiving), installs the new major if needed, runs `pg_upgrade --check` and then `pg_upgrade` on the copy, starts the upgraded copy, checks every database opens with its tables, refreshes planner statistics, and makes sure pgBackRest accepts it. Then it deletes the copy.
+**Rehearse** is required. Rowsafe upgrades a private copy of the latest backup (like [Proof](/docs/concepts/restore-drills)), checks every database opens, then deletes it. Your database isn't touched.
 
-Your database isn't touched. The new major's packages stay installed for the upgrade (Debian creates an empty `main` cluster when it installs them; Rowsafe removes that one).
-
-The report says whether it passed, what `pg_upgrade` found if it didn't, how long each step took, and the **expected downtime** in each mode. A passed rehearsal allows the upgrade for 14 days.
-
-The rehearsal needs free disk in `/var/lib/rowsafe/drills` for the copy: about 1.3 × the database's size + 1 GiB, and as much again to measure the Safe mode's copy (without it, Rowsafe measures the Fast mode and estimates the other).
+The report shows the **expected downtime** in each mode. A pass allows the upgrade for 14 days. It needs free disk of about 1.3 × the database + 1 GiB (twice that to measure Safe mode).
 
 ```sh
 rowsafe upgrade app --to 18 --rehearse-only
@@ -131,16 +112,7 @@ rowsafe upgrade app --to 18 --rehearse-only
 
 ### 3. Upgrade
 
-**Upgrade** asks for the mode and for the database's name, then:
-
-1. saves a Mark;
-2. stops PostgreSQL 16 and runs Debian's `pg_upgradecluster`, which moves the configuration from `/etc/postgresql/16/main`, the port and the systemd unit to PostgreSQL 18;
-3. starts PostgreSQL 18 on the same port;
-4. moves the backups to the new version (`pgbackrest stanza-upgrade`) and checks that changes reach your bucket;
-5. refreshes planner statistics in the background (`vacuumdb --analyze-in-stages`);
-6. takes a full backup and runs Proof on the new version.
-
-If anything fails before PostgreSQL 18 accepts connections, Rowsafe puts PostgreSQL 16 back and starts it (Fast mode: restores it from the backup at the Mark, see below).
+**Upgrade** asks for the mode and the name. Rowsafe saves a Mark, upgrades with `pg_upgradecluster` (same port, same configuration), moves backups to 18, takes a full backup and runs Proof. If anything fails before 18 accepts connections, 16 is put back.
 
 ```sh
 rowsafe upgrade app --to 18 --mode safe
@@ -156,17 +128,13 @@ rowsafe upgrade app --to 18 --mode safe
 | Undo | Switches back to PostgreSQL 16, which is kept stopped: seconds | Restores PostgreSQL 16 from the backup at the Mark saved just before the upgrade |
 | Lost by undo | Nothing is deleted: what was written to 18 stays in 18, kept aside | What was written after the upgrade is gone from the live database |
 
-Rowsafe recommends Safe mode when there is disk for it.
+Rowsafe recommends Safe when there's disk for it.
 
 ### Undo, and remove the old version
 
-For 7 days, the **Updates** tab shows **Undo upgrade**, and Pulse shows **PostgreSQL 16 is kept so you can undo the upgrade** with **Remove PostgreSQL 16**.
+For 7 days, click **Undo upgrade** on the **Updates** tab (see [Safe or Fast](#safe-or-fast) for what's lost). A Mark is saved first, so writes to 18 stay recoverable.
 
-- **Undo** (Safe): stops PostgreSQL 18, switches the port back and starts PostgreSQL 16. PostgreSQL 18, with anything written to it since the upgrade, is kept aside, stopped.
-- **Undo** (Fast): stops PostgreSQL 18, restores PostgreSQL 16 from the backup at the Mark saved before the upgrade, replays it to that Mark and starts it. Anything written after the Mark is not in it.
-- Rowsafe saves a Mark first, so what was written to PostgreSQL 18 stays recoverable.
-- After either, Rowsafe moves the backups back to PostgreSQL 16, takes a full backup and runs Proof.
-- **Remove** deletes the version kept aside (`pg_dropcluster`), and its programs when no other cluster uses them. Rowsafe removes it by itself after 7 days.
+**Remove PostgreSQL 16** in Pulse frees the disk. Rowsafe removes it by itself after 7 days.
 
 ```sh
 rowsafe upgrade undo app
@@ -175,30 +143,29 @@ rowsafe upgrade cleanup app
 
 ### TimescaleDB
 
-`pg_upgrade` needs every database on the **same TimescaleDB version** before and after, and each major's TimescaleDB package carries one version. When TimescaleDB is turned on somewhere, Check compares them and says what to do:
+TimescaleDB must be the **same version** before and after. Check says what to do:
 
-- **TimescaleDB moves to PostgreSQL 18**: both have the same version; nothing to do.
-- **Update TimescaleDB first**: the server already has the new major's version, and some databases run an older one. Click **Update TimescaleDB first** under the check and type the database's name (a Mark first; it locks their time-series tables briefly), then check and rehearse again.
-- **Update PostgreSQL first**: install your major's minor update, which brings the right TimescaleDB version and updates the databases, then rehearse again.
-- **TimescaleDB can't move yet**: the old major's package stops at an older version than the new major's has. Rowsafe can't upgrade the server while TimescaleDB is on. Upgrade to a major whose package has your version, or move the data into a new server with a dump and restore. **PostgreSQL 15 to 16 is like this today.**
-- **TimescaleDB isn't available** for the new major yet, or your databases run a newer version than its package: upgrade once the PostgreSQL project publishes it.
+- **TimescaleDB moves to PostgreSQL 18**: same version, nothing to do.
+- **Update TimescaleDB first**: click it and type the name (a Mark first; time-series tables lock briefly), then check and rehearse again.
+- **Update PostgreSQL first**: install the minor update, which brings the right version, then rehearse again.
+- **TimescaleDB can't move yet**: the old major's package is older than the new one's. Upgrade to a major with your version, or dump and restore into a new server. **PostgreSQL 15 to 16 is like this today.**
+- **TimescaleDB isn't available** for the new major yet, or yours is newer than its package: wait for the PostgreSQL project to publish it.
 
-The rehearsal checks again with the new major installed. pgvector and PostGIS are checked like any other extension package.
 
 ## Limits
 
-- **Debian and Ubuntu, PostgreSQL from packages.** Rowsafe installs packages with apt and upgrades clusters with Debian's `pg_upgradecluster`, so the cluster must be one `pg_lsclusters` lists, run by its `postgresql@16-main` unit. Elsewhere, Check and Rehearse still work where the new major's programs are installed.
-- **Docker.** Rowsafe can't change your container's image. Check shows the steps (a one-off `pg_upgrade` container, then the new image tag), and the rehearsal works if the agent's image has the new major's programs. For minor updates, pull the newest image of the same major and recreate the container.
-- **Extensions** must come as packages for the new major. Extensions you built yourself block the upgrade until you install them for the new major.
-- **TimescaleDB** must be the same version before and after: PostgreSQL 15 to 16 with TimescaleDB isn't possible through Rowsafe yet. See [TimescaleDB](#timescaledb).
-- **Replicas** that stream from the upgraded server have to be set up again: a major upgrade changes the data files.
-- **Tablespaces** are upgraded, but Fast mode isn't offered with them (its undo couldn't restore them).
-- **Going back before the upgrade** (Rewind to a time before it) needs the old major's programs: keep the old version until you're sure. Removing it removes them too.
-- **Automatic updates** only install minor releases; never a major upgrade and never security updates of the server.
+- **Debian and Ubuntu, PostgreSQL from packages** (a cluster `pg_lsclusters` lists). Elsewhere, only Check and Rehearse.
+- **Docker.** Rowsafe can't change your image. Check shows the steps. For minor updates, pull the newest image and recreate the container.
+- **Extensions** must be packaged for the new major.
+- **TimescaleDB**: PostgreSQL 15 to 16 with TimescaleDB isn't possible yet. See [TimescaleDB](#timescaledb).
+- **Replicas** streaming from the server must be set up again.
+- **Tablespaces** are upgraded, but not in Fast mode.
+- **Rewinding to before the upgrade** needs the old major's programs: keep the old version until you're sure.
+- **Automatic updates** are minor releases only, never majors or the server's security updates.
 
 ## How it works
 
-The agent runs as `postgres` and can't install anything. Updates go through a small root helper, `/usr/local/lib/rowsafe/rowsafe-pg-restart`, run by `rowsafe-pg-update.service` when the agent writes a request to `/var/lib/rowsafe/restart/update-request`. The helper reads the request as the `postgres` user, accepts only a fixed list of requests (install PostgreSQL N's minor release, install major N for a cluster, upgrade, undo, remove the kept version, install security updates, reboot), checks each against root's `/etc/rowsafe/updates-allowed` and `/etc/rowsafe/restart-allowed`, and builds the package names itself: it never runs a command it was sent. See the [security model](/docs/security).
+The agent runs as `postgres` and can't install anything. A small root helper accepts only a fixed list of requests, checks each against what root allowed (`/etc/rowsafe/updates-allowed`), and builds package names itself: it never runs a command it was sent. See the [security model](/docs/security).
 
 <Accordions>
 <Accordion title="Do it yourself: upgrade by hand">

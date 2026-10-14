@@ -1,62 +1,64 @@
 ---
 title: Move a database to a new server
-description: Move a PostgreSQL, MySQL, MariaDB or MongoDB database to another server with about a minute of downtime and nothing lost, at a time you pick, with a way back.
+description: Move a database to another server at a time you pick, with about a minute of downtime and a way back.
 ---
 
-Moving a database, to a bigger server, another provider or a new region, uses the same machinery as a [standby](/docs/guides/standby):
+Move a database to a bigger server, another provider or a new region:
 
-1. Rowsafe sets the **new server** up as a standby from your latest backup and keeps it in sync, while the database keeps running on the old one.
-2. At the **time you pick** (or when you click **Switch now**), it switches over: the old server stops briefly and cleanly, the new one replays every change and takes over. **Nothing is lost.** Apps are disconnected for about a minute.
-3. The **old server stays stopped** for the days you chose (7 by default), as a way back: **Switch back** moves the database back the same way, **Remove old server** lets it go.
+1. The **new server** becomes a [standby](/docs/guides/standby) and catches up. Nothing changes for your apps.
+2. At the **time you pick** (or **Switch now**), it takes over. **Nothing is lost.** Apps are disconnected for about a minute.
+3. The **old server stays stopped** for 7 days (or what you chose), as a way back.
 
-It works for every database that has [standby servers](/docs/guides/standby): PostgreSQL, MySQL, MariaDB and MongoDB. This page describes PostgreSQL; [By database](#by-database) says what differs.
-
-A move is always a planned switchover, never a failover: it needs both servers' agents reporting, and it waits rather than lose data. To take over from a server that is gone, [promote the standby](/docs/guides/standby#promote-the-standby) instead.
+A move needs both servers reporting. If the old one is gone, [promote the standby](/docs/guides/standby#promote-the-standby) instead. This page describes PostgreSQL; [By database](#by-database) says what differs.
 
 ## What you need
 
-The same as for a standby: the new server has the Rowsafe agent, an **empty PostgreSQL cluster of the same major version**, and Rowsafe may stop and start PostgreSQL on both servers. See [Standby: what you need](/docs/guides/standby#what-you-need).
+The same as [for a standby](/docs/guides/standby#what-you-need): the agent and an **empty cluster of the same major version** on the new server, and restarts allowed on both.
 
 ## Move
 
-In the dashboard: open the database, **Standby**, **Move to a new server**. Pick the server and its cluster, when to switch over, how long to keep the old server, and confirm the new server's key fingerprint (what `sudo -u postgres rowsafe-agent key` prints there). From a terminal:
+Click **Standby**, **Move to a new server**. Pick the server, when to switch, and how long to keep the old server. Confirm the new server's key fingerprint.
+
+**Standby** shows progress. You can change the time or cancel. The switchover waits until the new server is in sync.
+
+<Accordions>
+<Accordion title="With the CLI">
 
 ```sh
 rowsafe move app --to db-2 --at "2026-10-03 23:00" --keep-days 7
+rowsafe move app --to db-2          # no time: waits for you
+rowsafe move switch app             # switch now
+rowsafe move schedule app --at TIME # change the time
+rowsafe move cancel app
+rowsafe move back app               # switch back
+rowsafe move finish app             # remove the old server
 ```
 
-Without `--at`, it waits for you:
-
-```sh
-rowsafe move app --to db-2
-rowsafe move switch app
-```
-
-While the new server catches up, **Standby** shows the move's progress and how far behind the new server is. You can change the time (`rowsafe move schedule app --at TIME`) or cancel (`rowsafe move cancel app`): the database stays where it was and the new server's cluster gets its own data back.
-
-If the new server isn't in sync at the set time, the switchover waits until it is. If the old server's agent isn't reporting, it waits too.
+</Accordion>
+</Accordions>
 
 ## At the switchover
 
-- The old server is **fenced**: `standby.signal` in its data directory, PostgreSQL stopped cleanly through the root helper, its last WAL pushed to your bucket. From now on its agent keeps it stopped.
-- The new server replays up to the old one's last checkpoint, then is promoted. If it can't get everything within 3 minutes, it doesn't switch and says why; the old server stays stopped until you switch over anyway or [start it again](/docs/guides/standby#fencing-the-old-primary-stays-stopped).
-- Backups continue on the new server, in the same bucket: Rowsafe takes a full backup right away.
-- **Rowsafe poolers** that send connections to this database are pointed at the new server. Apps whose connection string lists both servers (see [Connect your apps](/docs/guides/standby#connect-your-apps)) find it by themselves. **Standby** shows the new address for the others.
+- The old server is **fenced** (stopped and kept stopped). The new one replays everything and takes over. If it can't within 3 minutes, it doesn't switch and says why; [start the old one again](/docs/guides/standby#fencing-the-old-primary-stays-stopped) or switch anyway.
+- Backups continue on the new server.
+- Rowsafe poolers and apps that list both servers ([Connect your apps](/docs/guides/standby#connect-your-apps)) follow by themselves. **Standby** shows the new address for others.
 
 ## Switch back or remove the old server
 
-For the days you chose, the old server keeps its data, stopped:
+Until the days run out:
 
-- **Switch back** (`rowsafe move back app`): the old server follows the new one again, on its own data (fast, no restore), and the switchover back runs by itself as soon as it is in sync. Nothing written on the new server is lost.
-- **Remove old server** (`rowsafe move finish app`, confirmed with the old server's name): Rowsafe stops keeping it stopped. PostgreSQL stays stopped there, and comes back read-only if someone starts it. Remove the server from Rowsafe on the **Servers** page when nothing else runs there, and delete its data when you no longer need it.
+- **Switch back** catches the old server up and moves the database back. Nothing is lost.
+- **Remove old server** (type its name) lets it go. It stays stopped. Remove it on the **Servers** page when nothing else runs there.
 
-When the days run out, switching back is no longer offered; the old server stays stopped until you rebuild it as a standby or forget it.
+After that, the old server stays stopped until you rebuild it as a standby or forget it.
 
 ## By database
 
-- **MySQL and MariaDB**: the new server is an empty server of the same version series, set up like a [standby](/docs/guides/standby#mysql-and-mariadb) (standby servers allowed on both servers). At the switchover the old server is made **read-only** rather than stopped, and stays read-only for the days you chose.
-- **MongoDB**: the new server joins the replica set like a [standby](/docs/guides/standby#mongodb), and the switchover is MongoDB's own election. The old server stays in the set as a read-only secondary.
-- **ClickHouse**: the new server is an empty ClickHouse server that follows the old one through your bucket, like a [standby](/docs/guides/standby#clickhouse). At the switchover the old server is made **read-only** (it keeps running for reads) and stays so for the days you chose. Switching back rebuilds the old server from the new one; its own databases are set aside meanwhile (`rowsafe_before_*`).
-- **Redis and Valkey**: the new server is a [standby](/docs/guides/standby#redis-and-valkey) (a Redis server Rowsafe creates, or an empty one, with `--redis-standby` on both servers). At the switchover the old server is made to **refuse writes** (it keeps running for reads) and stays so for the days you chose; switching back has it follow the new one first. Rowsafe's backups continue on the new server from a fresh snapshot.
+The new server is set up like a standby for each engine.
 
-Every step is in the audit log (`database.move`, `database.move_switch`, `database.move_back`, `database.move_finish`), and only owners and admins can move a database. AI assistants can see a move in progress. They can switch, cancel or finish one [as the person who connected them](/docs/guides/agent-autonomy) when that person is an owner or admin. Starting a move needs a person, who compares the new server's key: Rowsafe refuses it for agents, so start it in the dashboard or with the CLI.
+- **MySQL and MariaDB** ([standby](/docs/guides/standby#mysql-and-mariadb)): the old server is made **read-only** instead of stopped.
+- **MongoDB** ([standby](/docs/guides/standby#mongodb)): the switch is MongoDB's own election. The old server stays a read-only secondary.
+- **ClickHouse** ([standby](/docs/guides/standby#clickhouse)): the old server is made **read-only**. Switching back rebuilds it; its databases are set aside (`rowsafe_before_*`).
+- **Redis and Valkey** ([standby](/docs/guides/standby#redis-and-valkey)): the old server **refuses writes**. Backups continue from a fresh snapshot.
+
+Only owners and admins can move a database; every step is audited. AI agents can switch, cancel or finish a move [as the person who connected them](/docs/guides/agent-autonomy), but not start one: a person must compare the new server's key.

@@ -1,9 +1,9 @@
 ---
 title: Connect Google Cloud
-description: Create a Google Cloud project and a service account with the Compute roles Rowsafe needs, and a JSON key for it, so Rowsafe can create database servers (Compute Engine VMs) there. The roles, the custom role alternative, and how to revoke it.
+description: Give Rowsafe a service account key for a project of its own so it can create database servers (Compute Engine VMs) there.
 ---
 
-To [create servers for you](/docs/guides/create-a-server) in Google Cloud, Rowsafe needs a **service account key** for a project of its own. You create both in the Google Cloud console and paste the key into the dashboard once. It takes about five minutes.
+To [create servers for you](/docs/guides/create-a-server) in Google Cloud, Rowsafe needs a **service account key** for a project of its own. It takes about five minutes.
 
 ## Create the service account and its key
 
@@ -12,44 +12,44 @@ To [create servers for you](/docs/guides/create-a-server) in Google Cloud, Rowsa
 
 ### Create a project
 
-In the [Google Cloud console](https://console.cloud.google.com), create a new project just for these databases (the project picker at the top, **New project**), and make sure billing is turned on for it. The roles below reach the whole project, so a project of its own keeps everything else out of reach.
+In the [Google Cloud console](https://console.cloud.google.com), create a project just for these databases (project picker, **New project**) with billing on. The roles reach the whole project, so a project of its own keeps everything else out of reach.
 
 </Step>
 <Step>
 
 ### Turn on the APIs
 
-Open **APIs & Services**, click **Enable APIs and services**, and turn on **Compute Engine API** and **Cloud Resource Manager API**.
+Open **APIs & Services**, **Enable APIs and services**, and turn on **Compute Engine API** and **Cloud Resource Manager API**.
 
 </Step>
 <Step>
 
 ### Create the service account
 
-Open **IAM & Admin**, then **Service accounts**, and click **Create service account**. Name it `rowsafe`. Give it the roles **Compute Instance Admin (v1)**, **Compute Network Admin** and **Compute Security Admin** (or a [custom role](#what-access-this-gives-rowsafe) with exactly the permissions Rowsafe needs), then click **Done**.
+Open **IAM & Admin**, **Service accounts**, **Create service account**. Name it `rowsafe`. Give it **Compute Instance Admin (v1)**, **Compute Network Admin** and **Compute Security Admin** (or a [custom role](#what-access-this-gives-rowsafe)), then click **Done**.
 
 </Step>
 <Step>
 
 ### Create a key
 
-Open the new service account, go to **Keys**, click **Add key**, **Create new key**, choose **JSON** and click **Create**. A file downloads.
+Open the service account, **Keys**, **Add key**, **Create new key**, **JSON**, **Create**. A file downloads.
 
-If Google says key creation is turned off by an organization policy, an administrator of your Google Cloud organization has to allow service account keys for this project.
+If an organization policy blocks key creation, your Google Cloud admin has to allow it for this project.
 
 </Step>
 <Step>
 
 ### Paste it into Rowsafe
 
-Open the file and copy everything in it. In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account**, choose **Google Cloud**, paste it into **Service account key (JSON)**, give the account a name your team will recognize, and click **Connect**. Leave **Project ID** empty to use the project the service account belongs to.
+In the dashboard, open **Settings → Cloud accounts** (or **Create a server for me**) and click **Connect a cloud account**. Choose **Google Cloud**, paste the whole file into **Service account key (JSON)**, name the account and click **Connect**. Leave **Project ID** empty to use the service account's project.
 
-Then delete the downloaded file: Rowsafe keeps the key encrypted, and you don't need another copy.
+Then delete the downloaded file.
 
 </Step>
 </Steps>
 
-Rowsafe checks the key before it saves it: that it works, that it sees the project, and that it has every permission it needs, without creating anything. If a permission is missing, it says which.
+Rowsafe checks the key first, without creating anything, and names any missing permission.
 
 ## What access this gives Rowsafe
 
@@ -61,7 +61,7 @@ The three roles, on the project:
 | Compute Network Admin | `roles/compute.networkAdmin` |
 | Compute Security Admin | `roles/compute.securityAdmin` |
 
-They let the key manage every VM, disk, firewall rule and address in the project, nothing outside Compute Engine, and nothing in other projects. For less, create a custom role (**IAM & Admin**, **Roles**, **Create role**) with exactly these permissions and give the service account that instead:
+They cover every VM, disk, firewall rule and address in the project, and nothing outside Compute Engine or in other projects. For less, create a custom role (**IAM & Admin**, **Roles**, **Create role**) with exactly these permissions:
 
 ```text
 compute.projects.get
@@ -99,16 +99,16 @@ compute.regionOperations.get
 compute.globalOperations.get
 ```
 
-Rowsafe itself creates, for each server, a Debian 12 VM with its disk, a static public address, and firewall rules on the project's `default` network that let in only the addresses you chose, all labelled `rowsafe=1`. Your SSH keys go on the VM only if you give them (Rowsafe never adds its own), and project-wide SSH keys are blocked on it. It creates them only when someone in your organization clicks and confirms. The key is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+For each server, Rowsafe creates a Debian 12 VM with its disk, a static public address, and firewall rules on the `default` network letting in only your addresses, all labelled `rowsafe=1`. Your SSH keys go on the VM only if you give them (never Rowsafe's own); project-wide SSH keys are blocked on it. Only when someone clicks and confirms. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
 
 ## Revoke it
 
 - **In Google Cloud:** **IAM & Admin**, **Service accounts**, `rowsafe`, **Keys**: delete the key. Or delete the service account.
-- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the key; nothing in your project changes. You can remove an account once its servers are deleted.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove** (once its servers are deleted). Nothing in your project changes.
 
-After you revoke the key, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their firewall or delete them. Do that in the Google Cloud console.
+Your servers keep running and stay protected. Resize, firewall changes and deletes then happen in the Google Cloud console.
 
 ## Good to know
 
-- Prices in the dashboard are "about": estimates from Google Cloud list prices in one region. Other regions differ, and your Google Cloud bill is what counts.
-- The project needs its **`default` network**. A new project has one; if it was deleted, Rowsafe says so when you connect.
+- Prices are "about": estimates from Google Cloud list prices in one region. Your Google Cloud bill is what counts.
+- The project needs its **`default` network**. New projects have one; if it's gone, Rowsafe says so.

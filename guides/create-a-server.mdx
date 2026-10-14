@@ -1,42 +1,36 @@
 ---
 title: Create a server for me
-description: No server yet? Rowsafe creates one in your own cloud account (Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure or OVHcloud) with PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch, and backups, Proof and Pulse on from the first minute. What it costs, what happens step by step, the backup passphrase, who can connect, pgvector, PostGIS and TimescaleDB, SSH, resizing and deleting.
+description: Rowsafe creates a database server in your own cloud account, protected from the first minute.
 ---
 
-No server yet? Rowsafe can create one for you **in your own cloud account**, install PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch on it and protect it from the first minute: continuous backups you can restore to any second (snapshots for OpenSearch, Qdrant and Meilisearch), a restore tested every week (Proof), and Pulse watching its health.
+No server yet? Rowsafe creates one **in your own cloud account**, installs the database and protects it from the first minute: continuous backups, Proof and Pulse.
 
-It's your server. It runs in your account, your cloud bills you for it, and you can log in to it yourself. Everything else in these docs works on it exactly as on a server you set up yourself.
+- **Clouds:** Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure and OVHcloud.
+- **Databases:** PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch.
 
-<Callout title="Which clouds">
-  **Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure and OVHcloud** work today: each has been run end to end against a real account (create, first boot, SSH key, firewall, resize, delete).
+It's your server: your cloud bills you, and you can log in to it. Everything else in these docs works on it as on any server.
 
-  No cloud account? [Rowsafe Cloud](/docs/guides/rowsafe-cloud) runs the same server in Rowsafe's account, billed by the hour.
+<Callout title="No cloud account?">
+  [Rowsafe Cloud](/docs/guides/rowsafe-cloud) runs the same server in Rowsafe's account, billed by the hour.
 </Callout>
 
 ## What it costs
 
-- **Your cloud provider bills you for the server, directly**, for as long as it exists. Rowsafe adds nothing to that bill.
-- Before you create anything, the dashboard shows each size's monthly price:
-  - **DigitalOcean**: DigitalOcean's own price.
-  - **AWS**: "about", an estimate from list prices Rowsafe keeps (the server, its disk and its public address). Prices differ between regions.
-  - **OVHcloud**: "about", OVHcloud's hourly price from its public catalog times 730 hours, in your OVHcloud account's currency (a month of 31 days costs a little more).
-
-  Your cloud's bill is what counts. Traffic and taxes can add to it.
-- The server counts as one of your [plan's](/pricing) servers, like any other. Its backups go to [Rowsafe Storage](/docs/guides/rowsafe-storage) and count toward your plan's storage.
+- **Your cloud bills you directly** for the server. Rowsafe adds nothing to that bill.
+- **The dashboard shows each size's monthly price** before you create anything. Where it says "about" or "from", it's an estimate from list prices. Your cloud's bill is what counts; traffic and taxes can add to it.
+- **It counts as one of your [plan's](/pricing) servers.** Its backups go to [Rowsafe Storage](/docs/guides/rowsafe-storage) and count toward your plan's storage.
 
 ## Before you start
 
-- You are an **owner or admin** of your organization in Rowsafe.
-- You have an account at one of the clouds, with billing turned on, and you have **connected it to Rowsafe** once. It takes a couple of minutes: you create a token (or key) in your cloud, limited to what Rowsafe needs, and paste it into the dashboard. Step by step for each cloud:
-  - [Hetzner](/docs/guides/cloud-accounts/hetzner)
-  - [DigitalOcean](/docs/guides/cloud-accounts/digitalocean)
-  - [Vultr](/docs/guides/cloud-accounts/vultr)
-  - [AWS](/docs/guides/cloud-accounts/aws)
-  - [Google Cloud](/docs/guides/cloud-accounts/google-cloud)
-  - [Azure](/docs/guides/cloud-accounts/azure)
-  - [OVHcloud](/docs/guides/cloud-accounts/ovh)
-
-You can connect an account in the middle of creating a server, too.
+- You are an **owner or admin** in Rowsafe.
+- You have a cloud account with billing on, **connected to Rowsafe** (a couple of minutes, or do it while creating the server):
+  [Hetzner](/docs/guides/cloud-accounts/hetzner),
+  [DigitalOcean](/docs/guides/cloud-accounts/digitalocean),
+  [Vultr](/docs/guides/cloud-accounts/vultr),
+  [AWS](/docs/guides/cloud-accounts/aws),
+  [Google Cloud](/docs/guides/cloud-accounts/google-cloud),
+  [Azure](/docs/guides/cloud-accounts/azure),
+  [OVHcloud](/docs/guides/cloud-accounts/ovh).
 
 ## Create the server
 
@@ -45,39 +39,39 @@ You can connect an account in the middle of creating a server, too.
 
 ### Start
 
-In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**. Pick the cloud account to use, or click **Connect a cloud account**.
+Open **Servers**, click **Add server** and choose **Create a server for me**. Pick the cloud account, or click **Connect a cloud account**.
 
 </Step>
 <Step>
 
 ### Region, size and name
 
-- **Region**: the one closest to your app. Every query travels there and back.
-- **Server size**: the dashboard suggests the cheapest size with at least 2 CPUs and 4 GB of memory, a good start for most apps. You can make it bigger later with one click.
-- **Server name**: lowercase letters, digits and dashes, starting with a letter, like `shop-db`. It's also the database's name in Rowsafe.
-- **Database**: PostgreSQL 15 to 18 (**17** unless you pick another), MySQL 8.4, MariaDB 11.8, Valkey 8 (the open-source Redis), ClickHouse 26.8 or 26.3 (**26.8** unless you pick another), OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54 (Community Edition). MySQL needs a size with an Intel or AMD processor; ClickHouse and OpenSearch need a size with at least 4 GB of memory, Qdrant 2 GB. OpenSearch, Qdrant and Meilisearch are backed up as snapshots: restores go back to one, not to any second. A standby and Clone to a new server are PostgreSQL only. See [Databases](/docs/guides/rowsafe-cloud#databases).
-- **Extensions** (PostgreSQL 15 to 18, optional): tick pgvector, PostGIS or TimescaleDB to have them on from the start. See [Extensions](#extensions).
+- **Region:** the one closest to your app.
+- **Server size:** the suggested size (the cheapest with 2 CPUs and 4 GB of memory) suits most apps. You can resize later.
+- **Server name:** lowercase letters, digits and dashes, like `shop-db`. It's also the database's name in Rowsafe.
+- **Database** and version: see [Databases](/docs/guides/rowsafe-cloud#databases) for versions and limits (MySQL needs Intel or AMD; ClickHouse and OpenSearch need 4 GB of memory, Qdrant 2 GB).
+- **Extensions** (PostgreSQL, optional): pgvector, PostGIS or TimescaleDB. See [Extensions](#extensions).
 
 </Step>
 <Step>
 
 ### Who can connect
 
-Add the addresses of your app servers and your own computer (**Add my current IP** fills in yours). Only these addresses can reach the database. You can leave it empty and add them later: until then, nobody can connect. See [who can connect](#who-can-connect).
+Add your app servers' and your own addresses (**Add my current IP** fills in yours). Leave it empty and nobody can connect until you add some.
 
 </Step>
 <Step>
 
 ### SSH access (optional)
 
-Rowsafe never adds its own key and doesn't need one. Add your SSH public key if you want to log in yourself, and the addresses that may reach SSH. See [SSH](#ssh).
+Add your SSH public key to log in yourself, and the addresses that may reach SSH. Rowsafe never adds its own key. See [SSH](#ssh).
 
 </Step>
 <Step>
 
 ### What Rowsafe may do when you click
 
-The same choices the installer asks on a server you set up yourself ([what Rowsafe may do](/docs/guides/permissions)). Rowsafe never does any of these on its own: only when someone in your organization clicks and confirms.
+The same choices as on any server ([what Rowsafe may do](/docs/guides/permissions)). Rowsafe does these only when someone clicks and confirms.
 
 | Choice | Starts |
 |---|---|
@@ -85,133 +79,127 @@ The same choices the installer asks on a server you set up yourself ([what Rowsa
 | Install PostgreSQL updates and upgrades | On |
 | Install the server's security updates | Off |
 | Reboot the server | Off |
-| Change the server's own firewall | Off. Your cloud's firewall already decides who can connect, so most people leave it off. Where Rowsafe puts the firewall on the server itself (some OVHcloud projects, see [who can connect](#who-can-connect)), it's turned on for that. |
+| Change the server's own firewall | Off (your cloud's firewall already decides who can connect). On where Rowsafe puts the firewall on the server itself (some [OVHcloud](/docs/guides/cloud-accounts/ovh#the-firewall) projects). |
 | Create PostgreSQL clusters (for a fork or a restored copy on this server) | Off |
 
-Choose carefully: changing them later needs root on the server, like on any server ([see and change it later](/docs/guides/permissions#see-and-change-it-later)), so it needs the SSH access above.
+Choose carefully: changing them later [needs root on the server](/docs/guides/permissions#see-and-change-it-later), so SSH access.
 
 </Step>
 <Step>
 
 ### Create server
 
-The summary on the right says what happens, the size, the region and the monthly price. Click **Create server**.
+Check the summary (size, region, monthly price) and click **Create server**.
 
 </Step>
 </Steps>
 
 ## What happens next
 
-The server's page shows the progress. It takes about 5 minutes, and you can leave the page: it carries on, and the server shows up under **Servers**.
+It takes about 5 minutes. You can leave the page.
 
-1. **Creating the server.** Your cloud creates a Debian server (Debian 13 where the cloud offers it, else 12) of the size you chose, with a firewall that only lets in the addresses you added. Everything Rowsafe creates is tagged `rowsafe` (`rowsafe=1` on AWS; on OVHcloud, which has no tags, its name and description say so).
-2. **Starting up.** At its first boot, the server runs the Rowsafe installer once, by itself. It carries a one-time token that works only for this server and expires soon, and no other secret.
-3. **Installing the database.** The version you picked, from the project's own repository (PostgreSQL, MySQL, MariaDB, ClickHouse, OpenSearch; their signing keys checked), the project's own release checked against a checksum Rowsafe pins (Qdrant, Meilisearch) or Debian's own packages (Valkey), reachable from the network only with encryption (TLS, with a certificate made on the server) and a password or an API key. Then the extensions you ticked, and the Rowsafe agent, with the choices you made.
-4. **Turning on backups.** The first backup goes to Rowsafe Storage, encrypted on the server with a passphrase made on the server.
-5. **Ready.** The database is running and backed up, Proof tests a restore every week, and Pulse watches its health.
+1. **Creating the server.** A Debian server (13 where offered, else 12), with a firewall that lets in only your addresses. Everything is tagged `rowsafe` (`rowsafe=1` on AWS).
+2. **Starting up.** The server runs the Rowsafe installer once, with a one-time token that works only for it.
+3. **Installing the database** from its project's own packages or release (checked), with TLS and a password or API key, then your extensions and the Rowsafe agent.
+4. **Turning on backups** to Rowsafe Storage, encrypted on the server.
+5. **Ready.** Backed up, tested weekly by Proof, watched by Pulse.
 
-**If something goes wrong**, the page says what happened and what to do, and what was made in your cloud account is removed again. Click **Try again**, or **Change region or size** (for example when a region has no capacity for that size, or your cloud account's limit is reached).
+**If something goes wrong**, the page says what, and what was made in your cloud is removed. Click **Try again**, or **Change region or size** (for example when a region is out of capacity or you hit your cloud's limit).
 
 ## Save the backup passphrase
 
 <Callout type="error" title="Without the passphrase, no backup can be restored">
-  Your backups are encrypted on the server with this passphrase, and Rowsafe doesn't have it. If the server is ever lost, you need it to restore your backups on a new one. Save it before you rely on the database.
+  Backups are encrypted on the server with this passphrase, and Rowsafe doesn't have it. Save it before you rely on the database.
 </Callout>
 
 On the server's page, under **Save your backup passphrase**:
 
-1. Click **Show passphrase**. The server encrypts it for your browser, and the page shows it.
-2. Copy it into your password manager, or wherever you keep secrets, outside this server.
+1. Click **Show passphrase**.
+2. Copy it into your password manager, outside this server.
 3. Tick **I saved it somewhere safe, outside this server**.
 
-Until you do, the server's and the database's pages remind you, and you can't delete the server. You can show it again at any time.
+Until you do, the dashboard reminds you and you can't delete the server.
 
-**How it stays private.** The passphrase is made on the server and stays there. When you click **Show passphrase**, your browser makes a one-time key pair whose private key never leaves the page; the agent encrypts the passphrase to it (the same way as [new database passwords](/docs/guides/databases-and-users#how-passwords-stay-private)), and Rowsafe only passes on the encrypted message, once. Only owners and admins can show it, AI assistants can't, and each time is in the [audit log](/docs/guides/teams#audit-log).
+The passphrase never leaves the server unencrypted: it's encrypted for your browser only, like [new database passwords](/docs/guides/databases-and-users#how-passwords-stay-private). Only owners and admins can show it (AI agents can't), and each time is in the [audit log](/docs/guides/teams#audit-log).
 
 ## Connect your app
 
-When the server is ready, its page shows **Connect your app**: the host (the server's address), the port (`5432` for PostgreSQL, `3306` for MySQL and MariaDB, `6380` for Valkey, `9440` and `8443` for ClickHouse, `9200` for OpenSearch, `6333` and `6334` for Qdrant, `7700` for Meilisearch, all but the first three with TLS only) and how to connect.
+When the server is ready, its page shows **Connect your app**: the server's address and the port ([ports](/docs/guides/rowsafe-cloud#databases)).
 
-1. Click **Create database and user** (on Valkey, **Create a login for your app**; on Qdrant, **Make an API key for your app**; on OpenSearch and Meilisearch, an index and its user or key). The password or key is made on the server and shown only to you, encrypted on the way; Rowsafe never sees it. See [Create databases and users](/docs/guides/databases-and-users).
+1. Click **Create database and user** (Valkey: **Create a login for your app**; Qdrant: **Make an API key for your app**). The password is made on the server and only you see it. See [Databases & users](/docs/guides/databases-and-users).
 2. Make sure your app's address is under **Who can connect**.
-3. Connect with `sslmode=require` (MySQL and MariaDB: `ssl-mode=REQUIRED`; Valkey: `rediss://`; ClickHouse: `clickhouse-client --secure` on 9440, or `https://` on 8443). The certificate is made on the server and isn't signed by a public authority, so `verify-full` doesn't accept it (Valkey, ClickHouse, OpenSearch, Qdrant and Meilisearch clients that check certificates need that turned off, like `redis-cli --insecure`, `clickhouse-client --accept-invalid-certificate` or `curl --insecure`).
+3. Connect with TLS: `sslmode=require` (MySQL and MariaDB: `ssl-mode=REQUIRED`; Valkey: `rediss://`; ClickHouse: `--secure` on 9440, or `https://` on 8443).
 
-On [Rowsafe Cloud](/docs/guides/rowsafe-cloud#connect-your-app), the host is a name that follows the primary, with a trusted certificate, so apps can use `verify-full` there.
+The certificate is made on the server, not by a public authority, so `verify-full` refuses it. Clients that check certificates need that turned off (like `redis-cli --insecure` or `curl --insecure`). On [Rowsafe Cloud](/docs/guides/rowsafe-cloud#connect-your-app), servers get a trusted certificate.
 
 ## Who can connect
 
 Two locks keep the database private:
 
-- **A firewall.** Only the addresses you added can reach the database's port (5432). Everything else is closed, SSH included unless you opened it. It's your cloud's firewall, except on OVHcloud projects whose quota allows no security groups (new projects): there Rowsafe sets the firewall **on the server itself** (nftables, kept across reboots). See [OVHcloud](/docs/guides/cloud-accounts/ovh#the-firewall).
-- **PostgreSQL itself.** Logins from the network need encryption and a password (`scram-sha-256`).
+- **A firewall:** only your addresses reach the database's port. SSH is closed unless you opened it. It's your cloud's firewall, except on new OVHcloud projects, where it's [on the server itself](/docs/guides/cloud-accounts/ovh#the-firewall).
+- **The database itself:** network logins need TLS and a password or API key.
 
-Change the addresses on the server's page, under **Who can connect**, and click **Save**: the firewall changes within a few seconds (on a server whose firewall is on the server itself, as soon as its agent is online; the page says when it's applied). You can add up to 50 addresses or ranges, IPv4 or IPv6 (like `203.0.113.4` or `203.0.113.0/24`). Adding `0.0.0.0/0` lets anyone on the internet try to connect: they'd still need a password, and the dashboard warns you.
-
-The [security check](/docs/guides/security) watches the server like any other.
+Change the addresses on the server's page under **Who can connect**, then click **Save**. It applies within seconds. Up to 50 IPv4 or IPv6 addresses or ranges (like `203.0.113.0/24`). `0.0.0.0/0` lets anyone try, with a password; the dashboard warns you.
 
 ## Extensions
 
-On PostgreSQL 15 to 18, **pgvector** (AI search), **PostGIS** (maps and places) and **TimescaleDB** (time series, its Apache-2.0 edition: no compression or continuous aggregates) are one switch each, the same as on [Rowsafe Cloud](/docs/guides/rowsafe-cloud#extensions):
+On PostgreSQL 15 to 18, **pgvector**, **PostGIS** and **TimescaleDB** (Apache-2.0 edition) are one switch each, as on [Rowsafe Cloud](/docs/guides/rowsafe-cloud#extensions):
 
-- **When you create the server**, tick them under **Extensions**. Rowsafe installs them from the PostgreSQL project's repository and turns them on in the `postgres` database and in every database you create afterwards.
-- **Later**, turn one on in a database from [Databases & users](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb). Rowsafe installs it first, which needs **Install PostgreSQL updates and upgrades** allowed on the server (on unless you turned it off above). TimescaleDB is loaded when PostgreSQL starts, so it also needs **Restart or stop PostgreSQL** allowed: PostgreSQL restarts once, after a Mark.
-- **With a standby**, only extensions already installed can be turned on later, so pick them when you create the server.
-
-Backups, Proof, restored copies, standbys and clones work with them. Upgrading PostgreSQL 15 to 16 with TimescaleDB isn't possible through Rowsafe yet ([upgrade check](/docs/guides/updates#timescaledb)).
+- **At create time:** tick them under **Extensions**. They're on in every database.
+- **Later:** turn one on in [Databases & users](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb). This needs **Install PostgreSQL updates and upgrades** allowed. TimescaleDB also needs **Restart or stop PostgreSQL**: PostgreSQL restarts once, after a Mark.
+- **With a standby**, pick them at create time.
 
 ## SSH
 
-Rowsafe **never adds its own SSH key** to the server, and doesn't need one: everything Rowsafe does goes through its agent. Without a key, and with SSH closed by the firewall, nobody can log in over SSH, and that's fine.
+Rowsafe **never adds its own SSH key** and doesn't need one: it works through its agent.
 
-To look around yourself, add up to 10 SSH public keys (the line that starts with `ssh-ed25519` or `ssh-rsa`, from your `.pub` file) when you create the server, and the addresses that may reach SSH. You can change those addresses later on the server's page; SSH stays closed while the list is empty. Log in as:
+To log in yourself, add up to 10 SSH public keys when you create the server, and the addresses that may reach SSH. SSH stays closed while that list is empty. Log in as:
 
 | Cloud | User |
 |---|---|
 | DigitalOcean | `root` |
 | AWS | `admin` (Debian's default) |
+| Azure | `rowsafe` |
 | OVHcloud | `debian` (`ubuntu` where the region only has Ubuntu) |
 
-Rowsafe adds keys only when it creates the server. To add one later, use your cloud provider's own tools, as for any server in your account.
+Rowsafe adds keys only at creation. To add one later, use your cloud's own tools.
 
 ## Change the size
 
-On the server's page, click **Resize** and pick a new size. The disk can grow but never shrink, so sizes with a smaller disk aren't offered.
+On the server's page, click **Resize** and pick a size. The disk can grow, never shrink.
 
 <Callout type="warn">
-  **The database is offline for a few minutes** while the server restarts with its new size. Rowsafe saves a Mark first, so you can get back to that exact moment.
+  **The database is offline for a few minutes** while the server restarts. Rowsafe saves a Mark first.
 </Callout>
 
-The server keeps its data and its addresses. Resizing needs the agent online and backups on (for the Mark), and your cloud bills the new size from then on. On AWS, the new size needs the same kind of processor (ARM or x86). For a server in Rowsafe Cloud, see [Change the size](/docs/guides/rowsafe-cloud#change-the-size) (the button is **Change size**, and Rowsafe bills it).
+The server keeps its data and addresses. It needs the agent online and backups on. On AWS, the new size needs the same processor type (ARM or x86). On Rowsafe Cloud, see [Change the size](/docs/guides/rowsafe-cloud#change-the-size).
 
 ## Delete the server
 
-On the server's page, click **Delete server** and type its name to confirm.
+On the server's page, click **Delete server** and type its name.
 
-- **Deleted in your cloud account:** the server, its disk and its firewall, if it has one in the cloud (and its public address, where Rowsafe created one). The database on it goes too, and billing for the server stops.
-- **Kept:** the backups, in Rowsafe Storage. You can restore them on another server later with your backup passphrase. That's why you must save the passphrase before you can delete a server.
+- **Deleted in your cloud:** the server, its disk, its firewall and its public address (where Rowsafe made them). Billing stops.
+- **Kept:** the backups in Rowsafe Storage. Restore them on another server with your passphrase. That's why you must save it first.
 
-The backups are deleted only if you remove the database from Rowsafe, after 30 days and with an email a week before ([when backups are deleted](/docs/guides/rowsafe-storage#when-backups-are-deleted)).
-
-If Rowsafe can't delete something (for example, the token was revoked), the page says so: delete it in your cloud's console, or try again.
+Backups are deleted only if you remove the database from Rowsafe, after 30 days, with an email a week before ([details](/docs/guides/rowsafe-storage#when-backups-are-deleted)). If Rowsafe can't delete something (a revoked token, for example), the page says so.
 
 ## What Rowsafe does with your cloud account
 
-- It creates a server **only when someone in your organization clicks Create**, and resizes, changes the firewall of or deletes one only when someone confirms. Nothing else, and never on its own.
-- It **tags everything it creates** (`rowsafe`, or `rowsafe=1` on AWS), so you can always see what's ours, and never touches anything else.
-- It keeps the credentials **encrypted**, never shows them again, and records every change in the [audit log](/docs/guides/teams#audit-log): `cloud.account.connect`, `cloud.server.create`, `cloud.server.resize`, `cloud.server.firewall`, `cloud.server.delete` and more.
-- It **never sees your data**: database passwords and the backup passphrase are made on the server and reach only your browser, encrypted.
+- **Acts only when someone clicks:** create, resize, firewall changes and delete. Never on its own.
+- **Tags everything it creates** (`rowsafe`, or `rowsafe=1` on AWS) and never touches anything else.
+- **Keeps the credentials encrypted**, never shows them again, and logs every change in the [audit log](/docs/guides/teams#audit-log).
+- **Never sees your data:** database passwords and the passphrase reach only your browser, encrypted.
 
-To stop it, revoke the token or key in your cloud (each cloud's page says how), or remove the account under **Settings → Cloud accounts** once its servers are deleted; nothing in your cloud account changes. You can revoke it as soon as a server is ready: the server, its backups, Proof and Pulse keep working, and only resizing, firewall changes and deleting from the dashboard stop. Why you might want to: [the trade-off](/docs/security#servers-rowsafe-creates).
+To stop it, revoke the token in your cloud (each cloud's page says how), or remove the account under **Settings → Cloud accounts** once its servers are deleted. Your servers, backups, Proof and Pulse keep working; only resizing, firewall changes and deleting from the dashboard stop. See [the trade-off](/docs/security#servers-rowsafe-creates).
 
 ## Who can do this
 
-Only **owners and admins** create, resize and delete servers, connect cloud accounts and show the backup passphrase, in the dashboard or with a read-write API key. Members can see the servers. **AI assistants (MCP) can't** create, resize or delete servers or see the passphrase.
+**Owners and admins** create, resize and delete servers, connect cloud accounts and show the passphrase (in the dashboard or with a read-write API key). Members can see the servers. AI agents can't create, resize or delete servers in your cloud account, or see the passphrase; they can create [Rowsafe Cloud](/docs/guides/rowsafe-cloud#from-your-coding-agent) servers as you.
 
 ## Limits
 
-- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** MySQL runs on Intel and AMD sizes only; ClickHouse and OpenSearch on sizes with 4 GB of memory or more, Qdrant 2 GB. OpenSearch, Qdrant and Meilisearch restore to a snapshot, not to any second. A standby and Clone to a new server are PostgreSQL only. pgvector, PostGIS and TimescaleDB (Apache-2.0 edition) on PostgreSQL 15 to 18 ([Extensions](#extensions)). For MongoDB, Redis or SQLite, install Rowsafe on a server you already have ([Quickstart](/docs/quickstart)).
-- **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To use your own bucket instead, [move to it](/docs/guides/rowsafe-storage#move-to-your-own-bucket) on the server; that needs SSH. A [second copy](/docs/guides/second-copy) in your own bucket works too.
-- **One server per database.** A [standby](/docs/guides/standby) isn't available on Rowsafe Storage yet: move to your own bucket first.
-- The choices of what Rowsafe may do, and SSH keys, are set when the server is created. Changing them later needs you to log in to the server.
-- **Seven clouds** for now: Hetzner, DigitalOcean, Vultr, AWS, Google Cloud, Azure and OVHcloud.
-- The connect steps for each cloud are new: [tell us](mailto:hello@rowsafe.sh) if anything doesn't match what you see.
+- **Databases:** the same versions and limits as [Rowsafe Cloud](/docs/guides/rowsafe-cloud#databases). A standby and Clone to a new server are PostgreSQL only. For MongoDB, Redis or SQLite, install Rowsafe on your own server ([Quickstart](/docs/quickstart)).
+- **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To [move to your own bucket](/docs/guides/rowsafe-storage#move-to-your-own-bucket), you need SSH. A [second copy](/docs/guides/second-copy) in your bucket works too.
+- **A [standby](/docs/guides/standby) needs your own bucket**, not Rowsafe Storage, for now.
+- **What Rowsafe may do and SSH keys** are set at creation. Changing them later needs you to log in.
+- **The connect steps for each cloud are new:** [tell us](mailto:hello@rowsafe.sh) if anything doesn't match.

@@ -1,14 +1,14 @@
 ---
 title: Keep a second copy of your backups
-description: Keep your backups in a second bucket at another provider too, so losing one bucket, account or provider never loses them. See what your backups cost each month.
+description: Keep your backups in a second bucket at another provider, and see what they cost.
 ---
 
-Your backups live in one bucket. That is one place that can go wrong: a bucket deleted by mistake, an account closed or locked, a provider outage, or someone who got hold of your storage keys. A **second copy** keeps everything (the backups and the change log that lets you restore to any second) in a second bucket too, ideally at **another provider**. That's the well-known 3-2-1 rule: your database, two copies of its backups, one of them somewhere else.
+One bucket is one place that can go wrong: deleted by mistake, an account locked, an outage, leaked keys. A **second copy** keeps everything (backups and the change log for restoring to any second) in a second bucket, ideally at **another provider**. That's the 3-2-1 rule: your database, two copies of its backups, one somewhere else.
 
-- Your database **never waits** for the second copy. If the second storage is down, backups carry on in the first one, Rowsafe alerts you, and the second copy catches up by itself when it's back.
-- It has its **own access key and its own encryption passphrase**. Like the first ones, they stay on your server: Rowsafe never sees them.
-- Rowsafe takes a **full backup into it every week** (Sunday 03:30 UTC) and keeps the last 2. **Proof** alternates between the two storages, so both are shown to restore.
-- The Storage page shows **what each storage holds and costs** each month.
+- Your database **never waits** for it. If the second storage is down, backups go on in the first, Rowsafe alerts you, and the copy catches up by itself.
+- It has its **own access key and passphrase**, kept on your server. Rowsafe never sees them.
+- A **full backup goes into it every week** (Sunday 03:30 UTC); the last 2 are kept. **Proof** alternates between the two storages.
+- The Storage page shows **what each storage holds and costs**.
 
 ## Add a second copy
 
@@ -17,32 +17,37 @@ Your backups live in one bucket. That is one place that can go wrong: a bucket d
 
 ### Create a bucket at another provider
 
-An empty, private bucket and an access key that can read, write and delete in it: exactly like the first one. [Set up backup storage](/docs/guides/storage) shows where to click for each provider. Use a **different provider** than your first storage if you can (for example Backblaze B2 when your backups are in Cloudflare R2), so one account or outage can't reach both.
+An empty, private bucket and a key that can read, write and delete, like the first. See [Set up backup storage](/docs/guides/storage). Pick a **different provider** if you can (say Backblaze B2 when the first is Cloudflare R2).
 
 </Step>
 <Step>
 
 ### Run one command on the database server
 
+The dashboard shows it, filled in, under **Rewind → Storage → Add a second copy**:
+
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --add-storage
 ```
 
-The dashboard shows this command, filled in, under **Rewind → Storage → Add a second copy**. It asks for the bucket URL and the key, tests the bucket (write, read back, delete), and **generates a new encryption passphrase** for the second copy. It is shown once: save it in your password manager next to the first one. It refuses the bucket your backups already go to.
+It asks for the bucket URL and key, tests the bucket, and **makes a new passphrase**, shown once: save it next to the first. It refuses the bucket you already use.
 
-It is the one thing you do on the server yourself, because the second copy's key and passphrase must never leave it.
+This is a server step because the key and passphrase must never leave the server.
 
 </Step>
 <Step>
 
 ### Rowsafe does the rest
 
-Within a minute the agent sets up the second storage and has PostgreSQL send its change log to both: it updates `archive_command` and **reloads** the configuration. PostgreSQL does **not** restart. Rowsafe then takes the first full backup into the second copy right away. The dialog in the dashboard follows each step and says when the copy is ready.
+Within a minute, PostgreSQL sends its change log to both storages (`archive_command` updated, config **reloaded**, **no restart**). The first full backup into the copy starts right away. The dashboard dialog shows when it's ready.
 
 </Step>
 </Steps>
 
-Without a terminal (cloud-init, configuration management), put the settings in the environment instead; the installer tests them before saving anything:
+<Accordions>
+<Accordion title="Without a terminal">
+
+Put the settings in the environment. The installer tests them before saving:
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo \
@@ -51,37 +56,40 @@ curl -fsSL https://rowsafe.sh | sudo \
   ROWSAFE_REPO2_CIPHER_PASS="$(openssl rand -base64 48)" sh -s -- --add-storage --no-prompt
 ```
 
-Store that passphrase in your secret manager first. The settings are listed in [Agent configuration](/docs/reference/agent-configuration#second-copy).
+Store that passphrase in your secret manager first. All settings: [Agent configuration](/docs/reference/agent-configuration#second-copy).
+
+</Accordion>
+</Accordions>
 
 ## Keep backups away from the server
 
-Backups help most when they're somewhere else. If your backups are at the same provider **and** in the same region as the database server, Pulse says so: "Backups are in the same region as the server", with **Add a second copy**. The same provider in another region is fine, and so is another provider.
+If your backups are at the same provider **and** in the same region as the server, Pulse says "Backups are in the same region as the server", with **Add a second copy**. Another region or another provider is fine.
 
-Rowsafe knows where a server is when it created it (**Create a server for me**), and reads where a bucket is from its URL. When it can't tell for sure (a server you set up yourself, MinIO), it says nothing.
+Rowsafe knows where a server is when it created it, and reads a bucket's place from its URL. When it can't tell (your own server, MinIO), it says nothing.
 
 ## When the second storage is down
 
-Nothing changes for PostgreSQL or for your first storage. Each change log file first reaches the first storage, and only then is copied to a queue on the server that the agent sends on to the second storage. If the second storage can't be reached:
+PostgreSQL and the first storage aren't affected. Each change log file reaches the first storage, then waits in a queue on the server for the second.
 
-- the files wait in the queue (in `/var/lib/rowsafe/copy2-queue`) and go out, in order, as soon as it works again;
-- after 10 minutes the Health page shows **The second copy isn't getting your backups** with what the storage said, and the **Second copy not up to date** alert fires after 30 minutes (change the delay under Alerts);
-- the queue holds at most 256 files (4 GiB with the default WAL size), so the second copy can never fill your disk. If it's full, newer files are left out of the second copy: the Storage page then says **Needs a full backup**, and **Back up to the second copy** (one click) makes it complete again.
+- Files wait in `/var/lib/rowsafe/copy2-queue` and go out in order once it works again.
+- After 10 minutes, Health shows **The second copy isn't getting your backups** with the error. The **Second copy not up to date** alert fires after 30 minutes (change it under Alerts).
+- The queue holds at most 256 files (4 GiB with default WAL size), so it can't fill your disk. Past that, newer files are left out: the Storage page says **Needs a full backup**, and **Back up to the second copy** fixes it.
 
-Usually the fix is a new key or a bucket that was deleted or renamed. Change them on the server with `--add-storage` (it asks whether to move the second copy to another bucket), and test both storages with `--check-storage`.
+The cause is usually a new key or a deleted or renamed bucket. Fix it on the server with `--add-storage`, and test both with `--check-storage`.
 
 ## Restore from the second copy
 
-Proof restores from the second copy every other week by itself, and **Run Proof from it** on the Storage page does it now. To restore from it by hand, use the second copy's pgBackRest configuration, next to the first one's:
+Proof restores from it every other week. **Run Proof from it** on the Storage page does it now. By hand, use its own pgBackRest config:
 
 ```sh
 sudo -u postgres pgbackrest --config=/etc/rowsafe/pgbackrest/NAME.copy2.conf --stanza=NAME info
 ```
 
-Everything in [Restore a database](/docs/guides/restore) works the same with that `--config`. If the server itself is lost, you need the second copy's bucket settings and passphrase: keep them with the first ones.
+Everything in [Restore a database](/docs/guides/restore) works with that `--config`. If the server is lost, you need the copy's bucket settings and passphrase: keep them with the first ones.
 
 ## What your backups cost
 
-**Rewind → Storage** shows, for each storage, how much space the backups and the change log take, measured by the agent every 6 hours and after each backup, and an estimate of the monthly bill:
+**Rewind → Storage** shows each storage's size (measured every 6 hours and after each backup) and an estimated monthly bill:
 
 | Provider | Price used |
 |---|---|
@@ -92,12 +100,12 @@ Everything in [Restore a database](/docs/guides/restore) works the same with tha
 | DigitalOcean Spaces | $5 a month for 250 GiB for the whole account, then $0.02 per GiB. |
 | Others (MinIO, Ceph, ...) | Unknown: sizes only. |
 
-These are list prices checked in September 2026, before taxes and without request fees. Rowsafe can't see your bill: discounts, other data in the account and other regions change it. The page also shows how the size changed over the last 90 days.
+List prices from September 2026, before taxes and request fees. Rowsafe can't see your real bill. The page also shows the last 90 days of size.
 
-Two suggestions show up on the Health page when they apply:
+Health may suggest:
 
-- **Backups grew by more than half in 30 days** (and by at least 5 GB). Usually the database grew, or it changes a lot, which makes the change log grow.
-- **Keep one full backup fewer to save about $X a month**, with an **Apply fix** button. It is only offered when it's safe: at least 2 full backups stay in each storage, or 1 when the other storage holds a complete, working copy, and only when it saves at least $0.10 a month. It changes a setting; the oldest full backup goes away at the next backup, and the recovery window gets shorter (the confirmation says by how much).
+- **Backups grew by more than half in 30 days** (and by 5 GB or more). Usually the database grew or changes a lot.
+- **Keep one full backup fewer to save about $X a month**, with **Apply fix**. Offered only when it saves $0.10 a month or more and leaves at least 2 full backups per storage (or 1 when the other storage has a complete, working copy). The oldest full backup goes at the next backup, and the recovery window shrinks (the confirmation says by how much).
 
 ## Turn the second copy off
 
@@ -105,14 +113,18 @@ Two suggestions show up on the Health page when they apply:
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --remove-second-copy
 ```
 
-New backups and the change log then go to the first storage only (`archive_command` is switched back with a reload). What is already in the second bucket stays there: delete it at your provider when you no longer need it.
+Backups go to the first storage only (`archive_command` reloaded). What's in the second bucket stays: delete it at your provider when you're done.
 
 ## MySQL, MariaDB, MongoDB and ClickHouse
 
-The second copy works for the other engines with their own backups: weekly full backups go to the second storage too, encrypted with its own passphrase, and Proof alternates between the two storages. MySQL's and MariaDB's binary log and MongoDB's oplog are copied there as well, by a second copier on the server that reads the same files, so the second copy can also restore to any second. ClickHouse's second copy restores to its weekly full backups. For Redis and Valkey, weekly full snapshots and the stream of changes go to the second storage too, so it can also restore to any second.
+The other engines work too: weekly full backups go to the second storage with its own passphrase, and Proof alternates.
+
+- **MySQL, MariaDB, MongoDB**: the binary log or oplog is copied there as well, so it can restore to any second.
+- **ClickHouse**: restores to its weekly full backups.
+- **Redis and Valkey**: weekly snapshots and the stream of changes go there, so it can restore to any second.
 
 ## Limits
 
-- One second copy per server; every database on the server uses it.
-- The second copy gets a full backup every week, not the daily differential ones, so a restore from it replays more of the change log than a restore from the first storage.
-- In Docker (the agent as a sidecar), the second copy works the same, but set it up with the `ROWSAFE_REPO2_*` settings in the agent's `env_file`.
+- One second copy per server, shared by every database on it.
+- It gets weekly full backups, not the daily differential ones, so restoring from it replays more change log.
+- In Docker (agent as a sidecar), set it up with `ROWSAFE_REPO2_*` in the agent's `env_file`.

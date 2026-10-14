@@ -1,54 +1,92 @@
 ---
 title: Rowsafe Cloud
-description: A PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch server of your own that Rowsafe runs in its Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account, billed by the hour and never more than the monthly price, with every Rowsafe feature included. The databases and their ports, pgvector, PostGIS and TimescaleDB with one switch, sizes, prices and regions, how billing works, connecting with the server's name and a trusted certificate, the rowsafe cloud commands, changing the size, a standby with automatic failover, updates and the maintenance window, private connections from AWS, taking it with you, and what Rowsafe can and can't reach.
+description: A database server Rowsafe runs for you in its own cloud account, billed by the hour, with every Rowsafe feature included.
 ---
 
-No cloud account, and no wish to open one? With **Rowsafe Cloud**, Rowsafe creates the server for you in **Rowsafe's own** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud account (you pick), installs the database you choose (PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch) and protects it from the first minute: continuous backups you can restore to any second (snapshots for OpenSearch, Qdrant and Meilisearch), a restore tested every week (Proof), Pulse watching its health, and Guard for your AI agents.
+No cloud account? **Rowsafe Cloud** creates a database server for you in **Rowsafe's own** cloud account and bills you by the hour, never more than the monthly price.
 
-It's the same server as [Create a server for me](/docs/guides/create-a-server), with one difference: **Rowsafe holds the cloud account and bills you**, by the hour, with Rowsafe included.
+- **Clouds:** Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud.
+- **Databases:** PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch.
+- **Included:** continuous backups, Proof, Pulse and Guard, from the first minute.
+
+It's the same server as [Create a server for me](/docs/guides/create-a-server), except Rowsafe holds the cloud account and bills you.
 
 <Callout title="What Rowsafe can and can't reach">
-  Your server runs in Rowsafe's cloud account (Hetzner, DigitalOcean, Vultr, AWS, OVHcloud, Azure or Google Cloud, your pick). We don't log in to it, and backups are encrypted on the server with a passphrase only you have. Because we hold the cloud account, we could reach the server's disk; if you need that ruled out, [create the server in your own cloud account](/docs/guides/create-a-server) instead.
+  We don't log in to your server, and backups are encrypted on it with a passphrase only you have. Because we hold the cloud account, we could reach its disk. To rule that out, [create the server in your own cloud account](/docs/guides/create-a-server).
 </Callout>
+
+## Create a Rowsafe Cloud server
+
+1. Open **Servers**, click **Add server** and choose **Create a server for me**.
+2. Under **Where should it run?**, choose **Rowsafe Cloud**.
+3. Pick the **Database**, a region (it decides the cloud), a size, a name and the version. For PostgreSQL, tick any [extensions](#extensions).
+4. Add the addresses that may connect.
+5. Click **Create server**. The first time, an owner adds a card.
+
+It's ready in about 5 minutes. Then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](#connect-your-app).
 
 ## From your coding agent
 
-Building an app with Claude Code, Codex or another AI agent? It can create a Rowsafe Cloud server when the app needs a database. It picks the region and the cheapest size that fits, tells you the price and gets your OK, then creates it as you (an owner's or admin's agent, right away; the first time, an owner adds a card at a checkout link). Once the server is ready, it creates the app's own database and login and puts the connection string in the app's `.env`. Rowsafe never sees the password. See [Need a database?](/docs/guides/ai-agents#need-a-database) and [How AI agents act](/docs/guides/agent-autonomy): an owner can set a monthly budget for agents.
+Claude Code, Codex or another AI agent can create a server when your app needs a database. It tells you the size and price and gets your OK, then creates it as you, right away (an owner's or admin's agent). It puts the app's connection string in `.env`; Rowsafe never sees the password. The first time, an owner adds a card at a checkout link.
 
-Prefer the terminal? `rowsafe cloud create shop-db`, then `rowsafe env --on shop-db`: see [From the terminal](#from-the-terminal).
+See [Need a database?](/docs/guides/ai-agents#need-a-database) and [How AI agents act](/docs/guides/agent-autonomy). An owner can set a monthly budget for agents.
+
+## From the terminal
+
+Install the CLI with `curl -fsSL https://rowsafe.sh/cli | sh`, then `rowsafe login` (or use a read-write API key). Paid actions and deletions ask first; `--yes` confirms in scripts.
+
+```sh
+rowsafe cloud sizes                          # clouds, regions, sizes, prices, what's sold out now
+rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
+rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb, clickhouse, opensearch, qdrant, meilisearch (PostgreSQL is the default)
+rowsafe cloud create search-db --extensions vector,postgis  # pgvector and PostGIS on from the start
+rowsafe env --on shop-db                     # the app's database and login: DATABASE_URL in .env
+rowsafe connect shop-db                      # psql, as a temporary user removed when you quit
+rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect
+rowsafe cloud resize shop-db medium          # a Mark first; asks before the restart
+rowsafe cloud clone shop-db shop-test --at "10m ago" --delete-after 1d
+rowsafe cloud passphrase shop-db --file shop-db-passphrase.txt
+rowsafe cloud delete shop-db                 # asks you to type the name
+```
+
+- **Who can connect:** only this computer, unless you pass `--allow ADDRESS` (or `--allow none`).
+- **`rowsafe env` and `rowsafe connect` are PostgreSQL only.** Elsewhere, make the login in the dashboard (or `rowsafe db user add`); `rowsafe cloud show` gives the host and port.
+- **Passwords never pass through Rowsafe.** `rowsafe env` makes the password on your computer, writes `DATABASE_URL` to `.env` (a new file is readable only by you), adds `.env` to `.gitignore` in a git repository, and prints the password only with `--print`.
+- **`rowsafe cloud delete` refuses** a server whose passphrase was never saved.
+
+All flags: [CLI reference](/docs/reference/cli#rowsafe-cloud).
 
 ## Databases
 
-Pick the database when you create the server. The price is the same for each.
+Every database costs the same.
 
 | Database | Versions | Apps connect on |
 | --- | --- | --- |
-| PostgreSQL | 15, 16, 17 or 18 (17 unless you pick another), with [pgvector, PostGIS and TimescaleDB](#extensions) if you want them | port 5432 |
+| PostgreSQL | 15, 16, 17 or 18 (17 by default), with [pgvector, PostGIS and TimescaleDB](#extensions) if you want them | port 5432 |
 | MySQL | 8.4 LTS | port 3306 |
 | MariaDB | 11.8 LTS (supported until 2030) | port 3306 |
-| Valkey | 8, the open-source Redis: Redis clients and `redis-cli` work with it | port 6380, with TLS only (nothing listens on 6379 for apps) |
-| ClickHouse | 26.8 LTS (unless you pick another) or 26.3 LTS | port 9440 (native protocol) and 8443 (HTTPS), with TLS only (nothing listens on 9000 or 8123 for apps) |
+| Valkey | 8, the open-source Redis: Redis clients and `redis-cli` work with it | port 6380, TLS only (nothing listens on 6379 for apps) |
+| ClickHouse | 26.8 LTS (default) or 26.3 LTS | port 9440 (native protocol) and 8443 (HTTPS), TLS only (nothing listens on 9000 or 8123 for apps) |
 | OpenSearch | 3, one node | port 9200 (HTTPS), with a user and password |
 | Qdrant | 1.19, the open-source vector database | port 6333 (REST) and 6334 (gRPC), with TLS and an API key |
 | Meilisearch | 1.54, Community Edition | port 7700 (HTTPS), with an API key |
 
-Every server gets backups to Rowsafe Storage, Marks, a weekly restore test (Proof) and Pulse. Logins from the network always use TLS (TLS 1.2 or newer on MySQL and MariaDB) and a password or an API key.
+Network logins always use TLS (1.2 or newer on MySQL and MariaDB) and a password or API key.
 
-**Restores:** PostgreSQL, MySQL, MariaDB, Valkey and ClickHouse save every change, so you can restore to any second. OpenSearch, Qdrant and Meilisearch keep no log of their changes: they are backed up as snapshots (OpenSearch every 5 minutes, Qdrant and Meilisearch every 15 minutes) and at every Mark, and a restore goes back to one of them, not to any second.
+**Restores:** PostgreSQL, MySQL, MariaDB, Valkey and ClickHouse restore to any second. OpenSearch, Qdrant and Meilisearch restore to a snapshot, taken every 5 minutes (OpenSearch) or 15 minutes (Qdrant, Meilisearch) and at every Mark.
 
-- **MySQL needs an Intel or AMD processor.** Oracle builds MySQL's packages for those only, so sizes with Arm processors aren't offered for MySQL: in Rowsafe Cloud, that's every AWS size.
-- **Valkey** is installed from Debian's own packages (Debian 12 or 13).
-- **OpenSearch needs 4 GB of memory**, half of it for OpenSearch itself. It's installed from OpenSearch's own packages (kept on 3.x), as one node, with its security plugin on and no demo users. See [Protect OpenSearch](/docs/guides/opensearch#on-servers-rowsafe-creates).
-- **Qdrant needs 2 GB of memory.** It's Qdrant's own release, pinned to an exact version and checked before it runs. Apps send an API key you make in [Databases & users](/docs/guides/qdrant#api-keys); admin keys always expire. gRPC picks up a renewed certificate at Qdrant's next restart, which Pulse offers. See [Protect Qdrant](/docs/guides/qdrant#on-servers-rowsafe-creates).
-- **Meilisearch is its Community Edition (MIT)**, from Meilisearch's own releases, checked against a checksum Rowsafe pins. Rowsafe never turns on Enterprise features. Apps send an API key you make in [Databases & users](/docs/guides/meilisearch#api-keys). See [Protect Meilisearch](/docs/guides/meilisearch#on-servers-rowsafe-creates).
-- **ClickHouse needs 4 GB of memory.** Sizes with less aren't offered for it. It's installed from ClickHouse's own packages, on Intel, AMD and Arm processors. Users made in [Databases & users](/docs/guides/databases-and-users) get limits so one query can't take the whole server: at most 40% of its memory and as many threads as it has processors.
-- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), and `rowsafe env` and `rowsafe connect` in the terminal. On the other databases, make the app's login or API key in the dashboard ([Connect your app](#connect-your-app)) and use the database's own client.
-- **Take it with you** isn't available for OpenSearch, Qdrant or Meilisearch yet. Their snapshots open without Rowsafe, on any server: see each guide's "Restore without Rowsafe".
-- **No MongoDB or Redis.** Their licenses don't allow Rowsafe to host them; Valkey is the open-source Redis. To protect MongoDB, Redis or SQLite, install Rowsafe on a server you run ([Quickstart](/docs/quickstart)).
+- **MySQL** needs an Intel or AMD processor, so no AWS sizes (all Arm).
+- **ClickHouse** needs 4 GB of memory. Users made in [Databases & users](/docs/guides/databases-and-users) are capped at 40% of memory and one thread per processor.
+- **OpenSearch** needs 4 GB of memory. One node, security plugin on, no demo users ([details](/docs/guides/opensearch#on-servers-rowsafe-creates)).
+- **Qdrant** needs 2 GB of memory. Apps use an [API key](/docs/guides/qdrant#api-keys); admin keys always expire ([details](/docs/guides/qdrant#on-servers-rowsafe-creates)).
+- **Meilisearch** is the Community Edition (MIT); Enterprise features stay off. Apps use an [API key](/docs/guides/meilisearch#api-keys) ([details](/docs/guides/meilisearch#on-servers-rowsafe-creates)).
+- **Valkey** comes from Debian's own packages. The other databases come from their projects' own packages or releases, checked before install.
+- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), `rowsafe env` and `rowsafe connect`.
+- **No MongoDB or Redis:** their licenses don't allow Rowsafe to host them. To protect them (or SQLite), install Rowsafe on your own server ([Quickstart](/docs/quickstart)).
 
 ## Extensions
 
-On PostgreSQL 15 to 18, three popular extensions are one switch each:
+On PostgreSQL 15 to 18, three extensions are one switch each:
 
 | Extension | For | Name in SQL |
 | --- | --- | --- |
@@ -56,29 +94,25 @@ On PostgreSQL 15 to 18, three popular extensions are one switch each:
 | **PostGIS** | Maps and places: locations, distances, areas, spatial indexes | `postgis` |
 | **TimescaleDB** | Time series: tables split by time automatically, `time_bucket` | `timescaledb` |
 
-**When you create the server**, tick them under **Extensions** (or `--extensions vector,postgis,timescaledb` in the terminal, or `extensions` for an AI agent). Rowsafe installs them and turns them on in the `postgres` database and in every database you create afterwards, so `CREATE EXTENSION` isn't needed.
-
-**Later**, turn one on in a database from [Databases & users](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb): Rowsafe installs it first. TimescaleDB is loaded when PostgreSQL starts, so turning it on later **restarts PostgreSQL once** (apps are disconnected for a few seconds; Rowsafe saves a Mark first). Picking it at create time avoids that.
-
-- **From the PostgreSQL project.** All three come from the PostgreSQL project's own repository (apt.postgresql.org), the one PostgreSQL itself is installed from: no other repository is added.
-- **TimescaleDB is its Apache-2.0 edition**, the one the PostgreSQL project builds. It has hypertables and `time_bucket`, but **not compression, continuous aggregates** or the other features under the Timescale License. Its telemetry is off.
-- **Rowsafe keeps them working.** Settings changes through Rowsafe never drop TimescaleDB from the libraries PostgreSQL loads, and if it goes missing, Pulse offers to put it back. When an update brings a newer version, Rowsafe updates the extension in your databases after PostgreSQL's update; when a database runs an older version, Pulse offers **Update** with a Mark first.
-- **Everything else works with them:** backups, restore to any second, Proof, restored copies, [Clone to a new server](#copies-for-a-test-or-an-ai-agent) and [a standby](#with-a-standby) (which get the same extensions).
-- **Other extensions** that come with PostgreSQL (`pg_trgm`, `pgcrypto`, `uuid-ossp`, ...) are already installed: turn them on in [Databases & users](/docs/guides/databases-and-users#extensions).
+- **At create time:** tick them under **Extensions** (CLI `--extensions vector,postgis,timescaledb`). They're on in every database, no `CREATE EXTENSION` needed.
+- **Later:** turn one on in [Databases & users](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb). TimescaleDB then **restarts PostgreSQL once** (a few seconds, after a Mark).
+- **TimescaleDB is the Apache-2.0 edition:** hypertables and `time_bucket`, but **no compression or continuous aggregates**.
+- All three come from the PostgreSQL project's repository (apt.postgresql.org). Rowsafe keeps them working: Pulse offers to put TimescaleDB back if it goes missing, and **Update** when a database runs an older version.
+- Backups, Proof, copies, clones and standbys all work with them.
+- Other extensions that ship with PostgreSQL (`pg_trgm`, `pgcrypto`, ...) are a [switch away](/docs/guides/databases-and-users#extensions).
 
 Limits:
 
-- **PostgreSQL 15 to 18** only.
-- **Upgrading PostgreSQL 15 to 16 with TimescaleDB isn't possible through Rowsafe yet.** An upgrade needs the same TimescaleDB version before and after, and the packages for 15 and 16 don't share one. The [upgrade check](/docs/guides/updates#timescaledb) says whether an upgrade can carry TimescaleDB before anything changes, and offers to update it first when that's enough.
-- **On a server with a standby**, only extensions already installed (and for TimescaleDB, loaded) can be turned on later: the standby must have them too. Pick them when you create the server.
+- **No PostgreSQL 15 to 16 upgrade with TimescaleDB** through Rowsafe yet. The [upgrade check](/docs/guides/updates#timescaledb) tells you first.
+- **With a standby**, only extensions already installed (and loaded, for TimescaleDB) can be turned on later. Pick them at create time.
 
 ## Sizes and prices
 
-Prices are in USD and include Rowsafe. Each size is billed **by the hour** (the monthly price divided by 730 hours, rounded up to a tenth of a cent) and **never more than the monthly price** in a month.
+In USD, Rowsafe included. Billed **by the hour** (the monthly price ÷ 730, rounded up to a tenth of a cent), and **never more than the monthly price** in a month.
 
 ### Hetzner
 
-The lowest price, billed by the hour.
+The lowest prices.
 
 | Size | Server | Per hour | At most a month |
 |---|---|---|---|
@@ -89,7 +123,7 @@ The lowest price, billed by the hour.
 
 Regions: Falkenstein and Nuremberg (Germany), Helsinki (Finland).
 
-Hetzner often runs out of a size in a location for a while. The dashboard then shows that size as **None free right now** there, and offers it again as soon as Hetzner has one (it checks every 15 minutes). Large and XL are often out everywhere.
+Hetzner often runs out of a size for a while (Large and XL often everywhere). The dashboard then shows **None free right now** until it's back (checked every 15 minutes).
 
 ### DigitalOcean
 
@@ -106,7 +140,7 @@ Regions: New York, San Francisco, Toronto, London, Amsterdam, Frankfurt, Singapo
 
 ### Vultr
 
-The most places: 22 cities on six continents. High Performance servers (AMD EPYC, NVMe disks), billed by the hour.
+22 cities on six continents. High Performance servers (AMD EPYC, NVMe disks).
 
 | Size | Server | Per hour | At most a month |
 |---|---|---|---|
@@ -117,7 +151,7 @@ The most places: 22 cities on six continents. High Performance servers (AMD EPYC
 
 Regions: New Jersey, Chicago, Dallas, Los Angeles, Silicon Valley, Toronto, Mexico City, Santiago, London, Amsterdam, Frankfurt, Paris, Madrid, Stockholm, Warsaw, Tel Aviv, Johannesburg, Mumbai, Singapore, Tokyo, Seoul, Sydney.
 
-When Vultr has none of a size free in a city for a while, the dashboard shows it as **None free right now** there (it checks every 15 minutes).
+Sold-out sizes show as **None free right now** (checked every 15 minutes).
 
 ### AWS
 
@@ -126,7 +160,7 @@ When Vultr has none of a size free in a city for a while, the dashboard shows it
 | Small | 2 vCPU, 4 GB memory, 40 GB disk | $0.062 | $45 |
 | Medium | 2 vCPU, 8 GB memory, 80 GB disk | $0.117 | $85 |
 
-Large, XL and 2XL on AWS are coming back soon.
+Large, XL and 2XL are coming back soon.
 
 Regions: N. Virginia, Oregon, Frankfurt, Ireland, Singapore.
 
@@ -141,7 +175,7 @@ Regions: N. Virginia, Oregon, Frankfurt, Ireland, Singapore.
 
 Regions: Ireland, Sweden, Frankfurt, London, Paris, Virginia, Washington, Singapore.
 
-Small to Large are burstable servers: they run at full speed in bursts and slow down under hours of constant load. For a database that's busy all day, pick XL or another cloud.
+Small to Large are burstable: they slow down under hours of constant load. For a database busy all day, pick XL or another cloud.
 
 ### Google Cloud
 
@@ -170,7 +204,7 @@ Regions: Gravelines, Strasbourg, Frankfurt, London, Warsaw, Beauharnois.
 
 ### OVHcloud Value
 
-A fixed price, **billed monthly**. Pick it with the **Value** switch in the OVHcloud tab.
+A fixed price, **billed monthly**. Turn on **Value** in the OVHcloud tab.
 
 | Size | Server | A month |
 |---|---|---|
@@ -180,104 +214,59 @@ A fixed price, **billed monthly**. Pick it with the **Value** switch in the OVHc
 
 Regions: London, Beauharnois (while OVHcloud has servers free there).
 
-- **Paid a month at a time**, before the server is created: one subscription per server, cancel any time. Deleting the server ends its subscription at the end of the paid month.
-- **Ready in about 10 to 30 minutes**: OVHcloud prepares the server first.
-- **Shared CPU** with other servers on the same machine, and network up to 500 Mbps (Small), 1 Gbps (Medium) or 3 Gbps (Large), traffic unlimited.
-- **No clones, standby or size changes.** For those, pick any other cloud.
+- **Paid a month ahead**, one subscription per server, cancel any time. Deleting the server ends it at the end of the paid month.
+- **Ready in about 10 to 30 minutes.**
+- **Shared CPU.** Network up to 500 Mbps (Small), 1 Gbps (Medium) or 3 Gbps (Large).
+- **No clones, standby or size changes.**
 
-**Every size includes** PostgreSQL 15 to 18 on a server of its own, backups in [Rowsafe Storage](/docs/guides/rowsafe-storage) (encrypted on the server), Rewind, Proof, Pulse and Guard, and a firewall that lets in only the addresses you add. A Rowsafe Cloud server doesn't count against your Rowsafe [plan](/pricing).
+Every size includes backups in [Rowsafe Storage](/docs/guides/rowsafe-storage), Rewind, Proof, Pulse, Guard and a firewall. A Rowsafe Cloud server doesn't count against your [plan](/pricing).
 
 ## How billing works
 
-- **Add a card once.** The first Rowsafe Cloud server asks an owner for a card: one pay-as-you-go subscription for the whole organization, through Polar, our merchant of record (it handles sales tax and VAT). An admin can create the server, and an owner adds the card under **Settings → Billing**. After that, new servers are created right away.
-- **OVHcloud Value is billed monthly instead**: see [OVHcloud Value](#ovhcloud-value).
-- **Billed for every hour a server exists**, from when it's ready until you delete it, and never more than its monthly price in a month. Polar invoices the hours at the end of each month.
-- **Change the size and the price follows** from the next full hour; a month never costs more than the monthly price of the biggest size the server had that month. See [Change the size](#change-the-size).
-- **Delete a server and its billing stops.**
-- **If a payment fails or you cancel**, nothing is deleted right away: you get emails first, your servers keep running for a grace period, and then they are powered off (powered-off hours aren't billed) before they are deleted, after a further notice. Your backups stay in Rowsafe Storage for as long as the database stays in Rowsafe.
+- **Add a card once.** The first server asks an owner for a card: one pay-as-you-go subscription for the organization, through Polar, our merchant of record (it handles sales tax and VAT). An owner adds it under **Settings → Billing**.
+- **Every hour a server exists is billed**, never more than its monthly price in a month. Polar invoices at the end of each month. [OVHcloud Value](#ovhcloud-value) is billed monthly instead.
+- **Delete a server** and its billing stops.
+- **If a payment fails or you cancel**, nothing is deleted right away. After emails and a grace period, servers are powered off (not billed), then deleted after another notice. Backups stay in Rowsafe Storage while the database stays in Rowsafe.
 
 ### Copies for a test or an AI agent
 
-[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a database (as it is now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click. It's billed by the hour like any Rowsafe Cloud server, and you can have Rowsafe delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud Flex size cost about $0.09.
+[Clone to a new server](/docs/guides/fork#clone-to-a-new-server) copies a database (now, at any second, or at a Mark) onto a new Rowsafe Cloud server in one click, billed by the hour. Rowsafe can delete it after **4 hours, 1 day or 7 days**, with an email an hour before. Three hours on the smallest OVHcloud Flex size cost about $0.09.
 
 ## Bandwidth
 
-Each Rowsafe Cloud server comes with some outbound traffic a month, depending on the cloud and the size. Inbound traffic is free, and backups to Rowsafe Storage never count.
+Outbound traffic included each month. Inbound is free, and backups never count.
 
-| Cloud | XS | Small | Medium | Large | XL | 2XL |
-| --- | --- | --- | --- | --- | --- | --- |
-| Hetzner | | Unlimited | Unlimited | Unlimited | Unlimited | |
-| DigitalOcean | 2 TB | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB |
-| Vultr | | Unlimited | Unlimited | Unlimited | Unlimited | |
-| OVHcloud Flex | | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited |
-| OVHcloud Value | | Unlimited | Unlimited | Unlimited | | |
-| AWS | | None | None | None | None | None |
-| Azure | | None | None | None | None | |
-| Google Cloud | | None | None | None | None | |
+| Cloud | XS | Small | Medium | Large | XL | 2XL | Above that |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Hetzner | | Unlimited | Unlimited | Unlimited | Unlimited | | |
+| DigitalOcean | 2 TB | 4 TB | 5 TB | 6 TB | 10 TB | 7 TB | 1.4¢ per GB |
+| Vultr | | Unlimited | Unlimited | Unlimited | Unlimited | | |
+| OVHcloud Flex | | Unlimited | Unlimited | Unlimited | Unlimited | Unlimited | |
+| OVHcloud Value | | Unlimited | Unlimited | Unlimited | | | |
+| AWS | | None | None | None | None | None | 11¢ per GB (14¢ in Singapore) |
+| Azure | | None | None | None | None | | 11¢ per GB |
+| Google Cloud | | None | None | None | None | | 14¢ per GB |
 
-Traffic above that is billed per GB:
-
-- **DigitalOcean:** 1.4¢ per GB ($14 per TB) above the included amount.
-- **AWS:** no traffic is included, so every GB out is 11¢ (14¢ in Singapore).
-- **Azure:** no traffic is included, so every GB out is 11¢.
-- **Google Cloud:** no traffic is included, so every GB out is 14¢.
-- **Hetzner, Vultr, OVHcloud Flex and OVHcloud Value:** unlimited, never billed.
-
-A [standby](#with-a-standby) is a second server, so it comes with its own allowance, and the copy of changes it receives from the primary never counts. The dashboard shows each server's traffic this month, and extra traffic is invoiced with the hours at the end of the month.
-
-## Create a Rowsafe Cloud server
-
-1. In the dashboard, open **Servers**, click **Add server** and choose **Create a server for me**.
-2. Under **Where should it run?**, choose **Rowsafe Cloud**.
-3. Under **Database**, pick PostgreSQL, MySQL, MariaDB, Valkey, ClickHouse, OpenSearch, Qdrant or Meilisearch.
-4. Pick a region (the region decides the cloud), a size, a name and the version. For PostgreSQL, tick the [extensions](#extensions) you want (pgvector, PostGIS, TimescaleDB), if any.
-5. Add the addresses that may connect.
-6. Click **Create server**. The first time, an owner adds a card first.
-
-The rest is the same as for a server in your own account: about 5 minutes, then [save the backup passphrase](/docs/guides/create-a-server#save-the-backup-passphrase) and [connect your app](#connect-your-app).
-
-## From the terminal
-
-The `rowsafe` CLI does the same as the dashboard, with your login (`rowsafe login`) or a read-write API key. What costs money and deletions ask first; in scripts, `--yes` is the confirmation.
-
-```sh
-rowsafe cloud sizes                          # clouds, regions, sizes, prices, what's sold out now
-rowsafe cloud create shop-db --wait          # the cheapest size free now; only this computer may connect
-rowsafe cloud create shop-cache --engine valkey  # or mysql, mariadb, clickhouse, opensearch, qdrant, meilisearch (PostgreSQL is the default)
-rowsafe cloud create search-db --extensions vector,postgis  # pgvector and PostGIS on from the start
-rowsafe env --on shop-db                     # the app's database and login: DATABASE_URL in .env
-rowsafe connect shop-db                      # psql, as a temporary user removed when you quit
-rowsafe cloud allow shop-db 203.0.113.4      # let the app's server connect
-rowsafe cloud resize shop-db medium          # a Mark first; asks before the restart
-rowsafe cloud clone shop-db shop-test --at "10m ago" --delete-after 1d
-rowsafe cloud passphrase shop-db --file shop-db-passphrase.txt
-rowsafe cloud delete shop-db                 # asks you to type the name
-```
-
-- **The first server** billed by the hour gives you a link to add a card, once. An owner of the organization pays there; the server is created right after, and nothing is billed before.
-- **Who can connect:** only the computer you ran it on, unless you say otherwise (`--allow ADDRESS`, or `--allow none` for nobody yet). Add your app's server later with `rowsafe cloud allow`.
-- **`rowsafe env` and `rowsafe connect` are for PostgreSQL** today. On the other databases, make the app's login or API key in the dashboard (or with `rowsafe db user add`) and use the database's own client; `rowsafe cloud show` gives the host and port.
-- **Passwords never pass through Rowsafe.** `rowsafe env` makes the app's password on your computer and sends only its verifier. It writes `DATABASE_URL` to `.env` (a new file is readable only by you), adds `.env` to `.gitignore` in a git repository, and never prints the password unless you pass `--print`. `rowsafe connect` makes a temporary user whose password is encrypted for your terminal, and removes it when you quit psql.
-- **Save the passphrase.** `rowsafe cloud passphrase` gets it, encrypted for your terminal only, and records that you saved it. `rowsafe cloud delete` refuses a server whose passphrase was never saved.
-
-Every command and flag is in the [CLI reference](/docs/reference/cli#rowsafe-cloud).
+A [standby](#with-a-standby) has its own allowance, and what it receives from the primary never counts. The dashboard shows each server's traffic. Extra traffic is invoiced with the hours.
 
 ## Connect your app
 
-Each Rowsafe Cloud server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. The server's page shows it under **Connect your app**, with the database's port (`5432`, `3306`, `6380` for Valkey, `9440` and `8443` for ClickHouse, `9200` for OpenSearch, `6333` and `6334` for Qdrant, or `7700` for Meilisearch): use it as your app's host instead of the IP address. The name is random, so it doesn't reveal your server's name (certificate names are public).
+Each server gets a **name that stays the same**, like `x7kq2mfa3pzd.cloud.rowsafe.sh`. Use it as your app's host, with the port from [Databases](#databases). The server's page shows both under **Connect your app**.
 
-- **It follows the primary.** With a [standby](#with-a-standby), after a failover or a planned switchover (the maintenance window, a size change), Rowsafe points the name at the new primary **within about a minute**. Apps that can't wait that long can use the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover), which switch right away.
-- **A name for reads.** `x7kq2mfa3pzd-ro.cloud.rowsafe.sh` points at the standby when there is one, else at the primary: for reports and other read-only work.
-- **IPv4, and IPv6 when you use it.** The names have IPv4 addresses. They get an IPv6 address only when **Who can connect** includes an IPv6 address or range, so apps that prefer IPv6 don't try a path the firewall closes.
-- A new server's name works a minute or so after the server is ready. Until then, the page also shows the IP address.
+1. Click **Create database and user** (Valkey: **Create a login for your app**; Qdrant: **Make an API key for your app**). The password is made on the server and shown to you once. See [Databases & users](/docs/guides/databases-and-users).
+2. Make sure your app's address is under **Who can connect**.
 
-Then click **Create database and user** (on Valkey, **Create a login for your app**; on Qdrant, **Make an API key for your app**; on OpenSearch and Meilisearch, an index and its user or key; see [Databases & users](/docs/guides/databases-and-users)) and make sure your app's address is under **Who can connect**. The password is made on the server and shown to you once.
+About the name:
+
+- **It follows the primary** within about a minute after a failover or switchover. To switch at once, use the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover).
+- **For reads:** `x7kq2mfa3pzd-ro.cloud.rowsafe.sh` points at the standby, if there is one.
+- **IPv6** only when **Who can connect** includes an IPv6 address.
+- **It's random**, so it doesn't reveal your server's name.
+- It works a minute or so after the server is ready. Until then, use the IP address on the page.
 
 ### Check the server's certificate
 
-Each server gets a certificate from **Let's Encrypt** for both names. Its private key is made on the server and never leaves it. Rowsafe renews it about a month before it expires, and the database reloads it without a restart.
-
-Connections are always encrypted (`sslmode=require`). With the certificate, your app can also check it reaches your server and nothing else: `sslmode=verify-full`.
+Each server gets a **Let's Encrypt** certificate for both names, renewed by Rowsafe without a restart. Its private key never leaves the server. Use `sslmode=verify-full` to check that you reach your server and nothing else:
 
 ```
 postgresql://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:5432/DATABASE?sslmode=verify-full&sslrootcert=system
@@ -285,15 +274,15 @@ postgresql://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:5432/DATABASE?sslmode=v
 
 | Driver | What to set |
 | --- | --- |
-| psql, Python (psycopg), Ruby (pg), PHP and other clients built on libpq | `sslmode=verify-full&sslrootcert=system`. libpq uses the system's trusted certificates only with `sslrootcert=system`, which needs libpq 16 or newer. |
+| psql, Python (psycopg), Ruby (pg), PHP and other clients built on libpq | `sslmode=verify-full&sslrootcert=system` (needs libpq 16 or newer). |
 | Node.js (node-postgres) | `sslmode=verify-full` in the URL (without `sslrootcert`), or `ssl: { rejectUnauthorized: true }`. |
-| Go (pgx), Java (JDBC) | `sslmode=verify-full`: they use the system's (or Java's) trusted certificates. |
+| Go (pgx), Java (JDBC) | `sslmode=verify-full`. |
 
-The page switches to `verify-full` once the certificate is installed, a minute or two after the server is ready. Until then, and on a server whose Rowsafe agent hasn't updated itself yet, use `sslmode=require`: still encrypted, with the server's own certificate. With an older libpq, keep `require`.
+Until the certificate is installed (a minute or two after the server is ready), or with an older libpq, use `sslmode=require`. It's still encrypted.
 
 ### MySQL, MariaDB, Valkey and ClickHouse
 
-The same name works for every database. Connections must use TLS:
+Same name, TLS required:
 
 ```
 mysql://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:3306/DATABASE?ssl-mode=REQUIRED
@@ -301,8 +290,6 @@ rediss://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:6380/
 clickhouse://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:9440/DATABASE?secure=true
 https://x7kq2mfa3pzd.cloud.rowsafe.sh:8443
 ```
-
-From a terminal:
 
 ```sh
 mysql -h x7kq2mfa3pzd.cloud.rowsafe.sh -P 3306 -u USER -p --ssl-mode=REQUIRED DATABASE   # MySQL
@@ -312,13 +299,11 @@ clickhouse-client --host x7kq2mfa3pzd.cloud.rowsafe.sh --port 9440 --secure --us
 curl --user USER https://x7kq2mfa3pzd.cloud.rowsafe.sh:8443/ --data-binary 'SELECT 1'      # ClickHouse over HTTPS
 ```
 
-Valkey is `rediss://` (two s's: with TLS) on port 6380. Its plain port, 6379, is closed to the network.
-
-ClickHouse has two ports, both with TLS: **9440** for its native protocol (`clickhouse-client --secure`, Go, and drivers that take a `clickhouse://` URL with `secure=true`) and **8443** for HTTPS (curl, Python's clickhouse-connect, the Node.js client, JDBC and DBeaver). Its plain ports, 9000 and 8123, listen on the server itself only.
+ClickHouse: **9440** is the native protocol (`clickhouse-client`, Go, `clickhouse://` URLs); **8443** is HTTPS (curl, clickhouse-connect, Node.js, JDBC, DBeaver).
 
 ### OpenSearch, Qdrant and Meilisearch
 
-They speak HTTPS on the same name, with the same certificate:
+HTTPS on the same name:
 
 ```
 https://USER:PASSWORD@x7kq2mfa3pzd.cloud.rowsafe.sh:9200    # OpenSearch
@@ -326,155 +311,128 @@ https://x7kq2mfa3pzd.cloud.rowsafe.sh:6333                  # Qdrant REST (gRPC:
 https://x7kq2mfa3pzd.cloud.rowsafe.sh:7700                  # Meilisearch
 ```
 
-From a terminal:
-
 ```sh
 curl --user USER https://x7kq2mfa3pzd.cloud.rowsafe.sh:9200/                                          # OpenSearch
 curl -H "api-key: $QDRANT_API_KEY" https://x7kq2mfa3pzd.cloud.rowsafe.sh:6333/collections            # Qdrant
 curl -H "Authorization: Bearer $MEILISEARCH_KEY" https://x7kq2mfa3pzd.cloud.rowsafe.sh:7700/indexes   # Meilisearch
 ```
 
-- **OpenSearch** clients take the URL and a user and password made in Databases & users. Its node-to-node port, 9300, listens on the server itself only.
-- **Qdrant** clients take the REST URL (or the gRPC address) and an API key. The key goes in the `api-key` header, never in the URL. The cluster port, 6335, is closed.
-- **Meilisearch** clients take the address and an API key: a search-only key for browsers, a key that can add documents for your backend. Meilisearch itself listens on the server only, behind Rowsafe's TLS front on 7700.
+- **OpenSearch:** a user and password from Databases & users.
+- **Qdrant:** an API key in the `api-key` header, never in the URL.
+- **Meilisearch:** a search-only key in browsers, a key that can add documents in your backend.
 
 ### When the name goes away
 
-The name belongs to the server: deleting the server removes it, and it's never given to another server. After [Take it with you](#take-it-with-you), the database runs on your server, so your apps connect to that server's address.
+Deleting the server removes its name for good. After [Take it with you](#take-it-with-you), apps connect to your own server's address. Servers in your own cloud account get no Rowsafe name.
 
-Servers in your own cloud account ([Create a server for me](/docs/guides/create-a-server)) don't get a Rowsafe name: apps connect to the server's address, or to a name you point at it.
+## Your passphrase, only yours
+
+Backups are encrypted with a passphrase made **on the server**. You save a copy through your browser, encrypted end to end. Rowsafe never has it, so without it nobody can restore your backups. The dashboard keeps asking until you confirm you saved it.
 
 ## Change the size
 
-A Rowsafe Cloud server can move to another size of its cloud, bigger or smaller, in place: same server, same address, same database.
+1. On the server's page, click **Change size**.
+2. Pick a size. Each shows its price per hour and per month.
+3. Click **Change size now**.
 
-1. Open the server's page and click **Change size**.
-2. Pick the new size. Each one shows its price per hour and the most a month costs.
-3. Read what happens and click **Change size now**.
+<Callout type="warn">
+  **The database is offline for a few minutes** while the server restarts. Rowsafe saves a [Mark](/docs/concepts/restore-points) first.
+</Callout>
 
-What to expect:
+- **The disk can grow, never shrink.** To go smaller, create a smaller server and [move the database](/docs/guides/move).
+- **On Vultr, the restart is a power cut.** Committed data is safe; transactions in flight are rolled back.
+- **If the cloud can't make the change**, the server comes back at its old size and the page says why.
+- **Billing:** the new size counts from the next full hour. A month never costs more than the monthly price of the biggest size the server had that month.
 
-- **The database is offline for a few minutes** while the server restarts with the new size. Most apps reconnect by themselves. Rowsafe saves a [Mark](/docs/concepts/restore-points) first, so you can get back to that exact moment.
-- **On Vultr, the restart is a power cut**: Vultr has no clean shutdown. PostgreSQL recovers from its write-ahead log as it starts again, so nothing that was committed is lost, but transactions in flight are rolled back.
-- **The disk can grow, never shrink.** Moving to a size with a bigger disk grows the disk, and that can't be undone: afterwards the server can't move back to a size with a smaller disk. Sizes with a smaller disk than the server has now can't be picked. (To go smaller anyway, create a smaller Rowsafe Cloud server and [move the database there](/docs/guides/move).)
-- **Some bigger sizes aren't offered in every region.** The dashboard only lists the sizes offered where the server runs.
-- **If the cloud can't make the change** (for example, it has no room for that size right now), the server comes back at its old size and the page says why. Nothing is billed at the new size.
-
-How billing changes:
-
-- **Every hour is billed at the size the server had when the hour started.** The hour you change the size in is billed at the old size; the new size is billed from the next full hour.
-- **A month never costs more than the monthly price of the biggest size the server had that month.** Moving up from Small to Large mid-month: at most Large's monthly price. Moving down from Large to Small: that month still costs at most Large's price, and from the next month at most Small's.
-- Settings → Billing shows the hours so far and the most this month can cost.
-
-Owners and admins can change the size, in the dashboard or with `rowsafe cloud resize`; every change is in the audit log. AI agents change it [as the person who connected them](/docs/guides/agent-autonomy) (an owner's or admin's agent, within the agents' budget if an owner set one). Servers paid by the month (not offered today) keep their size.
+Owners and admins can change the size (or `rowsafe cloud resize`), and so can AI agents [acting as them](/docs/guides/agent-autonomy).
 
 ### A server with a standby
 
-On a server [with a standby](#with-a-standby), **Change size** (on either server's page) changes **both servers**, one at a time, so the database isn't offline for minutes:
+With a [standby](#with-a-standby), **Change size** resizes **both servers**, one at a time:
 
-1. Rowsafe saves a Mark, then changes the **standby's** server. The primary keeps serving; reads on the standby pause meanwhile.
-2. Once the standby is back and in sync, Rowsafe **switches over** to it: the primary stops cleanly, the standby replays every last change and takes over. **Writes pause for a few seconds** (usually under 15). Nothing is lost. Apps using the [connection strings that follow the primary](#connect-so-your-app-follows-a-failover) find the new primary by themselves, and the [server's name](#connect-your-app) follows within about a minute; reads on the standby continue.
-3. The old primary becomes the standby again on its own data (no copy), then gets the new size, while the database keeps running.
+1. Rowsafe saves a Mark and resizes the **standby**. The primary keeps serving.
+2. Rowsafe **switches over**. **Writes pause for a few seconds** (usually under 15). Nothing is lost.
+3. The old primary becomes the standby and gets the new size.
 
-The two servers **swap roles**: the server that was the standby holds the database afterwards. That's fine, and Rowsafe doesn't switch back (it would only pause writes again). Both servers' pages show each step. The prices shown are for both servers (twice one server's), and each server is billed at its own size by the hour, so for a while one has the new size and the other the old.
+The servers **swap roles** and stay that way. The standby must be in sync first, or the change is refused. If something fails before the switchover, nothing changes. If the cloud refuses the second server, click **Change size** again to finish it, without another switchover.
 
-The standby must be running and in sync first; if it isn't, the size change is refused and nothing changes. If something fails **before the switchover** (the cloud can't change the standby's size, the standby doesn't catch up), the database stays where it was and keeps running. If the cloud refuses the **second** server after the switchover, both servers keep running, the database on the one that has the new size, and the page says which server has which size; click **Change size** again to change only the one that's left (the standby, so without another switchover). If the old primary can't stop cleanly or the standby can't take over, Rowsafe starts the old primary again by itself.
-
-Servers [in your own cloud account](/docs/guides/create-a-server) with a standby can't change size yet: remove the standby, change the size, then add the standby again.
+A pair [in your own cloud account](/docs/guides/create-a-server) can't change size yet: remove the standby, resize, add it again.
 
 ## With a standby
 
-A standby is a **second server of the same size** that keeps a live, read-only copy of the database, a moment behind the primary. If the primary goes down, the standby takes over, and your apps reconnect to it on their own.
+A standby is a **second server of the same size** with a live, read-only copy of the database. If the primary goes down, the standby takes over. PostgreSQL only.
 
-Standbys are for PostgreSQL servers.
-
-- **When you create a server**, turn on **With a standby**. **Fail over automatically** is ticked; untick it if you'd rather switch yourself.
-- **On a server you already have**, open its page and click **Add a standby**. The price is shown before you confirm. Nothing on the primary restarts.
-
-Rowsafe creates the second server right after the first one is ready, copies the database there from the latest backup, and keeps it in sync by streaming every change over an encrypted connection. The server's page shows the steps: **Creating the standby server**, **Installing PostgreSQL**, **Copying the database**, **Standby ready**. For a big database, copying takes longer.
+- **New server:** turn on **With a standby**. **Fail over automatically** is ticked.
+- **Existing server:** click **Add a standby**. Nothing on the primary restarts.
 
 ### Where the standby runs
 
-Rowsafe puts the standby somewhere else than the primary when the cloud has somewhere else in that region, and says plainly when it hasn't. The page shows where it is before you create it and once it runs.
-
 | Cloud | Where the standby runs |
 |---|---|
-| AWS | **Another availability zone** of the same region: a separate datacenter with its own power and network. |
-| DigitalOcean | In **New York** and **San Francisco**, the city's **other datacenter** (NYC1 and NYC3, SFO2 and SFO3). In the other regions, which have one datacenter, a **separate server in the same datacenter**. |
-| Azure | A **separate server in the same region**: Rowsafe doesn't spread servers across Azure's availability zones yet. |
-| Google Cloud | A **separate server in the same zone**: Rowsafe doesn't spread servers across Google Cloud's zones yet. |
-| Hetzner | A **separate server in the same datacenter**: each location Rowsafe Cloud offers is one datacenter. |
-| Vultr | A **separate server in the same datacenter**: each Vultr city is one datacenter. |
-| OVHcloud Flex | A **separate server in the same datacenter**: the regions Rowsafe Cloud offers have one datacenter each. |
+| AWS | **Another availability zone** of the same region. |
+| DigitalOcean | In **New York** and **San Francisco**, the city's **other datacenter**. Elsewhere, a **separate server in the same datacenter**. |
+| Azure | A **separate server in the same region**. |
+| Google Cloud | A **separate server in the same zone**. |
+| Hetzner, Vultr, OVHcloud Flex | A **separate server in the same datacenter**. |
 
-A standby in the same datacenter covers the primary's server failing (hardware, disk, a crash), not an outage of the whole datacenter.
+The same datacenter covers a server failing, not a whole-datacenter outage.
 
 ### Price
 
-The standby is billed like any Rowsafe Cloud server of its size, by the hour and never more than its monthly price: **twice the price** in total. A Small DigitalOcean server with a standby costs about $0.096 an hour, at most $70 a month. A server and its standby count as **one** server against your organization's Rowsafe Cloud limit. Remove the standby and its billing stops.
+**Twice the price**: the standby is billed like any server of its size. A Small DigitalOcean pair is at most $70 a month. The pair counts as **one** server against your Rowsafe Cloud limit.
 
 ### Automatic failover, and what it can lose
 
-Automatic failover only acts when **every** condition holds, and the server's page shows them:
+Rowsafe promotes the standby only when **all** of these hold:
 
-- the primary has been **unreachable for about 3 minutes**, both for Rowsafe and for the standby;
-- the standby is running and was in sync, **at most about a minute behind** when the primary was last heard from;
-- nothing on purpose is going on: no restart, update or other change that stops PostgreSQL. Rowsafe also holds failover while it powers off or deletes one of the two servers itself.
+- the primary is **unreachable for about 3 minutes**, for Rowsafe and for the standby;
+- the standby was **at most about a minute behind**;
+- nothing planned (a restart, an update, a resize) is going on.
 
-Then Rowsafe stops the old primary for good (as soon as it can reach it again) and promotes the standby, and says so in an alert and in the activity log.
+<Callout type="warn">
+  **Up to about a minute of the newest changes can be lost.** The standby is usually under a second behind. If the primary is cut off from Rowsafe but not from your apps, both can take writes for a while: see [Split brain](/docs/guides/standby#split-brain).
+</Callout>
 
-- **Up to about a minute of the newest changes can be lost.** The standby copies changes as they happen, not in lockstep with every commit (asynchronous streaming), so the last changes before the primary died may not have reached it. Usually it's under a second behind; Rowsafe doesn't fail over when it was further behind than a minute.
-- **One case to know: a network cut.** If the primary is cut off from Rowsafe and from the standby but your apps can still reach it, both servers could accept writes until the old primary is back on the network, and then Rowsafe stops it. The writes made to the old primary in between aren't on the new one. Keeping your apps on the same network path as the standby, or connecting through a [Rowsafe pooler](/docs/guides/connection-pooling), avoids it. See [Standby](/docs/guides/standby) for the details.
-
-Turn automatic failover off or on any time on the database's **Standby** page. Without it, you switch with one click (**Promote**) when the primary is down.
+Turn it on or off on the database's **Standby** page. Without it, click **Promote** when the primary is down.
 
 ### Connect so your app follows a failover
 
-The server's page shows **connection strings that follow the primary**: both servers' addresses in one string, and the driver keeps the one that accepts writes, before and after a failover. For example, with libpq, psycopg or pgx:
+The server's page shows **connection strings that follow the primary**: both addresses in one string, and the driver uses the one that accepts writes.
 
 ```
 postgresql://USER@PRIMARY_ADDRESS:5432,STANDBY_ADDRESS:5432/DBNAME?target_session_attrs=read-write
 ```
 
-Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) can use the [server's name](#connect-your-app), which follows the primary within about a minute. The standby itself takes read-only queries, for reports. Both servers let in the addresses under **Who can connect**, and each other.
+Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) can use the [server's name](#connect-your-app).
 
 ### After a failover
 
-The standby is the primary now, and the old primary is stopped. On the old primary's page, click **Make it the standby again**: Rowsafe reuses its data where it can (else restores the latest backup there) and keeps it in sync, so you have a standby again. Or click **Remove the standby** to delete that server.
-
-After a **planned** switchover (the maintenance window, or a size change, below), Rowsafe does this by itself: the old primary stopped cleanly, so it becomes the standby on its own data, in seconds, without copying the database.
+On the old primary's page, click **Make it the standby again**, or **Remove the standby** to delete it. After a planned switchover, this happens by itself.
 
 ### Updates and size changes with a standby
 
-A pair is updated and resized **one server at a time**: the standby's server first, then a switchover of a few seconds, then the other server. Writes pause for a few seconds instead of the database being offline for a restart, a reboot or minutes of resizing. Afterwards the servers have swapped roles. See [Change the size](#a-server-with-a-standby) and [Updates and maintenance](#maintenance-with-a-standby).
+One server at a time, with a switchover of a few seconds in between. See [Change the size](#a-server-with-a-standby) and [Maintenance with a standby](#maintenance-with-a-standby).
 
 ### Remove the standby
 
-On either server's page, click **Remove the standby** and type the server's name. The standby server is deleted, its billing stops, automatic failover turns off, and the primary keeps running untouched. Deleting the primary asks to delete its standby too.
-
-While a server has a standby, **Take it with you** isn't offered, because a database has one standby at a time and the move goes through a standby on your server: first click **Remove the standby** (its server is deleted and its billing stops; the primary keeps running), then **Take it with you**.
-
-## Your passphrase, only yours
-
-Backups are encrypted on the server with a passphrase made **on the server**. You save a copy through your browser, encrypted end to end; Rowsafe passes on only the encrypted message and never has the passphrase. Without it, nobody can restore your backups, Rowsafe included, so save it before you rely on the database. The dashboard keeps asking until you confirm you saved it.
+On either server's page, click **Remove the standby** and type the server's name. The standby is deleted and its billing stops; the primary keeps running.
 
 ## Updates and maintenance
 
-Rowsafe hosts a Rowsafe Cloud server, so Rowsafe keeps it patched. What can happen without a restart happens by itself; what needs a restart waits for a weekly window you choose, with an email the day before. Servers in [your own cloud account](/docs/guides/create-a-server) and your own servers are not affected: there, nothing changes until someone clicks.
+Rowsafe keeps Rowsafe Cloud servers patched. What needs no restart installs by itself. What needs a restart waits for your weekly window, with an email the day before.
 
 ### Security updates install by themselves
 
-Every day the server installs the security updates of its operating system (Debian's security updates only, nothing else). They keep the database running:
+Every day, the server installs Debian's security updates:
 
-- **The database's own packages are left out.** Its updates wait for the maintenance window.
-- **The database is never restarted by them.** Other services that use an updated library (SSH, for example) restart by themselves in a second; the database keeps running on the old library until the window.
-- **The server never reboots by itself.** A new kernel is installed and waits for the window.
+- **The database is never restarted**, and its own packages wait for the window.
+- **The server never reboots.** A new kernel waits for the window.
 
-The server's page shows **Security updates: installed automatically**, with when they last installed something. Servers created before this existed get it within the hour when their Rowsafe helper is new enough; on the others the page says so, and the window installs the waiting security updates instead.
+The server's page shows **Security updates: installed automatically**.
 
 ### The maintenance window
 
-Each Rowsafe Cloud server has a weekly maintenance window: **Sunday 03:00 in the region's local time** unless you pick another day, hour or time zone when you create the server or later. It lasts two hours. In it, Rowsafe applies what needs a restart, if anything does:
+Weekly, two hours, **Sunday 03:00 in the region's local time** by default. Change the day, hour or time zone when you create the server or later.
 
 | What | Downtime |
 |---|---|
@@ -483,121 +441,100 @@ Each Rowsafe Cloud server has a weekly maintenance window: **Sunday 03:00 in the
 | **A new kernel** | A minute or two (the server restarts) |
 | Security updates still waiting, if any | None |
 
-Rowsafe saves a [Mark](/docs/concepts/restore-points) first, then does each step the same way as when someone clicks **Update**, **Restart** or **Reboot**, and records it in the activity log as *maintenance window*. Nothing starts outside the window: what doesn't fit waits for the next one. In an organization with several Rowsafe Cloud servers, Rowsafe maintains one at a time.
-
-**The emails.** About 24 hours before a window that has something to apply, the people who get your organization's emails get one saying what will be applied and how long it takes. A window with nothing to apply sends nothing and changes nothing. After the window, an email says what was done, or what failed (nothing else is changed then, and Rowsafe tries again the next week).
-
-**Postpone or apply now.** From the email's link, or the **Updates and maintenance** section of the server's page:
-
-- **Postpone a week** skips the next window, once: the window after it can't be postponed again.
-- **Apply now** applies it right away, after you confirm with the server's name.
+- **A Mark first**, then each step, logged as *maintenance window*. Nothing starts outside the window.
+- **Emails** about 24 hours before (only if there's something to apply) and after.
+- **Postpone a week** skips the next window, once. **Apply now** runs it right away. Both are in the email and in **Updates and maintenance**.
 
 ### Maintenance with a standby
 
-A server [with a standby](#with-a-standby) is maintained **one server at a time**, in the same window (the standby server has the primary's window):
-
-1. Rowsafe saves a Mark, then applies what needs a restart to the **standby's** server (its own PostgreSQL update, restart or reboot). The primary keeps serving.
-2. Once the standby is back and in sync, Rowsafe **switches over** to it: **writes pause for a few seconds** (usually under 15) while the primary stops cleanly and the standby takes over. Nothing is lost; reads on the standby continue, apps using the connection strings that follow the primary reconnect by themselves, and the [server's name](#connect-your-app) follows within about a minute.
-3. The old primary becomes the standby again on its own data (no copy), and gets the same updates.
-
-The email the day before says "a few seconds while Rowsafe switches to the standby" instead of a restart's or a reboot's downtime. The servers **swap roles** and stay that way; Rowsafe doesn't switch back. Automatic failover waits throughout, so planned maintenance never triggers a failover.
-
-If the standby isn't running and in sync at that moment, or something fails **before the switchover**, Rowsafe applies the updates **in place** instead, like on a server without a standby (a few seconds for a restart, a minute or two for a reboot), and the email after the window says why. If something fails **after** the switchover, the database runs on the updated server, the email says what's left, and the next window tries again.
-
-When only the **standby's server** needs a restart (a new kernel there, for example) and the primary doesn't, its window applies it to the standby alone: no Mark, no switchover, **no downtime for the database**; only reads on the standby pause.
+The standby is updated first, then Rowsafe switches over (**writes pause for a few seconds**), then the old primary is updated. The servers swap roles. Automatic failover waits throughout. If the standby isn't in sync, the window updates in place instead.
 
 ### Critical security fixes
 
-Sometimes an update can't wait for whenever you get to it: a flaw that is being exploited, or one that lets anyone read your data. Rowsafe staff can mark such an update **critical** (a PostgreSQL release or an operating system package, with its CVE and why it matters). Then, for each Rowsafe Cloud server that doesn't have it yet:
+For a flaw that is being exploited, or that exposes data, Rowsafe staff can mark an update **critical**:
 
-1. Right away, an email and a red banner in the dashboard say what it is and when it will be applied.
-2. **7 days after the notice**, it is applied in the server's maintenance window, with an email 48 hours before and a Mark first. If the window is turned off, it is applied on Sunday at 03:00 in the region's local time.
+1. **Right away:** an email and a red banner say what it is and when.
+2. **7 days later:** it's applied in your window (Sunday 03:00 if the window is off), with an email 48 hours before and a Mark first.
 
-This happens **even if the window is turned off or postponed**: it is the one case where Rowsafe changes a Rowsafe Cloud server you asked it to leave alone. Apply it sooner with **Apply now**. Customers can't mark updates critical, and neither can AI assistants.
+This happens **even if the window is off or postponed**: the one exception. Click **Apply now** to apply it sooner.
 
 ### Change or turn off the window
 
-On the server's page, in **Updates and maintenance**, an owner or admin clicks **Change window** to pick another day, hour or time zone, or to turn the window off. With the window off, nothing is applied for you except critical fixes (above); updates that need a restart then wait until someone clicks **Apply now**, **Update** or **Reboot**. Every change is in the activity log.
-
-AI assistants (MCP) can see the window, the next date and what's waiting, but can't change the window, postpone it or apply anything. They can list servers and save Marks. They create, resize, restart or delete servers [as the person who connected them](/docs/guides/agent-autonomy), when that person is an owner or admin.
+In **Updates and maintenance**, an owner or admin clicks **Change window**. With the window off, only critical fixes apply by themselves; the rest waits for **Apply now**. AI agents can see the window but can't change it, postpone it or apply anything.
 
 ### Your own servers are not affected
 
-All of this is for Rowsafe Cloud servers only. On [servers in your own cloud account](/docs/guides/create-a-server) and on your own servers, nothing patches, restarts or reboots on its own: updates are a button someone clicks (see [Update and upgrade your database](/docs/guides/updates)), or the [automatic minor updates](/docs/guides/updates#minor-updates) you can turn on per database.
-
+On [servers in your own cloud account](/docs/guides/create-a-server) and your own servers, nothing patches, restarts or reboots on its own. See [Update and upgrade your database](/docs/guides/updates).
 
 ## Take it with you
 
-Move your database to your own server whenever you like, with about a minute of downtime:
+Move the database to your own server any time, with about a minute of downtime:
 
 1. Install Rowsafe on your server ([Quickstart](/docs/quickstart)).
 2. On the Rowsafe Cloud server's page, click **Take it with you** and pick your server.
-3. Your server gets a copy from the latest backup and keeps it in sync while the database keeps running. Then apps are disconnected for about a minute while your server takes over. Nothing is lost.
-4. Point your app at your server's address (the Rowsafe Cloud name goes away with the Rowsafe Cloud server) and check it works. The Rowsafe Cloud server is stopped, as a way back, and deleted only when you confirm; its billing stops then.
+3. Your server copies the database and stays in sync, then takes over. Nothing is lost.
+4. Point your app at your server. The Rowsafe Cloud server is stopped, and deleted when you confirm.
 
-It's the plain open-source database, so there's no lock-in. Rowsafe keeps protecting the database on your server. See [Move to a new server](/docs/guides/move).
+It's the plain open-source database: no lock-in. Remove a standby first. See [Move to a new server](/docs/guides/move).
 
-Not yet for OpenSearch, Qdrant or Meilisearch: their snapshots open without Rowsafe, on any server ([OpenSearch](/docs/guides/opensearch#restore-without-rowsafe), [Qdrant](/docs/guides/qdrant#restore-without-rowsafe), [Meilisearch](/docs/guides/meilisearch#restore-without-rowsafe)).
+Not yet for OpenSearch, Qdrant or Meilisearch. Their snapshots open without Rowsafe ([OpenSearch](/docs/guides/opensearch#restore-without-rowsafe), [Qdrant](/docs/guides/qdrant#restore-without-rowsafe), [Meilisearch](/docs/guides/meilisearch#restore-without-rowsafe)).
 
 ## Private connection from your AWS network
 
 <Callout title="Coming soon">
-Private connections are built and being switched on. Until then the server's page doesn't offer them; this section describes how they will work.
+  Private connections are built and being switched on. Until then the server's page doesn't offer them.
 </Callout>
 
-If your apps run in AWS, they can reach a Rowsafe Cloud server on AWS **without going over the internet**. This uses **AWS PrivateLink**: AWS carries the traffic from your own network (your VPC) to the server, privately, and only the AWS accounts you name can connect.
+Apps in your AWS network (VPC) can reach a Rowsafe Cloud server on AWS **without going over the internet**, through **AWS PrivateLink**. Only the AWS accounts you name can connect.
 
-- **Price:** $20 a month at most, billed by the hour ($0.028) while it's on, on the same pay-as-you-go subscription as your servers. Turn it off and billing stops.
-- **AWS only, same region only, PostgreSQL only.** It works for Rowsafe Cloud PostgreSQL servers on AWS, from VPCs in the **same AWS region** as the server (an AWS PrivateLink rule). DigitalOcean, Vultr and OVHcloud Flex servers don't have it.
-- **With a standby, it follows the database.** Turn it on on the primary's page. After a failover, the same endpoint reaches the server that holds the database now, with nothing to change on your side; if you then remove the old primary, the private connection stays.
+- **Price:** $0.028 an hour while on, at most $20 a month.
+- **AWS, same region, PostgreSQL only.**
+- **It follows the database** after a failover.
 
 ### Turn it on
 
-1. Open the server's page (**Servers**, then the server) and find **Private connection from your AWS network**.
-2. Click **Turn on**, type the IDs of the AWS accounts your apps run in (12 digits, shown at the top right of the AWS console), tick the price and confirm. Owners and admins can do this.
-3. After a few minutes Rowsafe shows the **service name** (it starts with `com.amazonaws.vpce.`), the region, and the **zones** your endpoint can use. Zones are shown as AWS zone IDs (like `euc1-az2`), which are the same in every AWS account; your console shows them next to the zone names.
+1. On the server's page, under **Private connection from your AWS network**, click **Turn on**.
+2. Enter your apps' AWS account IDs (12 digits), tick the price and confirm.
+3. After a few minutes, Rowsafe shows the **service name** (`com.amazonaws.vpce.…`) and the **zones** (AWS zone IDs like `euc1-az2`).
 
 ### Connect from your VPC
 
-Your apps connect through an **endpoint** in your VPC.
+**If your AWS account is [connected to Rowsafe](/docs/guides/cloud-accounts/aws)**, click **Create the endpoint for me** and pick the VPC and subnets. Older connections need the [updated policy](/docs/guides/cloud-accounts/aws#the-policy).
 
-**If your AWS account is connected to Rowsafe** ([Connect AWS](/docs/guides/cloud-accounts/aws)), click **Create the endpoint for me**, pick the VPC and a subnet in each zone your apps use, and Rowsafe creates the endpoint with a security group that lets that VPC reach port 5432. Accounts connected before this feature need the [updated policy](/docs/guides/cloud-accounts/aws#the-policy) for this button.
+<Accordions>
+<Accordion title="Do it yourself in the AWS console">
 
-**Otherwise, in your AWS console:**
+1. In your apps' account and the server's region, open **VPC**, **Endpoints**, **Create endpoint**.
+2. Under **Type**, choose **Endpoint services that use NLBs and GWLBs**.
+3. Paste the service name and click **Verify service**.
+4. Choose your VPC and a subnet in each zone Rowsafe lists.
+5. Choose a security group that lets your apps reach port **5432**.
+6. Click **Create endpoint**. When it's **Available**, copy its first DNS name.
 
-1. Sign in with the account your apps run in, and switch to the server's region (top right).
-2. Open the **VPC** console and choose **Endpoints**, then **Create endpoint**.
-3. Name it, and under **Type** choose **Endpoint services that use NLBs and GWLBs**.
-4. Paste the service name Rowsafe shows under **Service name** and click **Verify service**.
-5. Choose the VPC your apps run in, then a subnet in each zone your apps use (only the zones Rowsafe lists work).
-6. Choose a security group that lets your apps reach port **5432** (for example, one that allows your VPC's own addresses on 5432).
-7. Click **Create endpoint**. When it's **Available**, copy its first DNS name.
-
-Connections from the accounts you named are accepted right away: AWS lets only those accounts create an endpoint to it, so there's nothing to approve. If you remove an account, its endpoints are disconnected at once.
+</Accordion>
+</Accordions>
 
 ### Connect your app
-
-Use the endpoint's DNS name as the host, port 5432, and `sslmode=require`, with a user from [Databases & users](/docs/guides/databases-and-users):
 
 ```
 postgresql://USER:PASSWORD@<your endpoint's DNS name>:5432/postgres?sslmode=require
 ```
 
-Connections stay encrypted. The server's certificate is its own (made when it was set up), so it doesn't carry your endpoint's name: use `sslmode=require`, not `verify-full`, which checks the name and refuses it.
+Use `sslmode=require`, not `verify-full`: the certificate doesn't carry your endpoint's name. Once apps connect privately, one switch closes the database's port to the internet.
 
-**Only private connections:** once your apps connect privately, you can close the database's port to the internet with one switch (it empties **Who can connect**, after a confirmation). Backups and Rowsafe keep working.
+Only the accounts you named can connect. Removing an account disconnects its endpoints at once.
 
 ### Turn it off
 
-Click **Turn off** and confirm. Rowsafe deletes the private connection in AWS, with the endpoints it created in your accounts, and billing stops. Endpoints you made yourself stop working; delete them in your VPC console. Deleting the server turns its private connection off too.
+Click **Turn off** and confirm. Billing stops, and the endpoints Rowsafe created are deleted. Delete the ones you made yourself in your VPC console.
 
 ## Limits
 
-- **PostgreSQL 15 to 18, MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 and 26.8, OpenSearch 3, Qdrant 1.19 or Meilisearch 1.54.** A standby, Clone to a new server and private connections are PostgreSQL only; MySQL runs on Intel and AMD sizes only (not on AWS); ClickHouse and OpenSearch need 4 GB of memory, Qdrant 2 GB. See [Databases](#databases).
-- **OpenSearch, Qdrant and Meilisearch restore to a snapshot**, not to any second, and Take it with you isn't available for them yet.
-- **pgvector, PostGIS and TimescaleDB** on PostgreSQL 15 to 18; TimescaleDB is the Apache-2.0 edition (no compression or continuous aggregates), and a PostgreSQL 15 to 16 upgrade with it isn't possible through Rowsafe yet. See [Extensions](#extensions).
-- **A standby is optional and costs a second server.** It runs in another availability zone (AWS) or datacenter (DigitalOcean New York and San Francisco) where the region has one, and on a separate server in the same datacenter elsewhere. Failover waits about 3 minutes and can lose up to about a minute of the newest changes; see [With a standby](#with-a-standby).
-- **Private connections** (coming soon) are for servers on AWS, from VPCs in the same AWS region only.
-- **Changing the size takes the database offline for a few minutes**, and a disk never shrinks: see [Change the size](#change-the-size). With a standby, both servers change one at a time and **writes pause for a few seconds** at the switchover instead; the servers swap roles. (A pair in your own cloud account can't change size yet.)
-- **No SSH access.** Rowsafe runs the server, like other managed databases: every fix is a button in the dashboard. For a server you can log in to, create it in your own cloud account.
-- **Maintenance restarts the database in place**: a few seconds for a PostgreSQL update or a library, a minute or two when a new kernel needs the server to restart. Pick a window when that suits you. With a standby that's in sync, **writes pause for a few seconds** at a switchover instead, and the servers swap roles; when it isn't, the window updates in place.
+- **PostgreSQL only:** a standby, Clone to a new server and private connections.
+- **MySQL** runs on Intel and AMD only (not AWS). **ClickHouse** and **OpenSearch** need 4 GB of memory, **Qdrant** 2 GB.
+- **OpenSearch, Qdrant and Meilisearch** restore to a snapshot, not any second, and can't use Take it with you yet.
+- **TimescaleDB** is the Apache-2.0 edition, with no 15 to 16 upgrade through Rowsafe yet.
+- **Failover** waits about 3 minutes and can lose up to about a minute of changes.
+- **Changing the size** takes the database offline for a few minutes (a few seconds with a standby). Disks never shrink.
+- **Maintenance** restarts the database for seconds, or a minute or two for a new kernel.
+- **No SSH access.** For a server you can log in to, create it in your own cloud account.

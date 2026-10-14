@@ -1,9 +1,9 @@
 ---
 title: Verifying releases
-description: Prove that the agent and CLI you run are exactly what was built from the public source, with signatures, provenance, SBOMs and reproducible builds.
+description: Prove that the agent and CLI you run were built from the public source.
 ---
 
-The agent runs as the `postgres` user on your database servers, so you should be able to prove that the binary you run is the one built from [the public repository](https://github.com/rowsafe/rowsafe). Every release carries four independent proofs. You don't need any of them for normal use: the installer and the agent check the first one automatically.
+The agent runs as `postgres` on your database servers, so you can prove the binary was built from [the public repository](https://github.com/rowsafe/rowsafe). Every release carries four independent proofs. You need none of them day to day: the installer and the agent check the first one automatically.
 
 | Proof | What it shows | Checked by |
 |---|---|---|
@@ -14,7 +14,7 @@ The agent runs as the `postgres` user on your database servers, so you should be
 
 Provenance and SBOM attestations are signed keylessly with [Sigstore](https://www.sigstore.dev) and recorded in its public transparency log, so they can't be quietly replaced.
 
-The examples use version `1.2.3`: use the version you run (`rowsafe-agent version`).
+Replace `1.2.3` with the version you run (`rowsafe-agent version`).
 
 <Steps>
 <Step>
@@ -28,7 +28,7 @@ gh release download v1.2.3 -R rowsafe/rowsafe -p 'rowsafe-agent-linux-amd64'
 gh attestation verify rowsafe-agent-linux-amd64 --repo rowsafe/rowsafe
 ```
 
-The output names the workflow (`.github/workflows/release.yml`), the tag and the commit that produced the file.
+It names the workflow (`.github/workflows/release.yml`), the tag and the commit that built the file.
 
 </Step>
 <Step>
@@ -46,7 +46,7 @@ sha256sum --check --ignore-missing SHA256SUMS
 
 ### The Ed25519 manifest signature
 
-This is the check the agent itself makes before every update. The public key is published with each release, and built into every agent:
+The check the agent makes before every update. The public key is published with each release and built into every agent:
 
 ```sh
 curl -fsSLO https://releases.rowsafe.sh/agent/1.2.3/manifest.json
@@ -61,7 +61,7 @@ rowsafe-release verify --public-key <RELEASE_PUBLIC_KEY> manifest.json manifest.
 
 ### Docker images
 
-Images are signed with cosign (keyless) and carry provenance and an SBOM:
+Images are signed with cosign (keyless), with provenance and an SBOM:
 
 ```sh
 cosign verify ghcr.io/rowsafe/agent:1.2.3-pg17 \
@@ -71,14 +71,14 @@ cosign verify ghcr.io/rowsafe/agent:1.2.3-pg17 \
 gh attestation verify oci://ghcr.io/rowsafe/agent:1.2.3-pg17 --repo rowsafe/rowsafe
 ```
 
-The floating tags (`pg17`, `pg17-alpine`, `clickhouse26.8`, `docker-control:latest`) point to the same signed images as the newest release's exact tags.
+Floating tags (`pg17`, `pg17-alpine`, `clickhouse26.8`, `docker-control:latest`) point to the same signed images as the newest release's exact tags.
 
 </Step>
 <Step>
 
 ### Rebuild it yourself
 
-Release builds are reproducible: CGO is off, paths are trimmed, there is no VCS stamp or build ID, and the Go toolchain is pinned in `go.mod`.
+Release builds are reproducible: CGO off, trimmed paths, no VCS stamp or build ID, and the Go toolchain pinned in `go.mod`.
 
 ```sh
 git clone https://github.com/rowsafe/rowsafe && cd rowsafe
@@ -93,4 +93,4 @@ Every binary should report `OK`. The release workflow runs the same comparison o
 </Step>
 </Steps>
 
-If any check fails for an official release, don't run the binary, and [report it privately](/docs/security/disclosure).
+If a check fails for an official release, don't run the binary, and [report it privately](/docs/security/disclosure).

@@ -1,49 +1,49 @@
 ---
 title: "Tuning: your database's settings"
-description: See the settings that matter for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey explained in plain words, let Rowsafe tune them for your server's memory, CPUs and disk, change one setting safely, and undo a change in one click.
+description: See the settings that matter, tune them for your server in one click, and undo any change.
 ---
 
-A fresh PostgreSQL uses settings meant for a tiny machine: 128 MB of memory for caching data, whatever your server has. **Tuning** shows the settings that matter for each database, what each one does, and what suits your server, and changes them for you when you click.
+A fresh PostgreSQL uses settings for a tiny machine: 128 MB of cache, whatever your server has. **Tuning** explains the settings that matter and sets them for your server when you click.
 
-Open a database and pick the **Tuning** tab, or use `rowsafe settings` and `rowsafe tune` in a terminal. It works for every database Rowsafe protects; this page uses PostgreSQL's settings, and [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB and ClickHouse](#mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey) say what differs.
+Open a database, then **Tuning**. This page shows PostgreSQL; see [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB and ClickHouse](#mongodb-and-clickhouse) and [Redis and Valkey](#redis-and-valkey) for differences.
 
 ## What you see
 
-- **Your server:** its memory, CPUs and disk type (SSD or spinning disk), as the agent reads them.
-- **The settings that matter**, by group (memory, connections, change log and checkpoints, automatic cleanup, disk and query planning, parallel queries, timeouts, logging, query statistics): what each one does, its value, PostgreSQL's default, where it is set (`postgresql.conf`, changed through Rowsafe or `ALTER SYSTEM`, or the default), and whether a change needs a restart.
-- **Other settings** set in a configuration file.
+- **Your server:** memory, CPUs, disk type (SSD or spinning).
+- **The settings that matter**, by group: what each does, its value and default, where it's set, and whether it needs a restart.
+- **Other settings** from configuration files.
 - **Changes made through Rowsafe**, with **Undo**.
 
-The agent reads the settings every 5 minutes, together with [Pulse](/docs/guides/monitoring). It reads `pg_settings` and `pg_file_settings`, the server's memory and CPU count, and whether the data directory's disk rotates (`/sys/block/*/queue/rotational`).
+Refreshed every 5 minutes.
 
 ## Tune for this server
 
-**Tune for this server** lists what Rowsafe recommends, each change with the current value, the new one and why. Everything but the optional changes is selected; click **Apply**, check the list, and confirm.
+**Tune for this server** lists each recommended change with the current value, the new one, and why. Click **Apply**, check the list, and confirm.
 
 <Steps>
 <Step>
 
-Rowsafe saves a [Mark](/docs/concepts/restore-points) first (on a database that is backed up).
+Rowsafe saves a [Mark](/docs/concepts/restore-points) (on a backed-up database).
 
 </Step>
 <Step>
 
-The agent checks every value again against the live server, sets them with `ALTER SYSTEM`, and reloads PostgreSQL. Your apps keep working.
+The agent rechecks each value, sets it with `ALTER SYSTEM`, and reloads. Apps keep working.
 
 </Step>
 <Step>
 
-Settings PostgreSQL reads only when it starts (such as `shared_buffers`) wait for a restart. **Nothing restarts now.** Restart when it suits you with **Restart PostgreSQL now** (where the installer [allowed restarts](/docs/guides/adopt)), `rowsafe restart`, or on the server; or leave it, and they take effect the next time PostgreSQL restarts.
+Start-only settings (like `shared_buffers`) wait for a restart. **Nothing restarts now.** Click **Restart PostgreSQL now** when it suits you (where [restarts are allowed](/docs/guides/adopt)), or wait for the next restart.
 
 </Step>
 </Steps>
 
-Under **More options**, say what the database serves (**Web app**, **Analytics** or **Mixed**, the default) and correct the disk type: cloud virtual disks often report "spinning" even on SSDs.
+**More options** sets the workload (**Web app**, **Analytics** or **Mixed**, the default) and the disk type: cloud disks often say "spinning" on SSDs.
 
 <Accordions>
 <Accordion title="How the recommendations are computed">
 
-The formulas follow [PGTune](https://pgtune.leopard.in.ua), the usual starting point for a server that runs mostly PostgreSQL:
+The formulas follow [PGTune](https://pgtune.leopard.in.ua), for a server that runs mostly PostgreSQL:
 
 | Setting | Recommendation |
 |---|---|
@@ -60,35 +60,33 @@ The formulas follow [PGTune](https://pgtune.leopard.in.ua), the usual starting p
 | `idle_in_transaction_session_timeout` | 10 minutes for web and mixed. Optional: it ends sessions an app forgot, and the app gets an error |
 | `shared_preload_libraries` | adds `pg_stat_statements` when it is installed, so [Top queries](/docs/guides/monitoring) works |
 
-A value already close to its recommendation is left alone: within 5% at PostgreSQL's default, and between 75% and 175% of it when someone set it on purpose (up to 400% for `work_mem`). Without the server's memory there are no memory recommendations, and without an SSD no disk ones.
+Values already close are left alone: within 5% at the default, or 75% to 175% when set on purpose (400% for `work_mem`). No memory or SSD reading means no memory or disk recommendations.
 
 </Accordion>
 </Accordions>
 
 ## Change one setting
 
-Open a group, click the pencil next to a setting, type the new value (with a unit, such as `512MB` or `30s`) or pick one, and click **Change it**. **Reset to default** removes Rowsafe's value. The same safety applies: a Mark first, the checks below, and undo.
+Click the pencil next to a setting, enter a value (like `512MB` or `30s`), and click **Change it**. **Reset to default** removes Rowsafe's value. Same safety: a Mark, the checks below, undo.
 
 ## Undo
 
-Every change made through Rowsafe keeps the values from before it. **Undo** (in the change's success message, or in **Changes made through Rowsafe**) puts them back; settings that need a restart go back at the next restart. You can undo the latest change of a setting, once.
+**Undo** (in the success message, or under **Changes made through Rowsafe**) restores the previous values. Restart-only settings go back at the next restart. You can undo a setting's latest change, once.
 
 ## What Rowsafe refuses
 
-Rowsafe refuses a change, and changes nothing, when:
+Rowsafe changes nothing when a change:
 
-- it touches the settings Rowsafe uses for backups (`archive_mode`, `archive_command`, `archive_timeout`, `archive_library`), for restores and standbys (`restore_command`, `recovery_target*`, `primary_conninfo`, `primary_slot_name`), or that its agent connects through (`port`, `unix_socket_directories`);
-- PostgreSQL might not start with it: `shared_buffers` above 60% of memory, a library in `shared_preload_libraries` that isn't installed, `huge_pages = on` where it isn't on already, `max_connections` not above the connections kept for administrators, `wal_level = minimal`;
-- it would let a few queries take the server's memory: `work_mem` above a quarter of memory, `maintenance_work_mem` above half;
-- it is a restart-only setting Rowsafe doesn't know how to check (such as `listen_addresses`);
-- the setting is given on PostgreSQL's command line (for example `-c` in Docker), which would override it;
-- PostgreSQL's configuration files already have an error that would stop it at its next restart, or the server is a standby.
+- touches what Rowsafe relies on: backups (`archive_mode`, `archive_command`, `archive_timeout`, `archive_library`), restores and standbys (`restore_command`, `recovery_target*`, `primary_conninfo`, `primary_slot_name`), or the agent's connection (`port`, `unix_socket_directories`);
+- could stop PostgreSQL from starting: `shared_buffers` above 60% of memory, a missing `shared_preload_libraries` library, `huge_pages = on` where it isn't already, `max_connections` not above the admin-reserved ones, `wal_level = minimal`;
+- lets a few queries eat memory: `work_mem` above a quarter of memory, `maintenance_work_mem` above half;
+- is a restart-only setting Rowsafe can't check (like `listen_addresses`);
+- is overridden on the command line (for example `-c` in Docker);
+- comes while the config already has an error that would stop the next start, or on a standby.
 
-PostgreSQL checks every value itself. If it refuses one, or reports an error in its configuration after the reload, the agent puts the previous values back.
+If PostgreSQL rejects a value or reports a config error after the reload, the agent puts the old values back.
 
 ## Pulse
-
-[Pulse](/docs/guides/monitoring) points out three things about settings, each with a fix:
 
 | Finding | Fix |
 |---|---|
@@ -104,59 +102,60 @@ rowsafe settings app shared_buffers       # one setting, explained
 rowsafe tune app --workload web           # the recommendations; asks before applying
 rowsafe settings set app work_mem=64MB    # change one (VALUE "default" resets it)
 rowsafe settings undo app                 # undo the latest change
+rowsafe restart app                       # apply restart-only settings
 ```
 
-See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI assistants can read the settings and recommendations (`database_settings` on the [MCP server](/docs/reference/mcp)) and apply the recommended changes [as the person who connected them](/docs/guides/agent-autonomy), an owner or admin (a Mark first).
+See the [CLI reference](/docs/reference/cli#settings-and-tuning). AI agents read settings with `database_settings` ([MCP](/docs/reference/mcp)) and apply recommendations [as the person who connected them](/docs/guides/agent-autonomy), an owner or admin (a Mark first).
 
 ## MySQL and MariaDB
 
-Tuning works for MySQL and MariaDB too: the buffer pool, the redo log, connections, temporary tables, disk speed, timeouts and the slow query log, explained, with **Tune for this server** from the server's memory and disk (about 70% of memory for the buffer pool on a server with 8 GB or more, a bigger redo log, SSD-sized disk speed). A Mark is saved first and every change can be undone.
+Same page: buffer pool, redo log, connections, temporary tables, disk speed, timeouts, slow query log. **Tune for this server** gives the buffer pool about 70% of memory (8 GB or more), a bigger redo log and SSD-sized disk speed. A Mark first; undo works.
 
-- **MySQL** keeps changes with `SET PERSIST`; settings read only at start use `SET PERSIST_ONLY` and wait for your next restart.
-- **MariaDB** keeps them in Rowsafe's own option file (`/etc/rowsafe/mysql/server.cnf`) and applies them to the running server (`SET GLOBAL`). In Docker the agent can't change MariaDB's configuration: set them in the container's command.
-- Rowsafe never changes the binary log settings its restores rely on, and never lets a commit wait less for the disk (`innodb_flush_log_at_trx_commit`, `sync_binlog`).
-- Settings read only at start say so and wait for the next restart, which you choose: **Restart** in the dashboard, where root allowed restarts.
+- **MySQL** keeps changes with `SET PERSIST`; start-only settings use `SET PERSIST_ONLY`.
+- **MariaDB** keeps them in `/etc/rowsafe/mysql/server.cnf` and applies them live (`SET GLOBAL`). In Docker, set them in the container's command instead.
+- Rowsafe never touches the binary log settings restores need, and never makes commits wait less for the disk (`innodb_flush_log_at_trx_commit`, `sync_binlog`).
+- Start-only settings wait for a **Restart** you choose (where root allowed restarts).
 
 ## MongoDB and ClickHouse
 
-MongoDB and ClickHouse keep their settings in configuration files that only root may change. Where root allowed it (`sudo rowsafe-allow tuning`, or yes at the installer's question), Tuning works for them too: root's copy of the agent writes the settings you change, from a fixed list with plain values, into Rowsafe's own file and nowhere else. A Mark is saved first, and undo puts back what was there before.
+Their settings files belong to root. Where root allowed it (`sudo rowsafe-allow tuning`, or yes at install), root's copy of the agent writes your changes, from a fixed list of plain values, into Rowsafe's own file only. A Mark first; undo restores the old file.
 
-- **ClickHouse:** the memory per query and for the whole server, spilling big GROUP BY and ORDER BY to disk, queries and connections at once, threads, merges and the longest query, in `config.d/rowsafe-tuning.xml` and `users.d/rowsafe-tuning.xml`. ClickHouse picks them up by itself within seconds; the few it can't change while running say so and wait for a restart.
-- **MongoDB:** the WiredTiger cache, connections, the longest transaction, the slow operation threshold and the profiler, as keys of its configuration file (edited as YAML; a copy is kept). The cache size, the transaction limit and the slow threshold also change on the running server at once; the rest waits for MongoDB's next restart.
+- **ClickHouse:** memory per query and per server, spilling big GROUP BY and ORDER BY to disk, concurrent queries and connections, threads, merges, the longest query. In `config.d/rowsafe-tuning.xml` and `users.d/rowsafe-tuning.xml`; picked up within seconds, except a few that say they need a restart.
+- **MongoDB:** WiredTiger cache, connections, longest transaction, slow operation threshold, profiler. Written to its YAML config (a copy is kept). Cache, transaction limit and slow threshold also apply live; the rest at restart.
 
-Settings that need a restart wait for the next one, which you choose (**Restart** in the dashboard, where root allowed it). In Docker, set these in the container's configuration instead.
+Restarts are yours (**Restart**, where root allowed it). In Docker, set these in the container's configuration.
 
 ## Redis and Valkey
 
-Every Redis and Valkey setting on the page changes on the running server at once (`CONFIG SET`), with no restart. Several settings change together or not at all: if the server refuses one value, nothing changes.
+Every setting applies live (`CONFIG SET`), no restart. Changes made together all apply or none do.
 
-- **Memory:** the memory limit (`maxmemory`), what happens when it is reached (`maxmemory-policy`), and defragmentation (`activedefrag`).
-- **Persistence on the server's disk:** snapshot rules (`save`), the append-only file (`appendonly`, `appendfsync`). The replication backlog and `min-replicas-to-write` are shown but locked: Rowsafe's link to the server depends on them (Pulse proposes a larger backlog when the link needs one).
-- **Connections:** maximum connections, closing idle connections (`timeout`), and keepalives (`tcp-keepalive`).
-- **Slow log and latency:** the slow command threshold and length, the latency monitor, latency per command.
+- **Memory:** `maxmemory`, `maxmemory-policy`, `activedefrag`.
+- **Persistence:** `save`, `appendonly`, `appendfsync`. The replication backlog and `min-replicas-to-write` are locked (Rowsafe's link needs them).
+- **Connections:** max connections, idle `timeout`, `tcp-keepalive`.
+- **Slow log and latency:** threshold, length, latency monitor, per-command latency.
 
-Passwords, the port, the address and the data folder aren't on the page; Rowsafe never reads the password settings.
+Passwords, port, address and data folder aren't shown; Rowsafe never reads passwords.
 
-**Tune for this server** asks how the server is used: **Cache** (keys can be computed again), **Store or queue** (no key may be lost), or **Not sure**, where Rowsafe looks at how many keys have an expiry (almost all: a cache). It proposes:
+**Tune for this server** asks: **Cache**, **Store or queue** (no key may be lost), or **Not sure** (almost all keys expiring means cache). It proposes:
 
-- A memory limit when there is none: about 75% of the server's memory, less when other databases Rowsafe protects run on the same server (shared equally between them). Without a limit the server grows until the operating system stops it; the rest leaves room for its snapshots, which copy memory that changes while they run. It proposes nothing when the data already needs more than that.
-- For a cache still on `noeviction`, `allkeys-lru`: when full, the least recently used keys make room instead of writes failing. For a store or a queue that evicts keys, `noeviction`: writes are refused rather than keys lost, and Pulse warns well before the limit.
-- For a store with nothing on its own disk, snapshots (Redis's default rules), so a restart doesn't empty it. Rowsafe never proposes turning persistence off, and never the append-only file: your backups already keep every change, so restores to any second don't need it.
-- Keepalives when off, the latency monitor at 100 ms, and the slow log at 10 ms when off, so Pulse can show what is slow.
+- **A memory limit** if none: about 75% of memory, shared equally with other databases Rowsafe protects there. The rest leaves room for snapshots. Nothing if the data already needs more.
+- **Eviction:** `allkeys-lru` for a cache on `noeviction`; `noeviction` for a store or queue that evicts (writes are refused rather than keys lost).
+- **Snapshots** for a store with nothing on disk, so a restart doesn't empty it. Never persistence off, never the append-only file: your backups keep every change.
+- **Keepalives** if off, the latency monitor at 100 ms, the slow log at 10 ms if off.
 
-Rowsafe refuses a memory limit above 90% of the server's memory, below what the data uses now, or under 64 MB; closing idle connections after less than 10 seconds; a slow log that records every command; and fewer than 32 connections.
+Refused: a memory limit above 90% of memory, below current use, or under 64 MB; an idle timeout under 10 seconds; a slow log of every command; fewer than 32 connections.
 
-**How a change is kept after a restart.** The page says before you change anything:
+**Surviving a restart** (the page tells you first):
 
-- Where root allowed Tuning (`sudo rowsafe-allow tuning`, or yes at the installer's question), root's copy of the agent also writes the change into the server's configuration file (`redis.conf` or `valkey.conf`): only the settings above, with plain values, replacing the lines that set them (a copy of the file is kept first; undo puts the original lines back).
-- Otherwise the server keeps them in its configuration file itself (`CONFIG REWRITE`) when it may write it.
-- A server started without a configuration file (common in Docker) keeps the change until it restarts: put it in the container's command or in a configuration file it starts with. The page and the change's summary say so.
+- Where root allowed Tuning, root's agent also writes it to `redis.conf` or `valkey.conf`, replacing only those lines (a copy is kept; undo restores them).
+- Otherwise the server saves it with `CONFIG REWRITE`, if it may write its config.
+- Without a config file (common in Docker), the change lasts until restart. Put it in the container's command or a config file.
 
-Undo puts back the values from before the change. Rowsafe saves a Mark first, except on a server Rowsafe can't follow, which takes no Marks. A replica's settings are changed on its primary.
+A Mark first, except on a server Rowsafe can't follow. A replica's settings are changed on its primary.
 
 ## Limits
 
-- Settings are changed for the whole server (`ALTER SYSTEM`, in `postgresql.auto.conf`). Settings made with `ALTER DATABASE` or `ALTER ROLE` override them for that database or role, and Rowsafe doesn't show those.
-- For PostgreSQL in Docker (the agent as a sidecar), the memory and CPUs are the Docker host's, and the disk type is unknown: pick it under **More options**. Rowsafe can't restart the container.
-- Recommendations assume PostgreSQL is the main thing on the server. On a server shared with your app, keep memory settings lower.
+- Changes are server-wide (`ALTER SYSTEM`, `postgresql.auto.conf`). `ALTER DATABASE` and `ALTER ROLE` settings override them and aren't shown.
+- PostgreSQL in Docker: memory and CPUs are the host's, the disk type is unknown (set it under **More options**), and Rowsafe can't restart the container.
+- Recommendations assume PostgreSQL is the main thing on the server. If your app shares it, keep memory lower.
 - A standby follows its primary: change settings there.

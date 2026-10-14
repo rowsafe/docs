@@ -1,55 +1,50 @@
 ---
 title: Connect AI apps
-description: Add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf. Sign in with Rowsafe once; no API key to create or paste.
+description: Add Rowsafe to ChatGPT, Claude, Cursor, VS Code, Codex or Windsurf by signing in once, with no API key.
 ---
 
-Ask your AI app "Are my databases backed up?", "Why is the orders database slow today?" or "What should I fix first?", and let coding agents save a [Mark](/docs/concepts/restore-points) before a risky change. Apps connect to Rowsafe's MCP server at:
+Ask your AI app "Are my databases backed up?" or "What should I fix first?", and let coding agents save a [Mark](/docs/concepts/restore-points) before risky changes. Apps connect to:
 
 ```text
 https://api.rowsafe.sh/mcp
 ```
 
-The first time, the app opens Rowsafe in your browser. You pick the organization, choose whether the app may save Marks and whether it may **Act for you** (make the changes you can make in the dashboard, as you), and click **Allow**. That's it: no API key to create or paste. (Prefer a key, for CI or an app without sign-in? Use the **Remote endpoint** setup in the [MCP reference](/docs/reference/mcp#set-up).) The dashboard has the same steps, with one-click install links for Cursor and VS Code, under **Ask your AI**.
+The first time, the app opens Rowsafe in your browser. Pick the organization, tick **Save Marks** and **Act for you** if you want them, and click **Allow**. No API key needed. (For CI or an app without sign-in, use an [API key](/docs/reference/mcp#set-up).)
 
 ## What a connected app can do
 
 | | Connected app |
 |---|---|
-| See databases, health scores and findings, backups, Proof results, Marks, slow-query trends | Yes |
-| Alerts, what's running now, metrics, disk forecast, uptime, security, updates, the audit log, what AI agents did | Yes |
-| [Rowsafe Cloud](/docs/guides/rowsafe-cloud) sizes and prices, and your Rowsafe Cloud servers | Yes |
-| Save a Mark (a named moment you can rewind to) | Only if you ticked **Save Marks** |
-| Run backups, Proof and checks, preview migrations, make masked safe copies, acknowledge alerts, change schedules | Only if you ticked **Act for you** |
-| Make a change to production (apply a fix, restart, restore, rewind, upgrade, ...) | Only if you ticked **Act for you**. It acts as you, right away, while you're an owner or admin. If you become a member, Rowsafe refuses its changes. See [How AI agents act](/docs/guides/agent-autonomy) |
-| Create a Rowsafe Cloud server, change its size or who can connect, clone it or delete it | Only if you ticked **Act for you**, as above. It tells you the price first; see [Need a database?](/docs/guides/ai-agents#need-a-database) |
-| Create a database and login for the app it's building | Never: the password is made in your browser, so you create it in the dashboard and see it once. A local `rowsafe mcp` can, on PostgreSQL ([Need a database?](/docs/guides/ai-agents#need-a-database)) |
+| See databases, health, findings, backups, Proof, Marks, alerts, metrics, security, updates, the audit log, Rowsafe Cloud prices and servers | Yes |
+| Save a Mark | With **Save Marks** |
+| Run backups, Proof and checks, preview migrations, make masked safe copies, acknowledge alerts, change schedules | With **Act for you** |
+| Change production (fix, restart, restore, rewind, upgrade, ...) and Rowsafe Cloud servers | With **Act for you**: as you, right away, while you're an owner or admin ([How AI agents act](/docs/guides/agent-autonomy)) |
+| Create a database and login for its app | Never: you create it in the dashboard, where your browser makes the password. A local `rowsafe mcp` can, on PostgreSQL ([Need a database?](/docs/guides/ai-agents#need-a-database)) |
 | Change what AI agents may do | Never: only an owner, in the dashboard |
-| Pay | Never: a first payment is always an owner's, at a checkout. An owner's app gives you the link |
+| Pay | Never: a first payment is an owner's, at a checkout link the app gives you |
 | Read the rows in your tables | Never: Rowsafe itself never sees them |
 
-Apps act for one organization, the one you picked. Everything they do is in the [audit log](/docs/guides/teams#audit-log), as you through the app (*ana@example.com through their AI agent Claude*), and Marks they save show the app as their creator.
+An app acts for the one organization you picked. Everything it does is in the [audit log](/docs/guides/teams#audit-log) as you through the app.
 
 ## What the Allow page says
 
-When you tick **Act for you**, the page says what that means: the app can make the changes you can make in the dashboard (restore, restart, apply fixes, change settings, create Rowsafe Cloud servers), right away, and confirms disruptive ones with you in chat first. If you're no longer an owner or admin, its changes are refused. Rowsafe saves a Mark before risky changes, a first payment is always an owner's, and everything it does is in the audit log. It never sees the rows in your tables.
-
-Leave **Act for you** unticked for an app that should only look (and save Marks).
+With **Act for you**, the page explains that the app can make the changes you can make in the dashboard, right away, and confirms disruptive ones with you in chat. If you stop being an owner or admin, its changes are refused. Leave it unticked for an app that should only look.
 
 ### Apps connected earlier
 
-An app connected before AI agents could act as the person who connected them can't make changes yet: **Settings → Connected apps** shows **Can't make changes yet** next to it. The person who connected it can click **Let it act as me** there (only them, and it's in the audit log), or connect the app again. Until then, Rowsafe refuses its changes.
+Older apps show **Can't make changes yet** in **Settings → Connected apps**. The person who connected one clicks **Let it act as me**, or connects it again. Until then, Rowsafe refuses its changes.
 
 ## Set it up
 
 <Tabs items={["ChatGPT", "Claude", "Cursor", "VS Code", "Codex", "Windsurf"]}>
 <Tab value="ChatGPT">
 
-1. In ChatGPT, open **Settings**, **Apps & Connectors**, **Advanced settings**, and turn on **Developer mode**. It's available on paid plans; in a Business or Enterprise workspace an admin may need to allow it.
+1. In ChatGPT, open **Settings**, **Apps & Connectors**, **Advanced settings**, and turn on **Developer mode**. It needs a paid plan; in a Business or Enterprise workspace an admin may need to allow it.
 2. Click **Create**. Name it **Rowsafe**, paste `https://api.rowsafe.sh/mcp`, and choose **OAuth**.
 3. Sign in with Rowsafe and click **Allow**.
 4. In a new chat, click **+**, pick Rowsafe, and ask away.
 
-Rowsafe isn't in ChatGPT's app directory yet; until it is, it's added this way.
+Rowsafe isn't in ChatGPT's app directory yet, so it's added this way.
 
 </Tab>
 <Tab value="Claude">
@@ -71,7 +66,7 @@ Then run `/mcp` in Claude Code and choose **Authenticate**. For Marks saved auto
 </Tab>
 <Tab value="Cursor">
 
-1. In the Rowsafe dashboard, open **Ask your AI**, **Cursor**, and click **Add to Cursor**. Or add it to `~/.cursor/mcp.json` yourself:
+1. In the Rowsafe dashboard, open **Ask your AI**, **Cursor**, and click **Add to Cursor**. Or add it to `~/.cursor/mcp.json`:
 
    ```json title="~/.cursor/mcp.json"
    {
@@ -133,28 +128,27 @@ Any other app that supports remote MCP servers with OAuth works the same way: gi
 
 ## Who can connect an app
 
-Owners and admins of an organization. A member who tries sees the request, but **Allow** is off; an admin can connect the app, or make them an admin.
+Owners and admins. A member sees **Allow** greyed out: an admin connects the app, or makes them an admin.
 
 ## Disconnect an app
 
-In the dashboard, open **Settings**, **Connected apps**, and click **Disconnect**. The app loses access right away; Marks it saved stay. Each app shows who allowed it and whether it **Acts as** them or **Can't make changes yet**. Rowsafe also disconnects an app by itself when:
+**Settings → Connected apps**, **Disconnect**. Access ends right away; Marks it saved stay.
 
-- the person who allowed it is removed from the organization, leaves it, or deletes their account;
-- a sign-in token is used twice, which means it may have leaked. Connect the app again if it was yours.
+Rowsafe also disconnects an app when the person who allowed it is removed, leaves the organization or deletes their account, or when a sign-in token is used twice (it may have leaked; connect again if it was yours).
 
 ## How it stays safe
 
-- **You approve every app**, on a Rowsafe page, in the browser where you're signed in. The page shows the app's name, and whether Rowsafe could verify it: ChatGPT and Claude Code publish their identity on their own domain (shown as **Verified: chatgpt.com**); other apps only give a name, marked **not verified**. It also shows where you'll return to, and warns when an app runs on your own computer.
-- **Only known apps and apps on your own computer can receive a sign-in.** Rowsafe sends approvals only to the published callback addresses of ChatGPT, Claude, VS Code and Cursor, and to `localhost`. A link someone sends you can't send your approval to their website, and only the browser that started a sign-in can finish it.
-- **Short-lived tokens, only for MCP.** An app gets a one-hour access token that works on `https://api.rowsafe.sh/mcp` and nowhere else, and a refresh token that works once. Rowsafe stores only their hashes.
-- **Nothing beyond what you ticked, and never more than you.** Without **Act for you**, an app never sees the tools that queue backups, make copies or change production, and the API refuses those actions for it too. With it, the app acts as you, with your role at the moment of each change: Rowsafe checks it every time, and if you're a member by then, it refuses the change. Every change goes through the same checks as your click, with a Mark first where the dashboard saves one ([safety nets](/docs/guides/agent-autonomy#safety-nets-that-stay-on)). An app can never change what AI agents may do.
+- **You approve every app** on a Rowsafe page, in your own browser. It shows the app's name, whether Rowsafe could verify it (ChatGPT and Claude Code show **Verified: chatgpt.com** and similar; others are **not verified**), where you'll return to, and a warning when the app runs on your own computer.
+- **Sign-ins go only to known apps.** Rowsafe sends approvals only to the published callback addresses of ChatGPT, Claude, VS Code and Cursor, and to `localhost`. A link someone sends you can't route your approval to their website, and only the browser that started a sign-in can finish it.
+- **Short-lived tokens, for MCP only:** a one-hour access token for `https://api.rowsafe.sh/mcp` and a single-use refresh token. Rowsafe stores only their hashes.
+- **Never more than you ticked, or more than you.** Without **Act for you**, the app never sees the tools that run backups, make copies or change production, and the API refuses them. With it, Rowsafe checks your role at every change, with the dashboard's own checks and Marks ([safety nets](/docs/guides/agent-autonomy#safety-nets-that-stay-on)).
 
-This follows the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (OAuth 2.1 with PKCE, protected resource metadata, client ID metadata documents and dynamic client registration). Details are in the [MCP server reference](/docs/reference/mcp#sign-in-with-rowsafe-oauth).
+It follows the [MCP authorization specification](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization) (OAuth 2.1 with PKCE, protected resource metadata, client ID metadata documents, dynamic client registration). Details: [MCP reference](/docs/reference/mcp#sign-in-with-rowsafe-oauth).
 
 ## Troubleshooting
 
-- **"We don't know this app" or "Rowsafe only sends sign-ins back to known AI apps":** the app asked Rowsafe to return somewhere other than a known AI app or `localhost`. Tell us which app it is at hello@rowsafe.sh, or use an [API key](/docs/reference/mcp#set-up) with it instead.
-- **"Finish in the browser you started in":** the sign-in was opened in another browser (or the link was forwarded). Start again from the app, in one browser.
-- **"This sign-in expired":** sign-ins last 10 minutes. Start again from the app.
-- **The app keeps asking you to sign in:** it was disconnected (see above), or it didn't keep its refresh token. Connect it again.
-- **Allow is greyed out:** you're a member of that organization; ask an admin.
+- **"We don't know this app" or "Rowsafe only sends sign-ins back to known AI apps":** the app wants to return somewhere unknown. Tell us which app at hello@rowsafe.sh, or use an [API key](/docs/reference/mcp#set-up).
+- **"Finish in the browser you started in":** start again from the app, in one browser.
+- **"This sign-in expired":** sign-ins last 10 minutes. Start again.
+- **The app keeps asking you to sign in:** it was disconnected, or lost its refresh token. Connect it again.
+- **Allow is greyed out:** you're a member. Ask an admin.

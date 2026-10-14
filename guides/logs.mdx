@@ -1,26 +1,26 @@
 ---
 title: "Logs: your database's own log in Pulse"
-description: See your database's own log in the dashboard (PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey), with values removed on your server before anything is sent. Filter errors, slow queries, lock waits and failed logins, group repeated errors, watch it live, turn on useful logging with one click, and forward it to Datadog, Loki and others.
+description: Your database's log in the dashboard, with values removed on your server, live, grouped and forwardable.
 ---
 
-**Logs** is part of **Pulse**. The agent reads the database's own log on your server (PostgreSQL's in the examples; [other databases](#mysql-mariadb-mongodb-clickhouse-redis-and-valkey) below), removes the values in statements and error messages **before anything leaves the server**, and sends the rest to Rowsafe within seconds. In the dashboard, open a database, then **Pulse → Logs**.
+**Logs** shows your database's own log in the dashboard within seconds. Values are removed **before anything leaves your server**. Open a database, then **Pulse → Logs**.
 
-Logs start on their own once the agent has updated itself to a version that reads them; there is nothing to install. They are on for every database and every plan. You can turn them off per database, or for a whole server.
+Nothing to install, on every plan. Turn it off per database or per server. Examples are PostgreSQL's; see [other databases](#mysql-mariadb-mongodb-clickhouse-redis-and-valkey).
 
 ## What you can do
 
-- **Filter** by what matters: errors, slow queries, lock waits, failed logins, checkpoints and vacuum. Each filter shows how many lines it matched in the last 24 hours.
-- **Search** messages, statements, users and client addresses.
-- **Group** repeated messages: "duplicate key value violates unique constraint "customers_email_key"", **1,204 times since 14:00**. Values and numbers don't split a group; the constraint, table or column named in the message does. Click a group to see its lines.
-- **Watch it live.** New lines appear every few seconds while the page is open. Pause whenever you like.
-- **Open a line** to see its detail, hint, context and the statement that caused it (with values removed), who ran it (user, database, app, client address) and PostgreSQL's error code.
+- **Filter:** errors, slow queries, lock waits, failed logins, checkpoints, vacuum.
+- **Search** messages, statements, users and addresses.
+- **Group** repeats: "duplicate key value violates unique constraint "customers_email_key"", **1,204 times since 14:00**. Different values don't split a group; a different table or constraint does.
+- **Watch live**, and pause any time.
+- **Open a line** for its detail, hint, statement, who ran it and the error code.
 
-Pulse also reads the log for [health findings](/docs/guides/monitoring#health-score):
+Pulse also raises [health findings](/docs/guides/monitoring#health-score) from the log:
 
 | Finding | When |
 |---|---|
 | Errors jumped | 50 or more errors in the last two hours, and at least five times the usual rate |
-| Failed logins from an address | 20 or more failed logins in an hour from one address (or 50 from all). It names the address and the user names tried, and links to the lines and to limiting who can connect |
+| Failed logins from an address | 20 or more failed logins in an hour from one address (or 50 from all). Names the address and user names tried, and links to limiting who can connect |
 | Apps were turned away | "too many clients" in the last hour |
 | Checkpoints come too often | PostgreSQL's own warning, three times or more in 24 hours |
 | Deadlocks | The statements of the newest deadlock (values removed) |
@@ -29,7 +29,7 @@ Pulse also reads the log for [health findings](/docs/guides/monitoring#health-sc
 
 ## Turn on useful logging
 
-PostgreSQL's defaults leave out most of what's worth seeing: slow statements, lock waits and queries spilling to disk aren't logged at all. When that's the case, the Logs page (and the Health page) shows **Turn on useful logging**. Click it and Rowsafe changes these settings with `ALTER SYSTEM` and reloads PostgreSQL. **Nothing restarts**; apps don't notice.
+PostgreSQL's defaults don't log slow statements, lock waits or disk spills. When that's the case, click **Turn on useful logging**. Rowsafe sets these with `ALTER SYSTEM` and reloads. **Nothing restarts.**
 
 | Setting | Becomes | So the log shows |
 |---|---|---|
@@ -40,64 +40,56 @@ PostgreSQL's defaults leave out most of what's worth seeing: slow statements, lo
 | `log_checkpoints` | `on` | checkpoints (on by default since PostgreSQL 15) |
 | `log_line_prefix` | `%m [%p] %q%u@%d app=%a client=%h code=%e ` | who and where each line comes from |
 
-It only ever makes logging more detailed: a setting already at least as detailed stays as it is, and `log_line_prefix` is only changed when it lacks the time, process, user, database or client address (and only for the plain-text format). `log_connections`, `log_statement` and anything that needs a restart are never touched. If you parse the log with another tool (pgBadger, for example), tell it the new prefix.
+It only ever adds detail. `log_line_prefix` changes only if it lacks time, process, user, database or client (plain-text logs only); tell tools like pgBadger the new prefix. `log_connections`, `log_statement` and restart-only settings are never touched.
 
 ## Settings: what leaves your server
 
-Open **Log settings** on the Logs page. Owners and admins can change them; every change is in the audit log.
+**Log settings** on the Logs page (owners and admins; audited):
 
-- **Send logs to Rowsafe** (on by default). Off, the agent stops reading this database's log. Lines already sent stay until they expire.
-- **Send full query text** (off by default). See below.
+- **Send logs to Rowsafe** (on by default). Off stops reading the log; sent lines stay until they expire.
+- **Send full query text** (off by default). Keeps values in statements and messages, still without passwords. Only if those values aren't personal data, or your agreements allow it.
 
-What the agent sends, for each line:
+Each line carries its time, severity, kind, error code, user, database, app, client address, process ID and duration, plus the message and statement **with values removed**:
 
-- the time, severity, kind (error, slow query, lock wait, ...), PostgreSQL's error code (SQLSTATE), the PostgreSQL user, database, application name, client address and process ID, and a duration for slow statements and lock waits;
-- the message, detail, hint and context, **with values removed**;
-- the statement, **normalized** like `pg_stat_statements`: every string, number, bit or hex constant becomes `$1`, `$2`, ..., and comments are removed.
-
-How values are removed, on your server, before anything is sent:
-
-- Statements (slow statements, `log_statement` lines, the statement behind an error, the statements in a deadlock report, SQL quoted in a context line) are normalized.
-- Values PostgreSQL quotes in messages are replaced by `…`: `invalid input syntax for type integer: "…"`, `Key (email)=(…) already exists.`, `Failing row contains (…).`, COPY data, and any single-quoted text. Names of tables, columns, constraints and roles stay, because they tell you what went wrong.
-- Bind parameters (`DETAIL: parameters: $1 = '...'`) are dropped.
-- Messages your own functions raise (`RAISE`, error codes `P0...`) keep only their words: every quoted value and number is replaced.
-- **Passwords never leave:** a statement or message that may contain one (`CREATE`/`ALTER ROLE ... PASSWORD`, connection strings with `password=`, user mapping options, `pgp_sym_encrypt`, `crypt`) is replaced by `<redacted: the statement may contain a password>`, even with full query text on. Rowsafe checks again when the lines arrive.
-
-With **Send full query text** on, statements and messages keep their values (still without passwords). Turn it on only if the values in your statements aren't personal data, or your agreements allow sending them.
+- **Statements are normalized** like `pg_stat_statements` (constants become `$1`, `$2`; comments go), wherever they appear.
+- **Quoted values in messages become `…`**: `Key (email)=(…) already exists.` Table, column, constraint and role names stay.
+- **Bind parameters** are dropped.
+- **Your functions' messages** (`RAISE`) keep only their words.
+- **Passwords never leave.** Anything that may hold one (`ALTER ROLE ... PASSWORD`, `password=`, user mappings, `pgp_sym_encrypt`, `crypt`) becomes `<redacted: the statement may contain a password>`, even with full query text. Rowsafe checks again on arrival.
 
 <Callout type="warn">
-Redaction recognizes PostgreSQL's messages in English. With `lc_messages` set to another language, statements are still normalized and bind parameters dropped, but values quoted in translated error messages may stay. Set `lc_messages = 'C'` (or an English locale) if that matters to you. Messages written by extensions in their own words can't be redacted reliably either.
+Redaction recognizes PostgreSQL's English messages. With another `lc_messages` language, statements are still normalized and bind parameters dropped, but values in translated messages may stay. Set `lc_messages = 'C'` if that matters. Extensions' own messages can't be redacted reliably either.
 </Callout>
 
-To turn logs off for a whole server, add `ROWSAFE_LOGS=false` to `/etc/rowsafe/agent.env` and restart the agent (`sudo systemctl restart rowsafe-agent`). The agent then never reads PostgreSQL's log.
+To turn logs off for a whole server: `ROWSAFE_LOGS=false` in `/etc/rowsafe/agent.env`, then `sudo systemctl restart rowsafe-agent`.
 
 ## How Rowsafe finds the log
 
-The agent reads PostgreSQL's logging settings every minute and follows the log across rotation:
+The agent checks PostgreSQL's logging settings every minute and follows rotation:
 
-- **`logging_collector = on`** (Red Hat, many packages, most tuned servers): the current file in `log_directory`. The agent prefers `jsonlog` (PostgreSQL 15+), then `csvlog`, then the plain-text log, when several are written.
-- **Debian and Ubuntu** (`pg_ctlcluster`): `/var/log/postgresql/postgresql-<version>-<cluster>.log`, found through the file PostgreSQL's output goes to.
-- **systemd journal**: when PostgreSQL's output goes to the journal, the agent reads it with `journalctl`.
+- **`logging_collector = on`**: the current file in `log_directory`, preferring `jsonlog`, then `csvlog`, then plain text.
+- **Debian and Ubuntu**: `/var/log/postgresql/postgresql-<version>-<cluster>.log`.
+- **systemd journal**: via `journalctl`.
 
-The first time it reads a log, the agent sends only its last 64 KB. After that it sends every new line, and remembers where it stopped, so after a restart it picks up there (a line or two read just before a crash can be lost).
+First read sends the last 64 KB; then every new line. It resumes where it stopped after a restart (a line or two can be lost in a crash).
 
 ### When Rowsafe can't read the log
 
-The Logs page says why, and what to change:
+The Logs page says why. These need a change on your server:
 
-- **Docker** (the agent as a sidecar): PostgreSQL's official image writes its log to the container's output, which another container can't read. Let PostgreSQL also write log files in its data directory, which the sidecar already mounts, then recreate the container:
+- **Docker** (agent as a sidecar): the image logs to container output, which the sidecar can't read. Write log files into the data directory instead, then recreate the container:
   ```yaml
   services:
     postgres:
       command: ["postgres", "-c", "logging_collector=on", "-c", "log_directory=log"]
   ```
-- **systemd journal**: the agent runs as `postgres`, which may not read the journal: `sudo usermod -aG systemd-journal postgres && sudo systemctl restart rowsafe-agent`.
-- **syslog only** (`log_destination = 'syslog'`): add a file next to it with `ALTER SYSTEM SET log_destination = 'stderr,syslog'; SELECT pg_reload_conf();`.
+- **systemd journal**: let `postgres` read it: `sudo usermod -aG systemd-journal postgres && sudo systemctl restart rowsafe-agent`.
+- **syslog only**: add a file with `ALTER SYSTEM SET log_destination = 'stderr,syslog'; SELECT pg_reload_conf();`.
 - **Output thrown away or unknown**: `ALTER SYSTEM SET logging_collector = on;`, then restart PostgreSQL when it suits you.
 
 ## Busy logs, retention and limits
 
-The agent sends up to 50 lines a second per database on average (bursts of a few thousand are fine). A busier log, say with `log_statement = 'all'` on a busy server, is sampled and the rest counted as not kept. Long lines are shortened (messages and statements to 4,000 characters).
+Up to 50 lines a second per database on average (bursts of a few thousand are fine); busier logs are sampled. Messages and statements are cut at 4,000 characters.
 
 | Plan | Kept for | Lines kept per day (organization) |
 |---|---|---|
@@ -105,11 +97,11 @@ The agent sends up to 50 lines a second per database on average (bursts of a few
 | Pro | 30 days | 2,000,000 |
 | Business | 90 days | 10,000,000 |
 
-Past the daily limit, new lines aren't kept until midnight UTC; the Logs page shows how many. The limit resets every day.
+Past the daily limit, new lines aren't kept until midnight UTC.
 
 ## Forward logs to your tools
 
-**Settings → Log forwarding** sends the lines Rowsafe keeps, already redacted on your servers, to the tools your team uses, within seconds. Choose what each destination gets (every line, or errors, failed logins, deadlocks and too many connections, or your own choice of kinds) and from which databases. **Send a test** delivers one line saying "Test from Rowsafe".
+**Settings → Log forwarding** sends kept, redacted lines to your tools within seconds. Pick the kinds of lines and the databases for each destination. **Send a test** sends "Test from Rowsafe".
 
 | Destination | What you enter | How Rowsafe sends |
 |---|---|---|
@@ -121,15 +113,14 @@ Past the daily limit, new lines aren't kept until midnight UTC; the Logs page sh
 | HTTPS webhook | URL | JSON batches, signed; see the [reference](/docs/reference/log-forwarding) |
 | Syslog over TLS | Host and port | RFC 5424 with octet counting (RFC 5425), facility local0 |
 
-- API keys, tokens and passwords are stored **encrypted** (AES-256-GCM) and only used to deliver logs; the dashboard shows only their last four characters.
-- A new destination gets lines from the moment it's added, not the past. A paused one resumes with new lines.
-- When a destination fails (a wrong key, the service down), Rowsafe retries on its own, waiting longer each time (up to an hour), and the page shows the last error. Lines older than your plan's retention are skipped.
-- Destinations must be public HTTPS or TLS addresses; private networks are refused.
-- An organization can have up to 10 destinations.
+- Credentials are stored **encrypted** (AES-256-GCM); only the last four characters are shown.
+- New destinations get lines from now on, not the past.
+- Failures are retried with growing waits (up to an hour); the page shows the last error.
+- Public HTTPS or TLS addresses only. Up to 10 destinations.
 
 ## MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey
 
-The agent reads each engine's own log the same way, removes values on your server, and sends the rest within seconds. The filters, groups, live view, alerts and forwarding are the same.
+Same filters, groups, live view, alerts and forwarding.
 
 | Engine | What is read | Where the agent finds it |
 |---|---|---|
@@ -138,21 +129,22 @@ The agent reads each engine's own log the same way, removes values on your serve
 | ClickHouse | The error log: errors and warnings, with the query that failed | `logger.errorlog` in its configuration |
 | Redis, Valkey | The server's log: errors and warnings, saves to disk (and failed ones), replication, restarts, a crash (only that it crashed and why). Slow commands aren't in this log: Pulse shows the slow log (command names only) in Monitoring | `logfile` (relative to `dir`) |
 
-When the agent can't read the log, the Logs page says why and what to change: a log that goes to the container's output (Docker), to the journal or syslog, or a file the agent's user may not read. **Turn on useful logging** changes PostgreSQL's settings; for MySQL and MariaDB, **Turn on the slow query log** (Pulse) does the same for slow statements, without a restart. MongoDB's slow operations are logged by default; ClickHouse's error log is on by default. MongoDB statements in slow operations are always shapes without values, even with **Send full query text** on.
+- MySQL and MariaDB: **Turn on the slow query log** (Pulse), no restart.
+- MongoDB slow operations are always shapes without values, even with full query text on.
+- If a log can't be read, the Logs page says why and what to change.
 
 ### Redis and Valkey
 
-- **Native install**: Debian's and Ubuntu's packages write `/var/log/redis/redis-server.log` (or `/var/log/valkey/...`), which only the `adm` group may read. The installer lets the agent's user read that folder with an access rule (read only; owners, groups and modes stay as they are). A log in a shared folder such as `/var/log` itself is left alone, and the Logs page says how to let the agent read it.
-- **`logfile` empty** (the server's output goes to the journal): set `logfile` in `redis.conf` (or `valkey.conf`), then restart the server when it suits you.
-- **Docker**: the official images write the log to the container's output, which the sidecar can't read. Add `--logfile /data/redis.log` to the server's command (the file lands in the data volume the sidecar already mounts read only), then recreate the container. `docker logs` is then empty, and the file isn't rotated by Docker.
-- **What's removed**: client addresses keep no port, quoted text is removed. Lines your Lua scripts write with `redis.log()`, and modules' lines, can hold anything, so they keep only their plain words (numbers, quoted text and names like `user:42` or `bob@example.com` are replaced by `…`). A crash report quotes the command being run, so it stays on the server: Rowsafe sends only that the server crashed and the signal or assertion.
-- Failed logins aren't in Redis's log (Redis keeps them in `ACL LOG`), so the Failed logins filter isn't offered.
+- **Native install:** Debian and Ubuntu packages log to `/var/log/redis/` (or `/var/log/valkey/`), readable only by `adm`. The installer adds a read-only access rule for the agent. A log directly in a shared folder like `/var/log` is left alone; the page says how to allow it.
+- **`logfile` empty:** set `logfile` in `redis.conf` (or `valkey.conf`), then restart the server when it suits you.
+- **Docker:** add `--logfile /data/redis.log` to the server's command, then recreate the container. `docker logs` is then empty, and Docker doesn't rotate the file.
+- **Removed:** client ports and quoted text. Lua `redis.log()` and module lines keep only plain words. A crash report stays on the server; Rowsafe gets only that it crashed and why.
+- No Failed logins filter: Redis keeps those in `ACL LOG`, not the log.
 
 ## Limits
 
-- MongoDB before 4.4 writes a plain-text log, which isn't read.
+- MongoDB before 4.4 (plain-text log) isn't read.
 - Valkey with `log-format logfmt` isn't read; the default (`legacy`) is.
-- Classification and redaction of messages rely on English `lc_messages` (see above).
-- PostgreSQL: the agent reads the log as the `postgres` user; a log that user can't read (or a journal it may not read) needs the change above.
-- PostgreSQL on Docker: the log files need `logging_collector = on` and a restart of the PostgreSQL container.
+- Classification and redaction rely on English `lc_messages`.
+- PostgreSQL logs are read as `postgres`; a log or journal it can't read needs the change above.
 - Lines appear within about 5 to 10 seconds; the live view checks every 3 seconds.

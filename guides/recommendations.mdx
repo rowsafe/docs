@@ -1,21 +1,17 @@
 ---
 title: "Recommendations: make your database better"
-description: Pulse recommendations look at your schema, your queries and your server's capacity, and tell you what to change, why, and what it costs. Rowsafe applies the safe ones for you.
+description: What to change in your schema, queries and server, why, and what it costs.
 ---
 
-Health tells you what is wrong now. **Recommendations** tell you what will bite later and what would make the database faster or cheaper to run: an id column about to run out of numbers, a foreign key without an index, a query that runs once per row of another, a busy table autovacuum can't keep up with.
+Health says what's wrong now. **Recommendations** say what will bite later, or what would make the database faster or cheaper: an id column running out of numbers, a foreign key without an index, an N+1 query.
 
-Each recommendation says **what** to change, **why** (with the numbers behind it), and **what it costs**: disk, time, a lock, or an app change. When a safe automatic fix exists, it has an **Apply fix** button. When it doesn't (changing a key's type, adding a primary key), it has a step-by-step plan.
+Each says **what** to change, **why** (with numbers) and **what it costs**. Safe ones have an **Apply fix** button; the rest come with a plan. They don't affect the health score, and they're on every plan.
 
-Recommendations don't change the health score. They are in every plan, including Free.
-
-They work for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite. Most examples here are PostgreSQL's; each database's own checks are in [MySQL, MariaDB, MongoDB and ClickHouse](#mysql-mariadb-mongodb-and-clickhouse), [Redis and Valkey](#redis-and-valkey) and [SQLite](#sqlite).
+Examples are PostgreSQL's. See also [other engines](#mysql-mariadb-mongodb-and-clickhouse), [Redis and Valkey](#redis-and-valkey) and [SQLite](#sqlite).
 
 ## See them
 
-In the dashboard: open a database, then **Pulse**, **Recommendations**. They are grouped into **Schema**, **Queries**, **Capacity** and **Indexes**, most important first.
-
-From a terminal:
+Open a database, then **Pulse → Recommendations**, grouped into **Schema**, **Queries**, **Capacity** and **Indexes**. [Your weekly Pulse](/docs/guides/monitoring#your-weekly-pulse) names each database's top one.
 
 ```sh
 rowsafe recommendations            # every database's top recommendation
@@ -23,31 +19,22 @@ rowsafe recommendations app        # all of them, with why and what it costs
 rowsafe recommendations app --group queries
 ```
 
-The Monday email, [Your weekly Pulse](/docs/guides/monitoring#your-weekly-pulse), names each database's top recommendation.
-
 ## Apply a fix
 
-Click the button on the recommendation (for example **Create the index**), read what will happen, and confirm. The page shows each step and the result, for example "Created the index orders_customer_id_idx on public.orders (1.3 GB) in 41s", and the recommendation goes away.
-
-From a terminal, `rowsafe fix` lists these fixes together with the health fixes:
-
-```sh
-rowsafe fix app                    # numbered list, asks which one
-rowsafe fix app fk_without_index:app.public.orders.orders_customer_id_fkey
-```
-
-The same safety rules as every [Apply fix](/docs/guides/monitoring#what-keeps-it-safe) hold: only fixes Rowsafe proposed run, with its own parameters; the agent checks the conditions again right before it acts; one fix runs at a time per database; owners and admins only; everything is in the audit log; AI agents can read recommendations and apply a fix [as the person who connected them](/docs/guides/agent-autonomy), an owner or admin.
+Click the button (like **Create the index**), read what will happen, and confirm. You see each step and the result ("Created the index orders_customer_id_idx on public.orders (1.3 GB) in 41s"). The [Apply fix safety rules](/docs/guides/monitoring#what-keeps-it-safe) hold, including for [AI agents](/docs/guides/agent-autonomy).
 
 | Recommendation | Button | What Rowsafe does |
 |---|---|---|
-| A foreign key without an index | **Create the index** | `CREATE INDEX CONCURRENTLY` on the referencing columns. Skipped if an index on them appeared meanwhile; a failed build is cleaned up. Reads and writes keep working. |
-| A sequence behind its column (inserts fail with "duplicate key") | **Move the sequence forward** | `setval` to the highest value in the column, only if it is still behind. |
-| An invalid index left by a failed concurrent build | **Remove the invalid index** | `DROP INDEX CONCURRENTLY`, only if it is still invalid and no index is being built on the table. |
+| A foreign key without an index | **Create the index** | `CREATE INDEX CONCURRENTLY` on the referencing columns. Skipped if such an index appeared meanwhile; a failed build is cleaned up. Reads and writes keep working. |
+| A sequence behind its column (inserts fail with "duplicate key") | **Move the sequence forward** | `setval` to the column's highest value, if still behind. |
+| An invalid index left by a failed concurrent build | **Remove the invalid index** | `DROP INDEX CONCURRENTLY`, if still invalid and no index is being built on the table. |
 | Autovacuum waits too long on a large, busy table | **Tune autovacuum** | `ALTER TABLE ... SET (autovacuum_vacuum_scale_factor = 0, autovacuum_vacuum_threshold = N, ...)`: cleanup after a fixed number of changed rows. Only autovacuum settings, only numbers. The task log shows how to undo it. |
+
+CLI: `rowsafe fix app` lists these with the health fixes; `rowsafe fix app fk_without_index:app.public.orders.orders_customer_id_fkey` applies one.
 
 ## Not relevant?
 
-Click **Not relevant**, pick a reason (not relevant for this database, on purpose, later, or wrong) and add a note for your team if you like. The recommendation moves to **Dismissed** at the bottom of the page for everyone in your organization, with who dismissed it and why. **Bring back** undoes it. From a terminal:
+Click **Not relevant**, pick a reason (not relevant here, on purpose, later, wrong) and add a note if you like. It moves to **Dismissed** for your whole organization, with who and why. **Bring back** undoes it.
 
 ```sh
 rowsafe recommendations app --dismiss no_primary_key:app.public.event_log --reason intended --note "append-only log"
@@ -56,67 +43,57 @@ rowsafe recommendations app --restore no_primary_key:app.public.event_log
 
 ## What Rowsafe looks at
 
-About every 30 minutes, with the table and index insights, the agent reads a few more catalog facts in each database: read-only queries with a 5-second timeout, bounded in size, never your rows. It also uses the last day of query statistics (`pg_stat_statements`) and the last week of metrics.
+About every 30 minutes the agent reads catalog facts (read-only, 5-second timeout, never your rows), plus a day of `pg_stat_statements` and a week of metrics.
 
 ### Schema
 
 | Recommendation | When |
 |---|---|
-| **An id column will run out of numbers** | A `smallint`/`integer` column filled from a sequence (serial or identity), or an integer column pointing at one, is 50% used (warning) or 80% (critical), or will run out within 90 days at the current pace. Rowsafe measures the pace from readings over hours and days, and gives the date. The plan: widen it to `bigint` without downtime (a copy column, batches, a quick swap), or with one `ALTER` in a maintenance window, with an estimate of how long that blocks the table. A sequence that stops at the integer maximum while its column is already `bigint` needs only `ALTER SEQUENCE ... AS bigint`. |
-| **A sequence is behind its column** | The next value the sequence hands out already exists in the column, usually after rows were copied in with their ids. |
+| **An id column will run out of numbers** | A `smallint`/`integer` column filled from a sequence (serial or identity), or an integer column pointing at one, is 50% used (warning) or 80% (critical), or will run out within 90 days at the current pace (with the date). The plan: widen it to `bigint` without downtime (a copy column, batches, a quick swap), or with one `ALTER` in a maintenance window, with an estimate of how long that blocks the table. If only the sequence stops at the integer maximum and the column is already `bigint`, `ALTER SEQUENCE ... AS bigint` is enough. |
+| **A sequence is behind its column** | The sequence's next value already exists in the column, usually after rows were copied in with their ids. |
 | **A foreign key without an index** | The referencing columns don't lead any index, on a table of at least 10,000 rows. Deletes on the referenced table then read the whole referencing table. |
 | **A broken index from a failed build** | An index PostgreSQL marked invalid (a failed `CREATE INDEX CONCURRENTLY`), not being built now. |
-| **A table without a primary key** | No primary key and no unique column that can't be empty. Logical replication, online migrations and bringing back rows with Rewind need one. |
-| **Duplicate constraints** | The same unique rule, foreign key or check twice, or a unique rule another one already implies. |
-| **Times without a time zone** | Columns of type `timestamp without time zone` in tables that get writes. |
+| **A table without a primary key** | No primary key and no non-null unique column. Logical replication, online migrations and bringing back rows with Rewind need one. |
+| **Duplicate constraints** | The same unique rule, foreign key or check twice, or a unique rule another already implies. |
+| **Times without a time zone** | `timestamp without time zone` columns in tables that get writes. |
 | **A large table to partition by time** | Over 10 GB, insert-only, with a time column. |
 
 ### Queries
 
-These need `pg_stat_statements` (see [Slow queries](/docs/guides/monitoring#slow-queries)).
+Need `pg_stat_statements` ([Slow queries](/docs/guides/monitoring#slow-queries)).
 
 | Recommendation | When |
 |---|---|
-| **N+1 queries** | A cheap query returning one row runs at least once a second, and its calls rise and fall with another query's (a list, then one query per item). |
-| **Reads far more than it returns** | A query reads at least 100 pages per row it returns and 8 MB per call, and takes at least 1% of all query time. Links to the index suggestions. |
-| **Returns huge results** | A query returns over 10,000 rows per call, without `LIMIT`. |
-| **Sorts on disk** | A query writes over 10 MB of temporary files per call, or 1 GB a day. |
+| **N+1 queries** | A cheap one-row query runs at least once a second, and its calls rise and fall with another query's (a list, then one query per item). |
+| **Reads far more than it returns** | At least 100 pages read per row returned and 8 MB per call, and at least 1% of all query time. Links to the index suggestions. |
+| **Returns huge results** | Over 10,000 rows per call, without `LIMIT`. |
+| **Sorts on disk** | Over 10 MB of temporary files per call, or 1 GB a day. |
 
 ### Capacity
 
 | Recommendation | When |
 |---|---|
-| **Busiest data no longer fits in memory** | Over the last week, under 95% of reads came from memory for a large part of the time. With your database and memory sizes, and `shared_buffers`. |
-| **CPUs often fully busy** | The load stayed above the number of CPUs for at least 12 hours and 10% of the week. |
+| **Busiest data no longer fits in memory** | Over the last week, under 95% of reads came from memory for a large part of the time. Shows your database and memory sizes, and `shared_buffers`. |
+| **CPUs often fully busy** | Load above the CPU count for at least 12 hours and 10% of the week. |
 | **Connections near the limit** | Connections reached 90% of `max_connections`, or 80% for several hours. |
 | **The disk will be full** | The [disk forecast](/docs/guides/monitoring#disk-forecast) says within 90 days. |
 | **Autovacuum waits too long** | A table of over a million rows had updates and deletes of at least 10% of its rows, with the default scale factor (20%). |
 
 ### Indexes
 
-The unused, duplicate and missing index findings from the health score, with their fixes, and **new indexes proven on a copy of your database**.
+Health's unused, duplicate and missing index findings, plus **new indexes proven on a copy of your database**.
 
-Every night, at your database's quietest hour (the hour with the least query time over the last week; 03:00 UTC until there is a day of statistics), Rowsafe looks at the queries that take your database the most time, works out which indexes could make them faster, and **tests each idea on a copy of your database** restored next to production from your backups. You only see the indexes PostgreSQL actually used on the copy, each with:
+Every night at your database's quietest hour (03:00 UTC until there's a day of statistics), Rowsafe takes the costliest queries, works out indexes that could help, and **tests each on a copy** restored from your backups next to production. You only see indexes PostgreSQL actually used on the copy, with:
 
-- **how much faster** it makes each query, before and after on the copy. Plain SELECTs are timed for real on the copy with values from PostgreSQL's own statistics; statements that change data are compared by PostgreSQL's cost estimate, because Rowsafe doesn't run them;
-- the **disk** it takes and its **build time**, from the build on the copy;
-- what it **costs writes**: one more index to keep up to date on every insert and update of that table.
+- **how much faster** each query got (SELECTs timed for real; data-changing statements compared by cost estimate, never run);
+- its **disk** use and **build time**;
+- its **cost to writes**: one more index to update.
 
-At the top of the group, the **index check** shows the last check in numbers ("Looked at 24 busy queries and tested 3 index ideas on a copy: 1 is worth adding"), live progress while one runs, **Check now**, and under **More options** when checks run: every night (the default), your own cron schedule in UTC, or off. Ideas tested in the last 7 days aren't tested again, so most nights no copy is needed. **Tested but not recommended** lists the ideas the last check tried, and why they didn't make the cut.
+The **index check** box shows the last run ("Looked at 24 busy queries and tested 3 index ideas on a copy: 1 is worth adding"), live progress, and **Check now**. **More options** sets the schedule: nightly (default), your own UTC cron, or off. Ideas tested in the last 7 days aren't retested. **Tested but not recommended** lists the rest, with why.
 
-**Create index** builds it with `CREATE INDEX CONCURRENTLY` (reads and writes carry on), named `rs_<table>_<columns>_idx`. On your server, Rowsafe first checks that the table and columns still exist and that no index doing the same job appeared since, refuses on a replica and when the disk has less than about twice the index free, waits at most 5 seconds for a lock, and removes the half-built index if the build fails. A week later the group reports what it did in practice ("used 1.2 million times in its first week, and the queries it was made for got about 31× faster"); Pulse doesn't call a new index unused for two weeks, after which the usual unused-index finding offers to remove it.
+**Create index** runs `CREATE INDEX CONCURRENTLY` (reads and writes go on), named `rs_<table>_<columns>_idx`. Rowsafe first rechecks the table, columns and existing indexes, refuses on a replica or with less than about twice the index size free, waits at most 5 seconds for a lock, and removes a half-built index on failure.
 
-#### ClickHouse
-
-ClickHouse finds rows through each table's sorting key (`ORDER BY`), so the ideas are what ClickHouse adds next to it. Rowsafe reads the slowest SELECTs of the last week from `system.query_log` (on your server: the query texts with their values never leave it), keeps the ones that read far more rows than they return, and tests on a copy of the tables involved, restored from your latest backup into a temporary ClickHouse on the same server:
-
-- a **skipping index** on a column the sorting key doesn't start with: `bloom_filter` for `=` and `IN`, `set` for columns with few values, `minmax` for ranges, `tokenbf_v1` for `hasToken` and `ngrambf_v1` for `LIKE`;
-- a **projection** that keeps what a busy `GROUP BY` needs already added up, or the rows sorted by another column (tried only when a skipping index on that column didn't do the job);
-- for a table with **no sorting key** at all, which sorting key it should have (advice only: changing it means rebuilding the table, so **Do it yourself** shows the steps).
-
-Each idea is added to the copy and built (`MATERIALIZE`), and the queries run again: it is recommended only when they read at least 2 times fewer rows and get faster, with the rows read and the times before and after.
-
-**Add skipping index** / **Add projection** saves a Mark, then runs `ALTER TABLE ... ADD INDEX` (or `ADD PROJECTION`) and `MATERIALIZE`: ClickHouse builds it for the data already there in the background, part by part, while queries and inserts go on; new data gets it as it is written. Pulse shows **ClickHouse is building an index Rowsafe added** with the parts left to do, and **Cancel** stops the build and removes it. Skipping indexes and projections no query used in the last week (from the query log and the queries' plans; at least 10 MB) show in the unused-index finding with **Drop**, refused if a query used it since. Only `MergeTree` and `ReplicatedMergeTree` tables get projections.
+A week later it reports the real effect ("used 1.2 million times in its first week, and the queries it was made for got about 31× faster"). A new index isn't called unused for two weeks.
 
 ```sh
 rowsafe recommendations app --group indexes   # the proven indexes, and the last index check
@@ -127,19 +104,35 @@ rowsafe recommendations schedule app off      # auto (every night), off, or a cr
 <Accordions>
 <Accordion title="From queries to index ideas">
 
-The agent reads the text of your busiest statements from `pg_stat_statements` on your server and parses it with PostgreSQL's own parser (libpg_query, built into the agent). For each table it notes the columns compared with `=` or `IN`, ranges, join columns, `ORDER BY` with `LIMIT`, and `IS NULL` conditions, and turns them into ideas: the most selective equality columns first, then a range or sort column; a partial index (`WHERE processed_at IS NULL`) when that condition leaves out most of the table; an index that also stores the few columns a query reads (`INCLUDE`) when that is clearly better. It skips small tables, columns with only a few values, queries that read most of the table anyway, and anything an existing index already covers. At most 3 ideas per table and 12 per database are tested.
+The agent parses your busiest statements with PostgreSQL's own parser (libpg_query, built in). Per table it notes `=`/`IN` columns, ranges, joins, `ORDER BY` with `LIMIT`, and `IS NULL`. Ideas put the most selective equality columns first, then a range or sort column; a partial index (`WHERE processed_at IS NULL`) when that skips most of the table; `INCLUDE` columns when clearly better. It skips small tables, low-variety columns, queries that read most of the table, and what existing indexes cover. At most 3 ideas per table, 12 per database.
 
 </Accordion>
 <Accordion title="Testing on the copy">
 
-The copy is restored exactly like a [Proof run](/docs/guides/restore): its own directory, a private socket and no network port, no WAL archiving, no background workers, low CPU and IO priority. It needs about 1.3 times the database size plus 1 GB of free disk; without it, the check is skipped with a plain reason. For each idea: `EXPLAIN` every query on that table (a generic plan, `EXPLAIN (GENERIC_PLAN)` on PostgreSQL 16 and later), `CREATE INDEX`, `EXPLAIN` again, time the plain SELECTs with `EXPLAIN ANALYZE` in a read-only transaction (10 seconds at most each), then `DROP INDEX`. An index is recommended only if PostgreSQL used it and it made at least one query at least twice as fast; among ideas that speed up the same queries, the one that saves the most time per megabyte wins. The copy is deleted when the check ends. Only query IDs, index and column names, costs, timings and sizes reach Rowsafe; the values used on the copy stay on your server.
+The copy is restored like a [Proof run](/docs/guides/restore): own directory, private socket, no network port, no archiving, no background workers, low CPU and IO priority. It needs about 1.3 times the database size plus 1 GB free, or the check is skipped with a reason.
+
+Per idea: `EXPLAIN` the table's queries (`EXPLAIN (GENERIC_PLAN)` on PostgreSQL 16+), `CREATE INDEX`, `EXPLAIN` again, time SELECTs with `EXPLAIN ANALYZE` in a read-only transaction (10 seconds max each), `DROP INDEX`. Recommended only if used and at least one query got at least twice as fast. Among ideas for the same queries, the most time saved per megabyte wins.
+
+The copy is deleted afterwards. Only query IDs, names, costs, timings and sizes reach Rowsafe.
 
 </Accordion>
 </Accordions>
 
+#### ClickHouse
+
+ClickHouse finds rows by each table's sorting key (`ORDER BY`), so ideas add to it. Rowsafe reads last week's slowest SELECTs from `system.query_log` on your server (texts never leave it), keeps those reading far more rows than they return, and tests on a copy of those tables in a temporary ClickHouse on the same server. Ideas:
+
+- a **skipping index** on a column the sorting key doesn't start with: `bloom_filter` for `=` and `IN`, `set` for few values, `minmax` for ranges, `tokenbf_v1` for `hasToken`, `ngrambf_v1` for `LIKE`;
+- a **projection** that pre-aggregates a busy `GROUP BY`, or sorts by another column (only if a skipping index didn't help);
+- a **sorting key** for a table without one. Advice only: it means rebuilding the table (steps under **Do it yourself**).
+
+Recommended only when queries on the copy read at least 2 times fewer rows and get faster.
+
+**Add skipping index** / **Add projection** saves a Mark, runs `ALTER TABLE ... ADD INDEX` (or `ADD PROJECTION`) and `MATERIALIZE`. ClickHouse builds it in the background while queries and inserts go on; Pulse shows progress and **Cancel** removes it. Ones no query used in a week (at least 10 MB) show as unused with **Drop**. Projections only on `MergeTree` and `ReplicatedMergeTree`.
+
 ## MySQL, MariaDB, MongoDB and ClickHouse
 
-The query and capacity checks work for every engine, from each one's statement statistics: MySQL's and MariaDB's `performance_schema`, MongoDB's profiler, ClickHouse's query log. Values are left out of every statement before it leaves your server. Each engine also gets its own checks:
+Query and capacity checks work for every engine, from `performance_schema` (MySQL, MariaDB), the profiler (MongoDB) or the query log (ClickHouse). Values are removed on your server.
 
 | Engine | Checks |
 |---|---|
@@ -149,51 +142,59 @@ The query and capacity checks work for every engine, from each one's statement s
 
 ## Redis and Valkey
 
-Redis and Valkey have no tables, queries or indexes, so their recommendations are about keys, memory and commands. **Your key names and values never leave your server**: Rowsafe only receives key-name patterns, counts and sizes.
+Recommendations here are about keys, memory and commands. **Key names and values never leave your server**: only key-name patterns, counts and sizes.
 
-About every 30 minutes, the agent looks at a sample of the keys on a connection of its own, slowly:
+About every 30 minutes the agent samples gently, on its own connection:
 
-- at most 10,000 keys per logical database, 100 at a time (`SCAN`), with each key's type, expiry and memory (`TYPE`, `PTTL`, `MEMORY USAGE`). None of these change a key or its place in the eviction order;
-- after each batch it pauses at least four times as long as the batch took, so it takes a small share of the server's time, and less when the server is busy. It stops after 90 seconds per logical database and 5 minutes in all, and says when it sampled only part;
-- the command statistics (`INFO commandstats`) and the slow log, by command name only, and a few settings (`maxmemory`, the eviction policy, `save`, `appendonly`, `appendfsync`).
+- up to 10,000 keys per logical database, 100 at a time (`SCAN`, `TYPE`, `PTTL`, `MEMORY USAGE`), changing nothing, not even eviction order;
+- pausing at least 4 times as long as each batch took, stopping after 90 seconds per logical database and 5 minutes in all (it says when it sampled only part);
+- command statistics and the slow log (command names only), and a few settings.
 
-Key names become patterns on your server, before anything is sent: every part of a name that looks like an id becomes `*` (anything with a digit, long hex strings, emails, long or random-looking words), so `user:4821:cart` and `session:9f1c...` become `user:*:cart` and `session:*`. Words with many different values at the same place (user names, customer names) become `*` too, and a pattern is only reported when it covers at least 10 of the sampled keys (and 0.5% of them). Keys no pattern covers are only counted. Words that name a kind of key, like `session` or `cart`, stay: they are what makes a pattern useful. The control plane checks every pattern again when it arrives and drops anything that doesn't look like one.
+Key names become patterns on your server: ids become `*`, so `user:4821:cart` becomes `user:*:cart`. A pattern is reported only if it covers at least 10 sampled keys and 0.5% of them.
+
+<Accordions>
+<Accordion title="How key names become patterns">
+
+Every part that looks like an id becomes `*`: anything with a digit, long hex strings, emails, long or random-looking words. Words with many values at the same place (user or customer names) become `*` too. Words naming a kind of key, like `session` or `cart`, stay. Keys no pattern covers are only counted. The control plane checks every pattern again and drops anything that doesn't look like one.
+
+</Accordion>
+</Accordions>
 
 | Recommendation | When |
 |---|---|
-| **Big keys** | Sampled keys of 10 MB or more, with the patterns they belong to. Reading one whole, deleting it or letting it expire blocks every other client meanwhile. |
-| **Where the memory goes** | The pattern with the most memory holds at least 20% of the data (on servers with at least 64 MB): the five biggest patterns, with their estimated size, number of keys and how many have no expiry. |
-| **Keys that never expire** | A pattern whose name says it is temporary (`cache`, `session`, `lock`, `tmp`, `otp`, rate limits...) where most keys have no expiry. |
-| **Eviction that can't free memory** | A `volatile-*` eviction policy, with a memory limit, while fewer than half of the keys have an expiry: once those are gone, writes fail. |
-| **No memory limit** | `maxmemory` is not set (when most of the server's memory is already used, Pulse says so in Health instead). |
-| **KEYS** | Something called `KEYS` at least 10 times since the server started (or once for 10 ms or more): it goes through every key at once. Use `SCAN`. |
-| **Commands that go through a whole key** | `HGETALL`, `SMEMBERS`, `LRANGE`, `ZRANGE`, `SORT`, `SUNION` and the like, called at least 100 times and taking over 1 ms per call on average; a `FLUSHALL` or `FLUSHDB` that blocked for over 100 ms. |
-| **Many logical databases** | Three or more logical databases hold keys: they share one server and can't be scaled apart, and Redis Cluster (and Valkey Cluster before 9.0) only has database 0. |
-| **A restart empties the server** | Snapshots and the append-only file are both off on a primary. Fine for a cache the app can fill again (dismiss it as on purpose); otherwise Rowsafe's backups still have the data, but the app sees an empty server until you restore. |
+| **Big keys** | Sampled keys of 10 MB or more, with their patterns. Reading one whole, deleting it or letting it expire blocks every other client meanwhile. |
+| **Where the memory goes** | The biggest pattern holds at least 20% of the data (on servers with at least 64 MB): the top five patterns, with estimated size, key count and how many have no expiry. |
+| **Keys that never expire** | A pattern whose name says it's temporary (`cache`, `session`, `lock`, `tmp`, `otp`, rate limits...) where most keys have no expiry. |
+| **Eviction that can't free memory** | A `volatile-*` eviction policy with a memory limit, while under half the keys have an expiry: once those are gone, writes fail. |
+| **No memory limit** | `maxmemory` isn't set (if memory is already mostly used, Health says so instead). |
+| **KEYS** | `KEYS` called at least 10 times since start (or once for 10 ms or more): it goes through every key at once. Use `SCAN`. |
+| **Commands that go through a whole key** | `HGETALL`, `SMEMBERS`, `LRANGE`, `ZRANGE`, `SORT`, `SUNION` and the like, called at least 100 times and over 1 ms per call on average; a `FLUSHALL` or `FLUSHDB` that blocked for over 100 ms. |
+| **Many logical databases** | Three or more hold keys: they share one server and can't be scaled apart, and Redis Cluster (and Valkey Cluster before 9.0) only has database 0. |
+| **A restart empties the server** | Snapshots and the append-only file are both off on a primary. Fine for a cache the app can refill (dismiss it as on purpose). Otherwise Rowsafe's backups still have the data, but the app sees an empty server until you restore. |
 | **Writes reach the disk only when the system decides** | `appendfsync no`: a power loss can lose about 30 seconds of writes. |
 
-These need an app change or a setting, so they come with a plan and, where it helps, the command under **Do it yourself** rather than a button. What Health already reports (memory nearly full, fragmentation, slow commands in the last hour) isn't repeated here. The **Queries** and **Insights** pages are about SQL statements, tables and indexes, so they don't show for Redis and Valkey.
+These need an app or setting change, so they come with a plan, not a button. **Queries** and **Insights** don't show for Redis and Valkey.
 
 ## SQLite
 
-SQLite keeps no query statistics, so there are no query, slow-query or unused-index checks: SQLite's recommendations come from the file's schema, read on your server about every 30 minutes and soon after the schema changes. Only table, column and index names reach Rowsafe.
+SQLite keeps no query statistics, so recommendations come from the file's schema, read about every 30 minutes and soon after it changes. Only table, column and index names reach Rowsafe.
 
 | Recommendation | What to do |
 |---|---|
-| A foreign key without an index on its columns | Rowsafe tests the index on a copy restored from your backups (for child tables of 1,000 rows or more): how long it takes to build, how big it is, and that SQLite uses it to look up the key. **Create index** saves a Mark, then runs `CREATE INDEX IF NOT EXISTS`. Your app's writes wait while it builds, about the time measured on the copy; reads go on in WAL mode. |
+| A foreign key without an index on its columns | Rowsafe tests the index on a copy restored from your backups (child tables of 1,000 rows or more): build time, size, and that SQLite uses it. **Create index** saves a Mark, then runs `CREATE INDEX IF NOT EXISTS`. Writes wait while it builds (about the time measured on the copy); reads go on in WAL mode. |
 | A table without a primary key | Add one in your next migration: Rewind compares and brings rows back by primary key, and a `VACUUM` can renumber the rows of a table without one. |
-| `AUTOINCREMENT` where it isn't needed | Advice only. `INTEGER PRIMARY KEY` already gives new ids; `AUTOINCREMENT` adds a write to `sqlite_sequence` on every insert. Changing it means rebuilding the table, so it's left to your migrations. |
+| `AUTOINCREMENT` where it isn't needed | Advice only. `INTEGER PRIMARY KEY` already gives new ids; `AUTOINCREMENT` adds a write to `sqlite_sequence` on every insert. Changing it means rebuilding the table. |
 | No query planner statistics (`sqlite_stat1`) | The **Refresh statistics** fix in [Pulse](/docs/guides/sqlite#pulse-and-one-click-fixes). |
 | Many free pages and `auto_vacuum` off | The **Give free space back** fix in Pulse. |
 | Rollback-journal mode | The **Turn on continuous backups** fix in Pulse. |
 
-SQLite only checks foreign keys when your app turns them on (`PRAGMA foreign_keys`); an index on a foreign key's columns speeds up joins along it either way. Rowsafe can't measure how much a created index is used, only that it is still there, and the week-after report says so.
+Rowsafe can't measure how much a created SQLite index is used, only that it's still there.
 
 ## Limits
 
-- Estimates are estimates: index sizes, rewrite times and the date an id runs out come from sizes and rates, not measurements of your disks.
-- Query recommendations only see the statements `pg_stat_statements` keeps (the busiest, in 5-minute steps).
-- On a replica, recommendations that need write statistics (autovacuum, time-series, timestamps) are left out; fixes run on the primary.
-- An agent older than the recommendations feature doesn't send the schema facts; update it to see them.
-- Indexes proven on a copy need PostgreSQL 12 or later, `pg_stat_statements` and backups on. They are b-tree indexes on plain columns (no expression, GIN or GiST indexes, none on partitioned tables), from the busiest 40 statements of the last week. Timings come from the copy, which has your data but not your production load; the week-after report says what happened in practice. A build estimated to take over 2 hours is left to you (its definition is under **Do it yourself**).
-- Redis and Valkey figures come from a sample of at most 10,000 keys per logical database, scaled up to the whole database: estimates, not measurements. Patterns that cover few keys are left out, so small databases may show none.
+- Estimates (index sizes, rewrite times, run-out dates) come from sizes and rates, not measurements of your disks.
+- Query recommendations see only what `pg_stat_statements` keeps.
+- On a replica, write-based recommendations are left out; fixes run on the primary.
+- Older agents don't send schema facts: update the agent.
+- Proven indexes need PostgreSQL 12+, `pg_stat_statements` and backups on. They're b-tree indexes on plain columns (no expression, GIN, GiST or partitioned tables), from the 40 busiest statements of the week. Copies have your data, not your load. Builds estimated over 2 hours are left to you (under **Do it yourself**).
+- Redis and Valkey figures are scaled up from the sample. Small databases may show no patterns.

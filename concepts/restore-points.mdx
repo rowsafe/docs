@@ -1,31 +1,27 @@
 ---
 title: Marks
-description: A Mark is a named restore point. Set one before a risky change, so you can rewind exactly to it later.
+description: A named restore point you set before a risky change.
 ---
 
-A **Mark** is a named restore point: it gives a moment a name. `before-drop-legacy-orders` is much easier to find at 3 a.m. than a timestamp. If a change goes wrong, you can [rewind](/docs/guides/restore) to exactly that Mark: everything committed before it is there, nothing after it. On the **Marks** page, **Restore a copy at this Mark** restores a copy next to production, so you can compare it and bring back what you lost.
+A **Mark** names a moment, like `before-drop-legacy-orders`, so you can [rewind](/docs/guides/restore) to exactly it: everything before is there, nothing after. Easier to find at 3 a.m. than a timestamp.
 
-Create one right before a migration, a backfill, a bulk delete, or anything an AI agent is about to run:
+Set one before a migration, a backfill, a bulk delete, or anything an AI agent is about to run. Use the database's page, or:
 
 ```sh
 rowsafe mark app before-migration-42
 ```
 
-Rowsafe waits until the Mark is safely in your bucket before it returns, usually within a few seconds. You can also set one from the database's page in the dashboard, and AI agents set them through [Guard](/docs/guides/ai-agents).
+It returns once the Mark is safely in your bucket, usually in seconds. AI agents set Marks through [Guard](/docs/guides/ai-agents). To use one, click **Restore a copy at this Mark** on the **Marks** page.
 
 ## Names
 
-- 1 to 63 characters: lowercase letters, digits, `-` and `_`, starting with a letter or digit.
-- Unique per database.
-- Without a name, `rowsafe mark app` uses `manual-<UTC time>`, for example `manual-20260924-140500`. Marks set by AI agents are named `agent-<UTC time>` by default.
-
-In a project with a [`.rowsafe.json`](/docs/reference/cli#rowsafejson), you can leave out the database: `rowsafe mark before-drop`.
+- 1 to 63 characters: lowercase letters, digits, `-` and `_`, starting with a letter or digit. Unique per database.
+- No name: `manual-<UTC time>` (for example `manual-20260924-140500`). AI agents default to `agent-<UTC time>`.
+- In a project with a [`.rowsafe.json`](/docs/reference/cli#rowsafejson), skip the database: `rowsafe mark before-drop`.
 
 ## List them
 
-```sh
-rowsafe marks app
-```
+On the **Marks** page, or `rowsafe marks app`:
 
 ```text
 NAME                 STATUS    CREATED              RESTORE FROM BACKUP  LSN         BY
@@ -38,17 +34,16 @@ before-migration-42  archived  2026-09-24 14:05:12  20260921-010002F     0/5A000
 | `unconfirmed` | Written, but archiving didn't confirm it within the timeout (90 seconds by default). Usable only if the archive has since moved past it. You also get an alert. |
 | `pending` | Being created. |
 
-**Restore from backup** is the newest backup that finished before the Mark was set: the backup a restore to the Mark starts from. Rowsafe uses it by itself; you need it only when you [restore by hand](/docs/guides/restore#to-a-restore-point).
+**Restore from backup** is the backup a restore to this Mark starts from. You only need it to [restore by hand](/docs/guides/restore#to-a-restore-point).
 
 ## Good to know
 
-- Marks are cheap: two SQL calls and one WAL segment on PostgreSQL.
-- They need an `active` database (archiving proven).
-- They don't pause or wait behind a running backup or Proof.
-- Setting one is recorded in the [audit log](/docs/guides/teams#audit-log) with who set it.
-- A Mark doesn't restore anything by itself. It names a moment you can rewind to.
-- Rowsafe saves one by itself before it brings back rows, rewinds a whole database or removes an index.
+- Cheap: on PostgreSQL, two SQL calls and one WAL segment.
+- Needs an `active` database.
+- Never waits behind a running backup or Proof.
+- Recorded in the [audit log](/docs/guides/teams#audit-log) with who set it.
+- Rowsafe sets one by itself before bringing back rows, rewinding a whole database or removing an index.
 
 <Callout title="On PostgreSQL">
-  Rowsafe calls `pg_create_restore_point(name)`, then `pg_switch_wal()`, and waits until the segment holding the point is archived.
+  Rowsafe calls `pg_create_restore_point(name)`, then `pg_switch_wal()`, and waits until that segment is archived.
 </Callout>

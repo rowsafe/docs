@@ -1,51 +1,47 @@
 ---
 title: How Rowsafe works
-description: The agent on your server, the hosted service, and your own storage bucket, and what each of them can and can't do.
+description: The agent, the hosted service and your bucket, and what each can do.
 ---
 
-Rowsafe has three parts. Only one of them runs on your server.
+Three parts. Only the agent runs on your server.
 
 | Part | Runs on | What it does |
 |---|---|---|
-| **Agent** (`rowsafe-agent`) | your database server, or next to your database container | Runs backups, checks and the weekly restore test (Proof). Reports status and metrics. Open source. |
-| **Rowsafe service** | our servers (`api.rowsafe.sh`, dashboard at `app.rowsafe.sh`) | Schedules work, keeps the history, evaluates alerts, serves the dashboard, the API and the CLI. |
-| **Your bucket** | your S3-compatible storage (for example Cloudflare R2) | Holds the encrypted backups and the continuous change log. |
+| **Agent** (`rowsafe-agent`) | your database server, or next to your database container | Backups, checks, Proof. Reports status and metrics. Open source. |
+| **Rowsafe service** | our servers (`api.rowsafe.sh`, dashboard at `app.rowsafe.sh`) | Schedules, history, alerts, the dashboard, API and CLI. |
+| **Your bucket** | your S3-compatible storage | The encrypted backups and change log. |
 
-You talk to Rowsafe through the [dashboard](https://app.rowsafe.sh), the [`rowsafe` CLI](/docs/reference/cli), the API, or [AI assistants over MCP](/docs/reference/mcp).
+You use it through the [dashboard](https://app.rowsafe.sh), the [CLI](/docs/reference/cli), the API or [AI assistants over MCP](/docs/reference/mcp).
 
 ## The agent asks for work
 
-The agent only makes **outbound** HTTPS requests to the Rowsafe service. Nothing on your server listens for Rowsafe, and you don't open any port.
+The agent makes **outbound** HTTPS requests only. You open no port.
 
-- Every 30 seconds it sends a heartbeat with its status.
-- Every 5 seconds, when idle, it asks for a task.
-- Every minute it sends database and server metrics.
+- Heartbeat every 30 seconds.
+- Asks for a task every 5 seconds when idle.
+- Sends metrics every minute.
 
-It runs only a fixed set of tasks. The service can't send it anything else, and it never runs commands or SQL sent over the network.
+It runs only this fixed list, one at a time, and never runs commands or SQL sent over the network. Marks have a fast lane, so they never wait behind a backup.
 
 | Task | What it does |
 |---|---|
-| `inspect` | Reads the database's version, settings and sizes. |
+| `inspect` | Reads version, settings and sizes. |
 | `adopt` | Plans the changes backups need (read-only), or applies them. |
-| `check` | Proves that changes reach your bucket. |
-| `backup` | Takes a full, differential or incremental backup. |
+| `check` | Proves changes reach your bucket. |
+| `backup` | Full, differential or incremental backup. |
 | `drill` | Proof: restores the latest backup on a scratch copy and checks it. |
-| `restore_point` | Sets a Mark: a named point you can restore to. |
-| `restart` | Restarts PostgreSQL. Only when someone clicks **Restart** and confirms, on a server where you allowed it during install. |
-
-The agent runs one task at a time. Marks have their own fast lane, so they never wait behind a long backup.
+| `restore_point` | Sets a Mark. |
+| `restart` | Restarts PostgreSQL, only when someone clicks **Restart** and confirms, on a server where you allowed it. |
 
 ## Your data and secrets stay with you
 
-- Backups are **encrypted on your server** before they are uploaded, with a passphrase only you have.
-- The bucket keys and the passphrase live **only on your server**, in files that only the database's system user can read.
-- The Rowsafe service never sees your data, your bucket or your passphrase. It stores metadata: server and database names, sizes, settings, task logs and metrics.
-
-Read the [security model](/docs/security) for what Rowsafe can and can't do.
+- Backups are **encrypted on your server** with a passphrase only you have.
+- Bucket keys and passphrase live **only on your server**, readable only by the database's system user.
+- The service stores metadata only: names, sizes, settings, task logs, metrics. [Security model](/docs/security).
 
 ## The life of a database
 
-When you add a database, it moves through four states. The installer takes it through the first two when you answer its questions:
+The installer takes a new database through these states:
 
 ```text
  registered         you say yes             you restart,
@@ -57,15 +53,15 @@ When you add a database, it moves through four states. The installer takes it th
 | State | Meaning | Backups scheduled |
 |---|---|---|
 | `pending_adopt` | Registered. Only read-only plans have run. | No |
-| `awaiting_restart` | Settings applied. PostgreSQL needs a restart before archiving starts. Rowsafe notices the restart by itself. | No |
-| `verifying` | Rowsafe is proving that changes reach your bucket. If the check fails, fix the cause, then click **Check now** on the database's page or run `rowsafe verify`. | No |
-| `active` | Archiving is proven. Backups and Proof run on schedule. | Yes |
+| `awaiting_restart` | Settings applied; waiting for a PostgreSQL restart, which Rowsafe notices. | No |
+| `verifying` | Proving changes reach your bucket. If it fails, fix the cause and click **Check now** (or `rowsafe verify`). | No |
+| `active` | Backups and Proof run on schedule. | Yes |
 
-If applying the plan needs no restart, Rowsafe goes straight to verifying.
+No restart needed? It goes straight to verifying.
 
 ## Schedules
 
-Each database has three schedules, in UTC, written as 5-field cron expressions:
+Three schedules per database, in UTC, as 5-field cron:
 
 | Schedule | Default | |
 |---|---|---|
@@ -73,15 +69,15 @@ Each database has three schedules, in UTC, written as 5-field cron expressions:
 | Differential backup | `0 1 * * 1-6` | Monday to Saturday at 01:00 |
 | Proof (restore test) | `15 21 * * 0` | Sundays at 21:15 |
 
-- Schedules start when a database becomes `active`. Missed runs are not replayed as a backlog.
-- If the previous run is still going, the next one is skipped.
-- A schedule may run at most once an hour.
-- Change them in the database's settings in the dashboard, or with `rowsafe set`.
+- They start when the database is `active`. Missed runs aren't replayed.
+- A run still going means the next one is skipped.
+- At most once an hour.
+- Change them in the database's settings, or with `rowsafe set`.
 
 ## If the service is down
 
-Your database keeps archiving its changes to your bucket by itself, so point-in-time recovery keeps working. Only scheduled backups, Proof and alerts pause until the service is back.
+Your database keeps archiving to your bucket, so restore to any second still works. Scheduled backups, Proof and alerts pause until it's back.
 
 <Callout title="PostgreSQL details">
-  How backups and archiving work on PostgreSQL, with pgBackRest: [How PostgreSQL backups work](/docs/concepts/postgresql).
+  [How PostgreSQL backups work](/docs/concepts/postgresql).
 </Callout>

@@ -1,15 +1,12 @@
 ---
 title: Protection status
-description: One conservative yes-or-no answer to "could this database be restored right now?", for people, scripts and AI agents.
+description: One strict yes or no to "could this database be restored right now?"
 ---
 
-**Protected** means: if you had to restore this database right now, you could, to within minutes of now. Rowsafe checks it continuously, and it is deliberately strict.
-
-```sh
-rowsafe status app
-```
+**Protected** means you could restore this database right now, to within minutes of now. Rowsafe checks it continuously, and it's strict on purpose.
 
 ```text
+$ rowsafe status app
 app is PROTECTED.
 
 Last backup:        7.2h ago
@@ -20,7 +17,7 @@ Last passing drill: 3d ago
 
 ## The conditions
 
-A database is protected only when **all** of these hold:
+Protected only when **all** hold:
 
 | Condition | Why |
 |---|---|
@@ -30,15 +27,12 @@ A database is protected only when **all** of these hold:
 | A backup finished in the last 26 hours | Restores would replay a very long log. |
 | The latest Proof (restore test) passed, less than 8 days ago | Only a restore test proves the backups restore. |
 
-When one fails, the status lists every reason:
+Otherwise it lists every reason:
 
 ```text
 app is NOT PROTECTED:
   - WAL archiving failed at 2026-09-24T09:12:03Z (within the last 15m0s)
   - no passing restore drill in the last 8 days
-
-Last backup:        7.2h ago
-...
 ```
 
 ## For scripts and AI agents
@@ -51,20 +45,18 @@ Last backup:        7.2h ago
 | `3` | Not protected |
 | `1` | Error (for example not logged in, or the database doesn't exist) |
 
-So you can gate a risky step on it:
+Gate a risky step on it:
 
 ```sh
 rowsafe status app && ./migrate.sh
 ```
 
-Use `--json` for every detail, including the start of the recovery window. AI agents get the same "is it safe?" check through [Guard](/docs/guides/ai-agents): the `safety_check` [MCP tool](/docs/reference/mcp).
+`--json` gives every detail, including the start of the recovery window. AI agents use the `safety_check` [MCP tool](/docs/reference/mcp) ([Guard](/docs/guides/ai-agents)).
 
 ## Fleet health
 
-Without a name, `rowsafe status` checks everything: offline agents, stale backups, failing archiving, failed Proof runs, databases waiting for a restart, and more. Each problem comes with the command to run next.
+`rowsafe status` with no name checks everything (offline agents, stale backups, failing archiving, failed Proof, pending restarts...) and suggests the next command for each problem. Exits `0` when nothing is critical or a warning, `3` otherwise.
 
 ```text
 2 hosts, 3 databases (3 active): 0 critical, 0 warning(s). All good: every active database has recent backups, WAL archiving works and drills pass.
 ```
-
-It exits `0` when nothing is critical or a warning, and `3` otherwise.

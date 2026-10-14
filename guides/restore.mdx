@@ -1,29 +1,29 @@
 ---
 title: Restore a database
-description: Rewind a database to any second or to a Mark. Restore a copy and bring back rows, or rewind the whole database, in one click. By hand with pgBackRest when the server is lost.
+description: Rewind to any second or a Mark, bring back rows, or rewind the whole database, in one click.
 ---
 
-**Rewind** saves every change your database makes, so you can go back to any second in your recovery window, or to a **Mark** you set before a risky change. You do it in the dashboard: open the database's **Rewind** tab, then **Rewind**.
+**Rewind** saves every change, so you can go back to any second in your recovery window, or to a **Mark**. Open the database's **Rewind** tab, then **Rewind**.
 
-There are two ways back:
+Two ways back:
 
-- **Restore a copy** of the database as it was, next to production, compare it, and **bring back** the rows you lost. Production keeps running. This is what you want most of the time.
-- **Rewind the whole database** to that moment. For the worst case, when too much is damaged to repair row by row. You can undo it.
+- **Restore a copy** next to production, compare it, and **bring back** the rows you lost. Production keeps running. Usually what you want.
+- **Rewind the whole database** to that moment. For the worst case. You can undo it.
 
-Everything happens on your server. Rowsafe never sees your data: only names, counts and sizes reach it.
+Everything happens on your server. Only names, counts and sizes reach Rowsafe.
 
-It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. This page uses PostgreSQL's words; what differs per database is in [By database](#by-database).
+Works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. This page uses PostgreSQL's words; differences are in [By database](#by-database).
 
 ## Which one to use
 
 | What happened | Do this | What happens to production |
 |---|---|---|
-| Rows deleted or overwritten by mistake: a `DELETE` without `WHERE`, a bad script, a bug | [Restore a copy](#restore-a-copy), [compare](#compare-with-production), [bring back rows](#bring-back-rows) | Only the rows you choose are put back. Everything else, including what was written since, stays. |
-| You want to see what the data looked like at 14:04 | [Restore a copy](#restore-a-copy) | Nothing. |
-| A migration or a script damaged many tables, or a table was dropped | [Rewind the whole database](#rewind-the-whole-database) | PostgreSQL stops while Rowsafe restores it. Everything written after the moment is removed, and kept aside for 7 days so you can undo. |
-| The server is lost, or you want the database on another server | [Restore by hand](#advanced-restore-by-hand-or-to-another-server) | Nothing: you restore onto a new server. |
+| Rows deleted or overwritten by mistake (a `DELETE` without `WHERE`, a bad script, a bug) | [Restore a copy](#restore-a-copy), [compare](#compare-with-production), [bring back rows](#bring-back-rows) | Only the rows you choose are put back. Everything else, including newer writes, stays. |
+| You want to see the data as it was at 14:04 | [Restore a copy](#restore-a-copy) | Nothing. |
+| A migration or script damaged many tables, or a table was dropped | [Rewind the whole database](#rewind-the-whole-database) | PostgreSQL stops while Rowsafe restores. Later writes are removed, and kept aside 7 days for undo. |
+| The server is lost, or you want the database elsewhere | [Restore by hand](#advanced-restore-by-hand-or-to-another-server) | Nothing: you restore onto a new server. |
 
-You can go back to any second from the start of your oldest kept full backup up to the last change that reached your bucket: at most about a minute before now.
+You can go back to any second from the start of your oldest full backup up to the last change in your bucket (at most about a minute ago).
 
 ## Restore a copy
 
@@ -32,37 +32,37 @@ You can go back to any second from the start of your oldest kept full backup up 
 
 ### Pick the moment
 
-The page shows your recovery window. Pick a time, in your own time zone, to the second: just before the mistake, for example 14:04:00 for a `DELETE` at 14:05. Or pick a **Mark** from the list (on the **Marks** page, **Restore a copy at this Mark** does the same): the copy then has everything committed before the Mark and nothing after it.
+Pick a time, in your time zone, to the second: just before the mistake (14:04:00 for a `DELETE` at 14:05). Or pick a **Mark** (also **Restore a copy at this Mark** on the **Marks** page): the copy has everything committed before it, nothing after.
 
 </Step>
 <Step>
 
 ### Restore it
 
-Click **Restore a copy**. The copy is kept for 24 hours by default; you can choose up to 7 days. The page shows the progress. It takes about as long as a [Proof](/docs/concepts/restore-drills) run (the **Proof** tab shows how long recent runs took), and longer when the moment is far from the last backup, because there are more changes to replay.
+Click **Restore a copy**. It's kept 24 hours by default, up to 7 days. It takes about as long as a [Proof](/docs/concepts/restore-drills) run (see the **Proof** tab), longer when the moment is far from the last backup.
 
 </Step>
 <Step>
 
 ### Use it
 
-When the copy is ready, you see the last change in it, its size and when it will be deleted. **Extend** keeps it longer, **Delete** removes it now. Then [compare it with production](#compare-with-production).
+When ready, you see its last change, size and expiry. **Extend** keeps it longer, **Delete** removes it. Then [compare it with production](#compare-with-production).
 
 </Step>
 </Steps>
 
-What the copy is:
+The copy is:
 
-- **On your server, next to production.** Rowsafe restores a backup and replays the changes up to your moment, the way the weekly Proof does. Every database inside that PostgreSQL server is in the copy.
-- **Isolated.** It listens only on a private Unix socket, with no network port, so your applications can't connect to it by mistake. It is read-only, it never archives into your bucket, and it runs at low CPU and IO priority.
-- **Deleted by itself** when it expires, even if your server can't reach Rowsafe at that moment. A copy about to expire shows up in **Health**, with **Keep it 24 hours longer**.
-- **One at a time.** Each database has at most one copy. Delete it to restore another moment.
+- **On your server**, restored like Proof does. It holds every database in that PostgreSQL server.
+- **Isolated**: a private Unix socket, no network port, read-only, never archives to your bucket, low CPU and IO priority.
+- **Deleted by itself** when it expires, even offline. **Health** offers **Keep it 24 hours longer** before then.
+- **One at a time** per database. Delete it to restore another moment.
 
-It needs free disk of about **1.3 × the database size + 1 GB**, in `/var/lib/rowsafe/rewind`. With less, Rowsafe says how much is free and how much it needs, and doesn't start.
+It needs about **1.3 × the database size + 1 GB** free in `/var/lib/rowsafe/rewind`. With less, Rowsafe says how much and doesn't start.
 
 ## Compare with production
 
-On the copy's card, click **Compare with production**, for every table or the ones you pick. For each table, Rowsafe counts, by primary key:
+On the copy's card, click **Compare with production**, for every table or the ones you pick. Per table, by primary key:
 
 | Count | Means |
 |---|---|
@@ -70,88 +70,86 @@ On the copy's card, click **Compare with production**, for every table or the on
 | **Changed** | Rows with the same key and different values. |
 | **Only in production** | Rows added since. |
 
-The comparison runs on your server: rows never leave it, and only the counts reach Rowsafe. It doesn't change production; it only uses temporary tables.
+It runs on your server with temporary tables. Production isn't changed, and only counts reach Rowsafe.
 
-Some tables are skipped, with the reason next to them:
+Skipped tables show why:
 
-- **No primary key.** Without one, Rowsafe can't tell which rows are the same. Rewinding the whole database brings such a table back as it was.
+- **No primary key**: Rowsafe can't match rows. Rewinding the whole database brings such a table back.
 - **Too big**: over 5 GB or 20 million rows.
 - **Dropped since**, or its key column changed type.
-- Comparing every table covers up to 200 tables at a time. With more, pick the tables.
+- More than 200 tables: pick the ones to compare.
 
-When a table is linked to others by foreign keys (an `orders` table and its `order_items`), Rowsafe shows them together, so you can bring back their rows in one run. A table can also have a note, for example that a column was added since.
+Tables linked by foreign keys (like `orders` and `order_items`) are shown together, so you can bring them back in one run. Notes flag things like a column added since.
 
 ## Bring back rows
 
-Select the tables, check the counts, and click **Bring back N missing rows**. Rowsafe asks you to type the database name to confirm. Then, on your server:
+Select the tables, check the counts, click **Bring back N missing rows**, and type the database name. Then:
 
-1. It saves a **Mark** first, so you can go back to just before this.
-2. It puts back the rows that are **missing** in production, only where their key is missing. Rows that exist in production, and rows added since, are left as they are.
-3. Parent tables come before their children, and everything in one PostgreSQL database happens in **one transaction**: either every chosen table gets its rows back, or nothing changes.
-4. Your application's **triggers don't fire** for these rows, so no duplicate emails or webhooks go out. Foreign keys aren't checked row by row either; Rowsafe checks them itself first (see below).
-5. **Sequences** are moved past the keys it brought back, so new rows don't collide with them.
-6. A row whose unique value (an email address, say) now belongs to another row is left out and reported as a **conflict**.
+1. Rowsafe saves a **Mark** first.
+2. It puts back only rows whose key is **missing** in production. Existing and newer rows stay.
+3. Parents before children, all in **one transaction** per database: every table gets its rows back, or nothing changes.
+4. **Triggers don't fire**, so no duplicate emails or webhooks. Rowsafe checks foreign keys itself first.
+5. **Sequences** move past the restored keys.
+6. A row whose unique value (an email, say) now belongs to another row is skipped and reported as a **conflict**.
 
-You then see what it did, for example "Brought back 1,204 rows in applications and 3,310 in application_notes."
+You see the result, like "Brought back 1,204 rows in applications and 3,310 in application_notes."
 
-**Also restore rows that were changed** (off by default) also sets the rows that changed since back to the copy's values. Use it when a bad `UPDATE` did the damage.
+**Also restore rows that were changed** (off by default) resets changed rows to the copy's values. Use it after a bad `UPDATE`.
 
-Limits for one run:
+Per run:
 
 - Up to **50 tables**.
-- Up to a number of rows that depends on your [plan](/docs/concepts/plans-and-limits#rewind-limits): 1 million on Free, 10 million on Pro, 50 million on Business (today the agent itself stops at 10 million). Over the limit, nothing is changed: bring back fewer tables at a time.
+- Rows by [plan](/docs/concepts/plans-and-limits#rewind-limits): 1 million on Free, 10 million on Pro, 50 million on Business (today the agent stops at 10 million). Over the limit, nothing changes: bring back fewer tables.
 
-Nothing is changed, and Rowsafe tells you why, when:
+Nothing changes, and Rowsafe says why, when:
 
-- some rows would point to rows of another table that aren't in production. Add that table to the same run;
-- another session holds a lock on one of the tables for more than 5 seconds. Try again in a moment;
-- a column was added since and needs a value that the copy doesn't have;
-- restoring changed rows would leave rows elsewhere pointing to values that no longer exist. Bring back only the missing rows.
+- rows would point to rows of another table missing in production: add that table to the run;
+- another session locks a table for more than 5 seconds: try again;
+- a column added since needs a value the copy doesn't have;
+- restoring changed rows would leave other rows pointing to missing values: bring back only missing rows.
 
-Added columns get their default, generated columns are computed again, and columns removed since are left out.
+Added columns get their default, generated columns are recomputed, and removed columns are left out.
 
 ## Rewind the whole database
 
 <Callout type="warn" title="The worst case only">
 
-Rewinding replaces the live database. Everything written after the moment you pick is removed from it, in **every database inside that PostgreSQL server**, and PostgreSQL is stopped while Rowsafe restores it. When only some rows are wrong, [bring them back](#bring-back-rows) instead.
+This replaces the live database. Everything written after your moment is removed, in **every database inside that PostgreSQL server**, and PostgreSQL stops while it runs. If only some rows are wrong, [bring them back](#bring-back-rows) instead.
 
 </Callout>
 
-On the same page, under **Rewind the whole database to this point**, pick the moment and type the database name. The page tells you exactly what will happen, for example "Everything written after 14:04:00 will be removed from the live database. It is kept aside for 7 days so you can undo."
+Under **Rewind the whole database to this point**, pick the moment and type the database name. The page says exactly what will happen.
 
-What Rowsafe does:
+1. Rowsafe saves a **Mark** and checks everything below. If anything is missing, it stops first.
+2. **Stops PostgreSQL.** Apps get errors for about as long as [restoring a copy](#restore-it) takes.
+3. **Keeps the current data aside** by renaming the data directory to `<data directory>.before-rewind-<UTC time>` (instant, nothing copied).
+4. Restores into a fresh data directory, keeps your config, and replays changes up to your moment, with no network port.
+5. **Starts PostgreSQL**.
+6. Takes a full backup and checks changes reach your bucket.
 
-1. Saves a **Mark**, then checks everything it needs (below). If anything is missing, it stops before changing anything.
-2. **Stops PostgreSQL.** Your applications get errors until it's back: about as long as restoring a copy takes (see [Restore it](#restore-it)).
-3. **Keeps the current data aside**: it renames the data directory to `<data directory>.before-rewind-<UTC time>`. Same disk, instant, nothing is copied.
-4. Restores the backup into a fresh data directory, keeps your configuration, and replays the changes up to your moment, privately, with no network port.
-5. **Starts PostgreSQL** and waits until it accepts connections.
-6. Takes a full backup, and checks that changes reach your bucket.
-
-If anything fails after PostgreSQL was stopped, Rowsafe puts the original data back and starts it again, as it was. It does that too if its agent restarts in the middle.
+If anything fails after the stop, or the agent restarts mid-way, Rowsafe puts the original data back and starts it.
 
 **It needs:**
 
-- PostgreSQL **installed on the server**, or in Docker with the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container) and the data volume writable for the agent. Without it, [restore a copy](#restore-a-copy) and bring back rows.
-- Permission to **restart or stop PostgreSQL**, given when Rowsafe was installed on that server ("Allow Rowsafe to restart or stop PostgreSQL when you ask?"). A server installed before this release needs the install command run again, even if you allowed restarts then: see [Troubleshooting](/docs/troubleshooting#rewind-the-whole-database-isnt-available).
+- PostgreSQL **installed on the server**, or in Docker with the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container) and a data volume the agent can write. Otherwise, restore a copy and bring back rows.
+- Permission to **restart or stop PostgreSQL**, given at install. Older servers may need the install command run again: see [Troubleshooting](/docs/troubleshooting#rewind-the-whole-database-isnt-available).
 - The **primary**, not a replica.
-- **No tablespaces** of your own. Rowsafe can't rewind those in place yet.
-- Free disk of about **the database size + 10%** next to the data directory, because the current data stays on the disk for Undo.
+- **No tablespaces** of your own (not supported yet).
+- About **the database size + 10%** free next to the data directory, for Undo.
 
-When one of these is missing, the button is disabled and says why.
+If something's missing, the button is disabled and says why.
 
-Standby replicas that streamed from this server no longer match it after a rewind. Rowsafe warns you; set them up again.
+Standby replicas no longer match after a rewind. Rowsafe warns you; set them up again.
 
 ### Undo a rewind
 
-Until the kept data is deleted, the page shows **Undo rewind**. It swaps the data back the same way: stop PostgreSQL, swap the directories, start it. What was written after the rewind is kept aside in turn, so undoing loses nothing either. Only the latest rewind can be undone.
+**Undo rewind** swaps the data back the same way: stop, swap, start. Writes made after the rewind are kept aside in turn, so nothing is lost. Only the latest rewind can be undone.
 
-The data from before the rewind is kept for **7 days**, then deleted by itself. It uses disk meanwhile: **Delete the old data now** frees it, and then the rewind can't be undone. **Health** reminds you while it's there.
+The old data is kept **7 days**, then deleted. **Delete the old data now** frees the disk, and ends Undo. **Health** reminds you while it's there.
 
 ## By database
 
-The buttons and steps are the same; what happens underneath follows each database.
+Same buttons; what happens underneath depends on the database.
 
 | | Restore a copy to | Compare by | Bring back rows | Rewind the whole database |
 |---|---|---|---|---|
@@ -165,21 +163,21 @@ The buttons and steps are the same; what happens underneath follows each databas
 | Qdrant | a snapshot (every 15 minutes) or a Mark | not available | not available | restores each collection through Qdrant's API, Qdrant keeps running |
 | Meilisearch | a snapshot (every 15 minutes) or a Mark | primary key | documents; existing ones only overwritten if you choose | copies the indexes in under other names, then swaps them in at once, Meilisearch keeps running |
 
-Undo works the same everywhere: the data from before is kept for 7 days (on the server; for Redis and Valkey, as a snapshot in your bucket). Each database's guide has the details: [MySQL and MariaDB](/docs/guides/mysql#rewind-the-whole-server), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse), [Redis and Valkey](/docs/guides/redis#rewind), [SQLite](/docs/guides/sqlite#restore), [OpenSearch](/docs/guides/opensearch#rewind), [Qdrant](/docs/guides/qdrant#rewind-the-whole-database), [Meilisearch](/docs/guides/meilisearch#rewind). The rest of this page (the copy's socket, the disk it needs, restoring by hand) describes PostgreSQL.
+Undo works the same everywhere: the old data is kept 7 days (on the server; for Redis and Valkey, as a snapshot in your bucket). Details: [MySQL and MariaDB](/docs/guides/mysql#rewind-the-whole-server), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse), [Redis and Valkey](/docs/guides/redis#rewind), [SQLite](/docs/guides/sqlite#restore), [OpenSearch](/docs/guides/opensearch#rewind), [Qdrant](/docs/guides/qdrant#rewind-the-whole-database), [Meilisearch](/docs/guides/meilisearch#rewind). The rest of this page is about PostgreSQL.
 
 ## Who can do this
 
-- Only **owners and admins**, and API keys with write access. Every step is in the [audit log](/docs/guides/teams#audit-log).
-- **AI agents act as their person.** An assistant can show your recovery window with `rewind_window`, and, when you ask, restore a copy, bring rows back or rewind [as the person who connected it](/docs/guides/agent-autonomy), with the same confirmations and the Mark first. That runs right away for an owner's or admin's agent when Rowsafe has a backup to go back to; otherwise Rowsafe refuses it.
+- **Owners and admins** only, and API keys with write access. Every step is in the [audit log](/docs/guides/teams#audit-log).
+- **AI agents act as their person.** They can show the window (`rewind_window`) and, when you ask, restore a copy, bring rows back or rewind [as the person who connected them](/docs/guides/agent-autonomy), with the same confirmations and Mark first. It runs at once for an owner's or admin's agent when there's a backup to go back to; otherwise Rowsafe refuses.
 
 ## Do it yourself
 
-You don't need any of this: the buttons above do the same. It's here for scripts, and for tables Rowsafe can't compare.
+The buttons do all of this. These are for scripts, and for tables Rowsafe can't compare.
 
 <Accordions>
 <Accordion title="The same from a terminal">
 
-`rowsafe rewind` does what the **Rewind** page does, and asks you to confirm the same way:
+`rowsafe rewind` does what the **Rewind** page does, with the same confirmations:
 
 ```sh
 rowsafe rewind app                          # the recovery window, the copy, data kept aside
@@ -190,67 +188,65 @@ rowsafe rewind database app --at "14:04"    # rewind the whole database
 rowsafe rewind undo app
 ```
 
-See the [CLI reference](/docs/reference/cli#rewind) for every flag.
+Every flag: [CLI reference](/docs/reference/cli#rewind).
 
 </Accordion>
 <Accordion title="Read the copy with psql">
 
-The copy listens on a Unix socket in its own directory, only for the `postgres` user of that server, on the port Proof uses (`ROWSAFE_DRILL_PORT`, 55432 by default). `rowsafe rewind app` shows the copy's ID. On the server:
+The copy listens on a Unix socket for the server's `postgres` user, on Proof's port (`ROWSAFE_DRILL_PORT`, default 55432). `rowsafe rewind app` shows its ID:
 
 ```sh
 sudo -u postgres psql -h /var/lib/rowsafe/rewind/<copy-id>/socket -p 55432 -d app
 ```
 
-It's read-only. Use it to look at a table that has no primary key, or to `pg_dump --table=...` one.
+It's read-only. Use it for tables without a primary key, or to `pg_dump --table=...` one.
 
 </Accordion>
 </Accordions>
 
 ## Advanced: restore by hand or to another server
 
-The buttons above restore on the database's own server. Restore by hand with pgBackRest when:
+Restore by hand with pgBackRest when:
 
-- the server is lost, or its disk is destroyed: the restored server becomes production;
-- you want the database on another server, for example to test or to investigate;
-- you can't reach Rowsafe. Your backups are a standard pgBackRest repository in your own bucket, and restoring them needs only pgBackRest.
+- the server or its disk is lost: the restored server becomes production;
+- you want the database on another server, to test or investigate;
+- you can't reach Rowsafe. Your backups are a standard pgBackRest repository in your bucket.
 
-Practise it once on a scratch server before you need it, and write down how long it took. The examples restore a database named `app` on PostgreSQL 18, on a fresh Debian or Ubuntu server.
+Practise once on a scratch server and note how long it took. The examples restore `app` on PostgreSQL 18 on a fresh Debian or Ubuntu server.
 
-Need the old state as a separate database, without restoring by hand? [Fork it](/docs/guides/fork): Rowsafe restores any second or Mark into a new database on one of your servers, with its own backups.
+Just want the old state as a separate database? [Fork it](/docs/guides/fork) to a new database on one of your servers.
 
 <Callout type="warn" title="Two rules">
-  **Never restore over the only copy.** Restore to a new server, or at least a new data directory. The old cluster, even a damaged one, is evidence and a fallback.
+  **Never restore over the only copy.** Use a new server, or at least a new data directory. The old cluster, even damaged, is evidence and a fallback.
 
-  **One writer per bucket path.** A restored cluster must not archive into the same repository while the original still runs. Always restore with `--archive-mode=off`.
+  **One writer per bucket path.** Always restore with `--archive-mode=off`, so the restored cluster can't archive into the same repository.
 </Callout>
 
 ### What you need
 
-- **The bucket settings and the passphrase** from your secret manager: endpoint, bucket, access key and secret, and the **encryption passphrase**. Without the passphrase, nothing can be restored.
-- The repository path, `/rowsafe/<name>` by default, and the stanza, which is the database's name in Rowsafe.
-- If the old server is still reachable, its generated configuration has all of this: `/etc/rowsafe/pgbackrest/app.conf`.
-- A server with the **same PostgreSQL major version**, the same extensions installed (compare `shared_preload_libraries` and `\dx`), pgBackRest at the same or a newer version, and free disk of at least the data directory's size plus room for WAL.
+- **Bucket settings and passphrase** from your secret manager: endpoint, bucket, key, secret and the **encryption passphrase**. Without the passphrase, nothing can be restored.
+- The repository path (`/rowsafe/<name>` by default) and the stanza (the database's name in Rowsafe).
+- If the old server is reachable, `/etc/rowsafe/pgbackrest/app.conf` has all of this.
+- A server with the **same PostgreSQL major version**, the same extensions (compare `shared_preload_libraries` and `\dx`), the same or newer pgBackRest, and disk for the data directory plus WAL.
 
 <Steps>
 <Step>
 
 ### Prepare the server
 
-With the [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) repository configured:
+With [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) configured:
 
 ```sh
 sudo apt-get install -y postgresql-18 pgbackrest     # creates and starts cluster 18/main
 sudo systemctl stop postgresql@18-main
 ```
 
-Restoring into this new, empty cluster keeps Debian's layout: configuration in `/etc/postgresql/18/main/`, data in `/var/lib/postgresql/18/main`.
+This keeps Debian's layout: config in `/etc/postgresql/18/main/`, data in `/var/lib/postgresql/18/main`.
 
 </Step>
 <Step>
 
 ### Configure pgBackRest
-
-Write the default configuration file, so every command finds it:
 
 ```sh
 sudo install -d -o postgres -g postgres -m 0750 /etc/pgbackrest /var/log/pgbackrest
@@ -278,7 +274,7 @@ log-path=/var/log/pgbackrest
 pg1-path=/var/lib/postgresql/18/main
 ```
 
-This server only **reads** the repository. Don't run `backup`, `expire` or `stanza-*` commands from it while the original server is alive. If your bucket token only allows the old server's IP address, create a read-only token (Object Read, this bucket only) for this one.
+This server only **reads**. Don't run `backup`, `expire` or `stanza-*` from it while the original is alive. If your token only allows the old server's IP, make a read-only one (Object Read, this bucket only).
 
 </Step>
 <Step>
@@ -289,32 +285,30 @@ This server only **reads** the repository. Don't run `backup`, `expire` or `stan
 sudo -u postgres pgbackrest --stanza=app info
 ```
 
-This lists every backup, with start and stop times, and the WAL archive range. Any moment from the end of the oldest full backup to the end of the archive is reachable.
+Any moment from the end of the oldest full backup to the end of the archive is reachable.
 
-For a Mark (a named restore point), look it up on your computer:
+For a Mark, on your computer:
 
 ```sh
 rowsafe marks app
 ```
 
-Use Marks with the status `archived`. Note the **RESTORE FROM BACKUP** column: you need it below.
+Use Marks with status `archived`, and note the **RESTORE FROM BACKUP** column.
 
 </Step>
 <Step>
 
 ### Restore
 
-The new cluster's data directory must be empty. **Check the path twice**: this deletes the contents of the new, empty cluster, never an existing production one.
+The new data directory must be empty. **Check the path twice**: this empties the new cluster, never production.
 
 ```sh
 sudo -u postgres sh -c 'find /var/lib/postgresql/18/main -mindepth 1 -delete'
 ```
 
-Then run one of the following.
+Then run one of these.
 
 #### To the latest state
-
-Replays all archived WAL, then promotes:
 
 ```sh
 sudo -u postgres pgbackrest --stanza=app --archive-mode=off restore
@@ -322,18 +316,18 @@ sudo -u postgres pgbackrest --stanza=app --archive-mode=off restore
 
 #### To a point in time
 
-Stops just before the mistake, then promotes. Always give a UTC offset:
+Stops just before the mistake. Always give a UTC offset:
 
 ```sh
 sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
   --type=time --target="2026-09-20 14:05:00+00" --target-action=promote restore
 ```
 
-pgBackRest picks the newest backup that ends before the target. Pass `--set=<label>` from `pgbackrest info` to choose one yourself.
+pgBackRest picks the newest backup ending before the target; `--set=<label>` picks one yourself.
 
 #### To a restore point
 
-Stops exactly at a Mark created with `rowsafe mark` (a PostgreSQL restore point), then promotes:
+Stops exactly at a Mark made with `rowsafe mark`:
 
 ```sh
 sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
@@ -342,12 +336,10 @@ sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
 ```
 
 <Callout type="warn" title="Always pass --set for a Mark">
-  With `--type=name`, pgBackRest can't tell which backup comes before the Mark, so it takes the newest one. If that backup finished after the Mark, recovery never reaches it and PostgreSQL refuses to start ("recovery ended before configured recovery target was reached"). Pass the **RESTORE FROM BACKUP** label from `rowsafe marks`, or any older backup.
+  With `--type=name`, pgBackRest takes the newest backup. If it finished after the Mark, PostgreSQL refuses to start ("recovery ended before configured recovery target was reached"). Pass the **RESTORE FROM BACKUP** label from `rowsafe marks`, or an older backup.
 </Callout>
 
-Recovery stops just after the Mark: everything committed before it is there, nothing after it.
-
-`--archive-mode=off` writes `archive_mode = 'off'` into the restored `postgresql.auto.conf`, so this cluster can't push WAL into the production repository. The file also carries production's other `ALTER SYSTEM` settings, including Rowsafe's `archive_command`, which does nothing while archiving is off.
+`--archive-mode=off` writes `archive_mode = 'off'` into `postgresql.auto.conf`, so this cluster can't push WAL to production's repository. Rowsafe's `archive_command` is carried over but does nothing.
 
 </Step>
 <Step>
@@ -360,7 +352,7 @@ sudo tail -f /var/log/postgresql/postgresql-18-main.log    # "ready to accept co
 sudo -u postgres psql -Xc "select pg_is_in_recovery()"     # f
 ```
 
-Check the data around the target: the newest rows in a busy table, and whether the rows from the bad change are gone or present as intended. Then run your application's smoke tests against this server.
+Check the data around the target, then run your app's smoke tests against this server.
 
 </Step>
 </Steps>
@@ -370,21 +362,21 @@ Check the data around the target: the newest rows in a busy table, and whether t
 <Tabs items={["This server becomes production", "It was a scratch restore"]}>
 <Tab value="This server becomes production">
 
-1. **Fence the old primary** so it can never come back and write: stop and disable its PostgreSQL, or shut the server down.
-2. Carry over what the restore doesn't include: `pg_hba.conf`, your files in `conf.d/`, TLS certificates and keys, and any systemd drop-ins. Restart PostgreSQL once they are in place.
-3. Point your application at the new server and redeploy it.
-4. **Protect it again**: run the install command on the new server, and when it asks for a name, give a **new one**, for example `app-2`. The new name gives it a fresh path in the bucket. Leave the old `app` path alone until you no longer need its backups.
+1. **Fence the old primary** so it can never write again: stop and disable its PostgreSQL, or shut it down.
+2. Copy over what the restore lacks: `pg_hba.conf`, your `conf.d/` files, TLS certificates and keys, systemd drop-ins. Restart PostgreSQL.
+3. Point your app at the new server and redeploy.
+4. **Protect it again**: run the install command and give a **new name** (like `app-2`), for a fresh bucket path. Leave the old `app` path until you no longer need it.
 
 </Tab>
 <Tab value="It was a scratch restore">
 
-Copy out what you need, for example `pg_dump --table=...` of the affected tables, and load it into production inside a transaction. Then delete the scratch cluster, and revoke the read-only bucket token if you created one.
+Copy out what you need (`pg_dump --table=...`) and load it into production inside a transaction. Then delete the scratch cluster and revoke any read-only token you made.
 
 </Tab>
 </Tabs>
 
 ### From Docker backups
 
-In the dashboard, restoring a copy and bringing back rows work in Docker as on a server. Rewinding the whole database needs the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container).
+In the dashboard, copies and bringing back rows work in Docker too. Rewinding the whole database needs the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container).
 
-The backups of a database that runs in Docker are ordinary pgBackRest backups. Restore them the same way, on a Linux server with the same PostgreSQL major version, using the bucket settings from your `rowsafe-agent.env`.
+Docker backups are ordinary pgBackRest backups. Restore them the same way on a Linux server with the same PostgreSQL major version, using the bucket settings from `rowsafe-agent.env`.

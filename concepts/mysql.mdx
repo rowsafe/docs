@@ -1,15 +1,15 @@
 ---
 title: How MySQL and MariaDB backups work
-description: Physical backups with Percona XtraBackup or mariadb-backup, continuous binary log shipping, client-side encryption, the account and settings Rowsafe uses, and where everything lives.
+description: Physical backups, continuous binary log shipping, encryption, and what Rowsafe needs on your server.
 ---
 
-For MySQL and MariaDB, the Rowsafe agent does the work itself: it streams physical backups and the binary log from your server to your bucket, encrypting everything on the way. Nothing passes through Rowsafe's service.
+For MySQL and MariaDB, the agent streams physical backups and the binary log straight from your server to your bucket, encrypted on the way. Nothing passes through Rowsafe's service.
 
 ## Backups
 
-The backup tool copies the data files while the server runs: **Percona XtraBackup** for MySQL (8.0 for MySQL 8.0, 8.4 for MySQL 8.4) and **mariadb-backup** for MariaDB. InnoDB tables are copied without locking them; tables of other engines (MyISAM, Aria) are locked for the moment they are copied.
+**Percona XtraBackup** (8.0 for MySQL 8.0, 8.4 for MySQL 8.4) or **mariadb-backup** copies the data files while the server runs. InnoDB tables aren't locked; MyISAM and Aria tables are locked only while copied.
 
-The agent reads the tool's output as it comes (`--stream=xbstream`), compresses it (zstd) and encrypts it (see below), and uploads it to your bucket in parts. Nothing is written to your server's disk on the way.
+The stream (`--stream=xbstream`) is compressed (zstd), encrypted and uploaded in parts. Nothing is written to your disk on the way.
 
 | Type | What it copies | When |
 |---|---|---|
@@ -17,26 +17,26 @@ The agent reads the tool's output as it comes (`--stream=xbstream`), compresses 
 | Differential | pages changed since the last full | daily |
 | Incremental | pages changed since the last backup | on request (`rowsafe backup --type incr`) |
 
-A restore needs one full plus the backups built on it. Rowsafe keeps as many full backups as the database's retention says (2 by default) and deletes older ones, with the binary logs only they needed.
+A restore needs one full plus the backups built on it. Rowsafe keeps the retention's number of fulls (2 by default) and deletes older ones with the binary logs only they needed.
 
 ## The binary log, shipped continuously
 
-The **binary log** is the server's record of every change. The agent reads the binary log files on your server and uploads what is new:
+The **binary log** records every change. The agent uploads what's new:
 
-- a finished file right away;
-- the file being written once 16 MiB are waiting, or when the oldest waiting change is 50 seconds old.
+- a finished file, right away;
+- the current file once 16 MiB are waiting, or the oldest waiting change is 50 seconds old.
 
-So your bucket is at most about a minute behind, without asking the server to switch files: a quiet server uploads nothing and a busy one isn't disturbed. A **Mark** asks for an upload at once and counts only when its position is in the bucket. The dashboard's "Last change saved" is the time up to which every change is in your bucket.
+So your bucket is at most about a minute behind, without forcing file switches. A **Mark** uploads at once and counts only once in the bucket. "Last change saved" in the dashboard is the time up to which everything is in your bucket.
 
-The agent keeps going on its own: if it or your bucket is unreachable for a while, it catches up from where it stopped, as long as the server still has the binary log files (keep them at least a day; MySQL keeps them 30 days by default). If the server deleted files before they were copied, Rowsafe says so and the next full backup closes the gap.
+If the agent or bucket is unreachable for a while, it catches up, as long as the server still has the files (keep them at least a day; MySQL keeps 30 days by default). If files were deleted before upload, Rowsafe says so and the next full backup closes the gap.
 
 ## Restoring to a second
 
-A restore (Proof, a Rewind copy) downloads the backup chain, unpacks it (`xbstream` / `mbstream`), prepares it with the backup tool, and starts a **private server** on it: a copy of your server's own binary, listening only on a Unix socket in a folder only the agent can open (no network), without the grant tables, binary log, replication or scheduled events. The agent then replays the binary logs (`mysqlbinlog` / `mariadb-binlog`) from the backup's position up to the second you chose, or exactly to a Mark's position. The whole transaction that committed at that second is included.
+A restore (Proof, a Rewind copy) downloads and unpacks the backup chain, prepares it, and starts a **private server**: your server's own binary, on a Unix socket only the agent can reach, without grant tables, binary log, replication or scheduled events. It then replays the binary logs up to the second you chose (including the whole transaction committed at that second), or exactly to a Mark.
 
 ## Encryption
 
-Every object is compressed and then encrypted **on your server** with [age](https://age-encryption.org), keyed from your repository passphrase (`ROWSAFE_REPO_CIPHER_PASS`, the same one pgBackRest uses for PostgreSQL) through scrypt. Your bucket only ever holds ciphertext; the passphrase never leaves your server. Without it no backup can be restored, so keep a copy in your secret manager.
+Every object is compressed, then encrypted **on your server** with [age](https://age-encryption.org), keyed from your repository passphrase (`ROWSAFE_REPO_CIPHER_PASS`) through scrypt. The bucket only holds ciphertext; the passphrase never leaves your server. **Without it, nothing can be restored.**
 
 ## In your bucket
 
@@ -49,7 +49,7 @@ Every object is compressed and then encrypted **on your server** with [age](http
   marks/<name>.json.age                      Marks: binary log position and time
 ```
 
-Backup labels follow pgBackRest's (`20260925-020000F`, `20260925-020000F_20260926-020000D`). Object names hold no data from your database.
+Labels follow pgBackRest's (`20260925-020000F`, `20260925-020000F_20260926-020000D`). Object names hold none of your data.
 
 ## The settings Rowsafe needs
 
@@ -59,13 +59,13 @@ Backup labels follow pgBackRest's (`20260925-020000F`, `20260925-020000F_2026092
 | `binlog_format` | `ROW` | `ROW` | `MIXED` | No |
 | `binlog_row_image` | `FULL` | `FULL` | `FULL` | No |
 
-The plan lists what your server needs; nothing changes until you approve it. Rowsafe writes the settings to its own option file, `/etc/rowsafe/mysql/server.cnf`, which the installer includes from `/etc/mysql/conf.d/zz-rowsafe.cnf` (the installer creates it empty; it only gets settings when you turn on backups), and sets the ones that can change on the running server. In Docker, the plan tells you which options to add to your service's command instead.
+Nothing changes until you approve the plan. Rowsafe writes them to `/etc/rowsafe/mysql/server.cnf` (included from `/etc/mysql/conf.d/zz-rowsafe.cnf`, empty until you turn on backups) and sets what it can live. In Docker, the plan lists options to add to your service's command.
 
-Rowsafe also recommends, but doesn't change, `sync_binlog = 1` (the binary log survives a crash of the server) and doesn't need GTIDs: restores use binary log positions, and turning GTIDs on can break applications, so that stays your decision.
+Recommended but not changed: `sync_binlog = 1`. GTIDs aren't needed (restores use positions), and turning them on is your call.
 
 ## Rowsafe's account
 
-The agent logs in as `rowsafe@localhost`, an account created once when you set up backups, with a random password kept only on your server (in the agent's state folder, readable by the agent only). It is created by root through the server's socket, or with an administrator password you give once (the installer asks; in Docker, the root password file). It gets:
+The agent logs in as `rowsafe@localhost`, created once by root over the socket or with an admin password you give once (in Docker, the root password file). Its random password stays on your server, readable by the agent only.
 
 | Privileges | For |
 |---|---|
@@ -78,7 +78,7 @@ The agent logs in as `rowsafe@localhost`, an account created once when you set u
 | `CREATE USER` and the database rights (`CREATE`, `DROP`, `ALTER`, `DELETE`...) `WITH GRANT OPTION` | [Databases & users](/docs/guides/databases-and-users), only when someone asks. The server's own accounts (root, `mysql.*`) are never changed. |
 | `SYSTEM_VARIABLES_ADMIN`, `PERSIST_RO_VARIABLES_ADMIN` (MySQL) / `SUPER` (MariaDB) | [Tuning](/docs/guides/tuning#mysql-and-mariadb) and turning on the slow query log, only when someone asks |
 
-With standby servers allowed at install (*Allow standby servers with this server?*, or `--mysql-standby`), it also gets `ALL PRIVILEGES WITH GRANT OPTION`, used only when someone adds, promotes or removes a standby, forks to an empty server or moves a database in.
+If you allowed standby servers at install (`--mysql-standby`), it also gets `ALL PRIVILEGES WITH GRANT OPTION`, used only to add, promote or remove a standby, fork to an empty server or move a database in.
 
 ## On your server
 
@@ -89,4 +89,4 @@ With standby servers allowed at install (*Allow standby servers with this server
 | `/var/lib/rowsafe/rewind/` | Rewind copies, deleted when they expire |
 | `/etc/rowsafe/mysql/server.cnf` | the binary log settings Rowsafe asked for |
 
-On Ubuntu, where AppArmor confines `mysqld`, the installer allows it to use these folders.
+On Ubuntu, the installer lets AppArmor-confined `mysqld` use these folders.

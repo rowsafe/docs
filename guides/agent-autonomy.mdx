@@ -1,13 +1,14 @@
 ---
 title: How AI agents act
-description: An AI agent connected to Rowsafe acts as the person who connected it, right away, with that person's rights in the dashboard. Or Rowsafe refuses the change, nothing changes, and the agent tells you why. Owners can set a monthly budget for agents. The safety nets stay on.
+description: An AI agent acts right away as the person who connected it, with their rights, or Rowsafe refuses and says why.
 ---
 
-An AI agent connected to Rowsafe acts **as the person who connected it**. It can do what that person can do in the dashboard, right away, like a token for a cloud's command line (`doctl`, the AWS CLI). Ask your agent to apply a fix, create a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server or rewind a database, and it does it and tells you the result.
+An AI agent connected to Rowsafe acts **as the person who connected it**, right away, with that person's dashboard rights. Like a `doctl` or AWS CLI token.
 
-Nothing waits for anyone. Rowsafe makes the change at once, or [refuses it](#when-rowsafe-refuses): nothing changes, and the agent tells you why and what you can do. The agent checks with you in chat before anything disruptive, destructive or paid.
-
-Rowsafe runs every check your own click would, saves a Mark before risky changes, and keeps the [safety nets](#safety-nets-that-stay-on) on. Every change is in the [audit log](/docs/guides/teams#audit-log) as, for example, *ana@example.com through their AI agent Claude*.
+- Rowsafe makes the change at once, or [refuses it](#when-rowsafe-refuses) and nothing changes. Nothing waits for an approval.
+- The agent checks with you in chat before anything disruptive, destructive or paid.
+- The same checks as your click run, and the [safety nets](#safety-nets-that-stay-on) stay on.
+- Every change is in the [audit log](/docs/guides/teams#audit-log), like *ana@example.com through their AI agent Claude*.
 
 ## Who an agent acts as
 
@@ -17,26 +18,26 @@ Rowsafe runs every check your own click would, saves a Mark before risky changes
 | An API key made in the dashboard (**Settings → API keys**) | The person who made the key |
 | The CLI's login (`rowsafe login`), which a local `rowsafe mcp` uses | The person who approved the login |
 
-What it may do follows that person's role **now**. Rowsafe asks just before each change:
+Rowsafe checks that person's role **just before each change**:
 
-- **An owner or admin:** the change runs right away, as them.
-- **A member:** Rowsafe refuses it, since members can't make changes in the dashboard either. An owner or admin makes it, or makes them an admin.
-- **Someone who left:** Rowsafe refuses it. Removing someone from the organization disconnects their apps; an API key they made stops working for changes until it's revoked ([API keys](/docs/guides/teams#api-keys)).
-- **What only owners can do stays owner-only.** A first payment for Rowsafe Cloud is always an owner's: see [Paying for Rowsafe Cloud](#paying-for-rowsafe-cloud).
+- **Owner or admin:** runs right away, as them.
+- **Member:** refused, as in the dashboard.
+- **Left the organization:** refused. Their apps are disconnected; their API keys stop working for changes until revoked ([API keys](/docs/guides/teams#api-keys)).
+- **Owner-only stays owner-only**, like a [first payment](#paying-for-rowsafe-cloud).
 
-An agent never gets more than its person's rights, and only the one change it made runs. It can never change what AI agents may do.
+An agent never gets more than its person's rights, and can never change what AI agents may do.
 
 ### Agents that can't make changes yet
 
-- **An API key made by another API key**, for example with `rowsafe api-keys create`. No person made it, so **Settings → API keys** shows **Made by key ...**, and Rowsafe refuses its changes. Make the key in the dashboard, or use `rowsafe login`.
-- **An API key that doesn't say who made it** (*Made before Rowsafe recorded who made keys*). Make a new one in the dashboard.
-- **Apps and keys from before agents could act as their person**, until that person lets them. See [Apps and keys connected earlier](#apps-and-keys-connected-earlier).
+- **An API key made by another key** (like `rowsafe api-keys create`; shown as **Made by key ...**). Make the key in the dashboard, or use `rowsafe login`.
+- **A key that doesn't say who made it** (*Made before Rowsafe recorded who made keys*). Make a new one.
+- **Apps and keys connected before agents could act as their person**, until that person [allows it](#apps-and-keys-connected-earlier).
 
-They can still read, and do [what agents do without anyone](#what-agents-do-without-anyone-always).
+They can still read and do [what agents do without anyone](#what-agents-do-without-anyone-always).
 
 ### What agents do without anyone, always
 
-Reading what the dashboard shows, saving Marks, running backups, Proof and checks, previewing migrations, making masked [safe copies](/docs/guides/safe-copies) and acknowledging alerts never touch production. Agents with write access do these themselves, whatever the setting.
+What never touches production, agents with write access do themselves: reading, saving Marks, backups, Proof, checks, migration previews, masked [safe copies](/docs/guides/safe-copies), acknowledging alerts.
 
 ## What an agent can change
 
@@ -52,115 +53,103 @@ Reading what the dashboard shows, saving Marks, running backups, Proof and check
 | Files and alerts | Restore files and undo it, change an alert rule |
 | Rowsafe Cloud | Create a server, change who can connect, change a server's size, clone a database to a new server, delete a server |
 
-The agent's `describe_change` tool lists them with their parameters, and says what would make Rowsafe refuse one. Creating or rebuilding a standby, starting a move and forking need a person, who compares the server's key ([below](#when-rowsafe-refuses)).
+The agent's `describe_change` tool lists them with their parameters. Creating a standby, starting a move and forking need a person ([below](#when-rowsafe-refuses)).
 
-Each change gets its own page in the dashboard (**Settings → AI agents**, **Done by AI agents**): what changed, written by Rowsafe; the agent's reason, labeled as its words; the risk (*Apps won't notice*, *Apps may notice* or *Replaces data*); who it ran as; and the result, with the tasks it started.
+Each change gets its own page under **Settings → AI agents** (**Done by AI agents**): what changed, the agent's reason, the risk, who it ran as, and the result.
 
 ### Rowsafe Cloud changes
 
-An agent can create a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server for the app it's building, and later change it (see [Need a database?](/docs/guides/ai-agents#need-a-database)). It tells you what will happen and the price first. The change's page then shows:
+An agent can create a [Rowsafe Cloud](/docs/guides/rowsafe-cloud) server for its app and change it later ([Need a database?](/docs/guides/ai-agents#need-a-database)), telling you the price first. Good to know:
 
-| Change | What it says |
+| Change | |
 |---|---|
-| **Create a server** | Where it runs (cloud and region), the size, the price per hour and the most it costs a month (a standby doubles it), the traffic included, who can connect, and how it's paid. |
-| **Change who can connect** | The whole new list of addresses, and which addresses got cut off. |
-| **Change a server's size** | The old and the new price. Rowsafe saves a Mark first. The database is offline for a few minutes while the server restarts (with a standby, writes pause for a few seconds instead). The disk never shrinks. |
-| **Clone to a new server** | The database and the moment it copies (now, a second or a Mark), the new server's size and price, and when Rowsafe deletes it. The clone holds real data, not masked, and costs money until it's deleted. |
-| **Delete a server** | The server, and the bill that stops. Rowsafe types the server's name for the agent. It refuses to delete a server whose backup passphrase was never saved (clones aside): without it, its backups can't be restored. |
-
-An address that lets **everyone on the internet** try to connect (`0.0.0.0/0` or `::/0`) gets its own warning, and so does a very wide range.
+| **Create a server** | The page shows region, size, price per hour and the most per month (a standby doubles it), who can connect, and how it's paid. |
+| **Change who can connect** | Opening to everyone (`0.0.0.0/0` or `::/0`) or a very wide range gets its own warning. |
+| **Change a server's size** | A Mark first. A few minutes offline while the server restarts (with a standby, writes pause a few seconds). The disk never shrinks. |
+| **Clone to a new server** | Real, unmasked data. Costs money until Rowsafe deletes it, at the time you chose. |
+| **Delete a server** | Refused if its backup passphrase was never saved (clones aside), since its backups couldn't be restored. |
 
 ### Paying for Rowsafe Cloud
 
-- **Pay as you go is on:** the server is created right away and billed by the hour, like any Rowsafe Cloud server. See [How billing works](/docs/guides/rowsafe-cloud#how-billing-works).
-- **Pay as you go isn't on yet** (or the cloud is billed by the month, like OVHcloud Value): **only owners pay.** An owner's agent gets a checkout link and gives it to you; the server is created once it's paid. An admin's or member's agent is refused: an owner creates it, or turns on pay as you go first.
+- **Pay as you go is on:** created right away, billed by the hour ([How billing works](/docs/guides/rowsafe-cloud#how-billing-works)).
+- **Not on yet, or billed by the month (like OVHcloud Value): only owners pay.** An owner's agent gives you a checkout link; the server is created once paid. An admin's or member's agent is refused: an owner creates it, or turns on pay as you go first.
 
 Nothing is created or billed before it's paid for.
 
 ## The team setting
 
-An owner chooses what AI agents may do in **Settings → AI agents**. Only an owner can change it, and only in the dashboard. Admins and members see it but can't change it. No AI agent, connected app or API key can change it, whatever its access.
+Only an owner chooses, in **Settings → AI agents** (never an agent, app or API key):
 
 | Choice | What happens |
 |---|---|
-| **Act right away as the person who connected them** (the default) | As above: an agent makes changes right away, as its person, with their rights. An optional monthly budget limits what agents' servers cost. |
-| **Within a budget** | Any agent can create Rowsafe Cloud servers right away, on behalf of the owner who chose this. On a server an agent created this way, it can also create a database for an app, change who can connect and make a copy on a new server. All while what agents' servers cost stays within the monthly budget. Everything else runs as the agent's own person, as with the default. |
+| **Act right away as the person who connected them** (the default) | Agents act as their person. An optional monthly budget limits what agents' servers cost. |
+| **Within a budget** | Any agent can create Rowsafe Cloud servers on behalf of the owner who chose this, and on those servers create an app database, change who can connect and clone. Within the budget. Everything else runs as the agent's own person. |
 
-Choosing **Within a budget**, or raising the budget, shows what agents will then be able to do, and asks you to confirm.
-
-With **Within a budget**, Rowsafe checks before each change that the owner who chose it is still an owner. If they left or became an admin or member, the setting goes back to the default (the budget stays) and every owner gets an email.
+If that owner stops being an owner, the setting goes back to the default (the budget stays) and every owner gets an email.
 
 ## The budget and what counts
 
-A monthly budget for agents is **optional** with the default choice (there's none until an owner sets one) and **required** with **Within a budget**. Set it on the same page, in US dollars. Settings → AI agents shows what agents' servers cost now, the budget left, and every server it counts. What counts:
+Optional with the default, required with **Within a budget**. Set it in US dollars in **Settings → AI agents**, which shows what agents' servers cost now.
 
-- the monthly price of every live Rowsafe Cloud server an agent created, new servers and clones alike, standbys included (for a server billed by the hour, the most a month can cost);
-- what an agent's resize added to a server a person created: only the difference between the two sizes. While a resize runs, the server counts at the size it's moving to.
+- **Counts:** every live Rowsafe Cloud server an agent created, clones and standbys included, at the most a month can cost; and what an agent's resize added to a person's server.
+- **Doesn't count:** servers people created, and servers waiting for payment.
 
-Servers people created don't count. A server waiting for payment doesn't count either.
-
-Before each change that adds to the bill, Rowsafe adds it to what agents' servers cost now. If that goes over the budget, Rowsafe refuses it, with the reason: for example *Over the $50 agent budget: the servers AI agents created cost $40 a month now, and this adds $20*. With a budget, Rowsafe checks one agent change at a time per organization, so two agents can't both slip under it at once, and sizes not priced in US dollars are refused: a person makes those in the dashboard.
-
-Raise the budget, or delete servers you don't need, to make room.
+A change that would go over is refused, with the numbers (*Over the $50 agent budget: ...*). Rowsafe checks one agent change at a time per organization, so two agents can't both slip under it. Sizes not priced in US dollars are refused (a person makes those in the dashboard). To make room, raise the budget or delete servers.
 
 ## When Rowsafe refuses
 
-Rowsafe refuses an agent's change, and nothing changes, when:
+Nothing changes, and the agent tells you why, when:
 
-- **the person behind the agent is a member**, or left the organization, or the agent [can't make changes yet](#agents-that-cant-make-changes-yet);
-- **a first payment is needed and the person isn't an owner** (see [Paying for Rowsafe Cloud](#paying-for-rowsafe-cloud));
+- **the person is a member**, left, or the agent [can't make changes yet](#agents-that-cant-make-changes-yet);
+- **a first payment is needed** and the person isn't an owner;
 - **it would go over the agents' budget**;
-- **a server's key must be compared.** Creating or rebuilding a [standby](/docs/guides/standby), [moving](/docs/guides/move) a database and [forking](/docs/guides/fork) it need a person, who checks the key Rowsafe shows, in the dashboard or with the `rowsafe` CLI. That's what keeps your bucket settings sealed to your own servers;
-- **it replaces or deletes data and Rowsafe has no backup of the database yet.** The agent can take a backup (`run_backup`) and try again once it's done. Or the Rowsafe Cloud server's backup passphrase isn't saved: save it in the dashboard first;
-- **the password must be made in a person's browser:** a [database for an app](/docs/guides/databases-and-users#a-database-for-an-ai-agents-app) asked for by an app signed in with Rowsafe (such as the Claude Code and Codex plugins), and always on MySQL, MariaDB and ClickHouse. You create it in the dashboard (**Databases & users**). From a local `rowsafe mcp --allow-writes` on PostgreSQL, the password is made on your machine, so it runs right away;
-- **Rowsafe can't confirm the person's role right now.** It never guesses: try again in a minute. Rowsafe also turns away agent changes while it's busy with several others in your organization; the agent tries again a moment later.
-
-The agent gets *Rowsafe refused this change, and nothing changed:* followed by the reason, and tells you what you can do.
+- **a server's key must be compared:** creating or rebuilding a [standby](/docs/guides/standby), [moving](/docs/guides/move) or [forking](/docs/guides/fork) a database. A person checks it in the dashboard or the CLI, which keeps your bucket settings sealed to your own servers;
+- **it replaces or deletes data and there's no backup yet** (the agent can run `run_backup` and retry), or a Rowsafe Cloud server's backup passphrase isn't saved;
+- **the password must be made in a person's browser:** an [app database](/docs/guides/databases-and-users#a-database-for-an-ai-agents-app) asked for by an app signed in with Rowsafe, and always on MySQL, MariaDB and ClickHouse. Create it in **Databases & users**;
+- **Rowsafe can't confirm the person's role right now.** It never guesses: try again in a minute. (When busy with several agent changes in your organization, it also turns some away; the agent retries.)
 
 ## Safety nets that stay on
 
-- **The same path as your click.** Rowsafe records the change, writes up what it does, then makes the dashboard's own call as the person, with the same checks and confirmations. A restart, an update or a reboot still runs only on servers where root allowed it (see [Permissions](/docs/guides/permissions)).
-- **Marks first.** Changes that save a Mark before they run (a rewind, a fix that drops an index, a new size, an upgrade) still do.
-- **No destructive change without a backup.** A change that replaces or deletes data runs only when Rowsafe has a backup of the database to go back to.
-- **Rowsafe types the confirmation, and records it.** Where a person would type the database's or server's name, Rowsafe types it for the agent, and the audit log says so.
-- **Backups are never deleted for an agent.** When an agent removes a database from Rowsafe, its backups in [Rowsafe Storage](/docs/guides/rowsafe-storage#kept-for-you) are kept until an owner deletes them under **Settings → Storage → Kept for you**. A Rowsafe Cloud server an agent deletes keeps its backups too, as with any deleted server.
-- **A person compares server keys** for a standby, a move and a fork, as above.
-- **No secrets through agents.** Agents never set or see passwords, except an app database's password made on their own machine, which Rowsafe never sees.
-- **No queries or commands.** Agents never run SQL or commands on production through Rowsafe, and never see what's inside your backups. They test on masked [safe copies](/docs/guides/safe-copies).
-- **The agent checks with you first.** Rowsafe's MCP server and the plugins' skills tell agents to make only the changes you asked for or agreed to, and to say what will happen and what it costs before anything disruptive, destructive or paid.
+- **The same path as your click**, with the same checks. Restarts, updates and reboots still need root's OK on the server ([Permissions](/docs/guides/permissions)).
+- **Marks first** before risky changes (a rewind, dropping an index, a resize, an upgrade).
+- **No destructive change without a backup.**
+- **Rowsafe types confirmations** (a database's or server's name) for the agent, and the audit log says so.
+- **Backups are never deleted for an agent.** A database it removes keeps its backups until an owner deletes them ([Kept for you](/docs/guides/rowsafe-storage#kept-for-you)); so does a Rowsafe Cloud server it deletes.
+- **No secrets.** Agents never set or see passwords, except an app database's password made on their own machine.
+- **No SQL or commands** on production through Rowsafe, and no look inside your backups. Agents test on masked [safe copies](/docs/guides/safe-copies).
 
 <Callout type="warn" title="Rowsafe can't tell what you asked the agent for">
-  Rowsafe checks the change, the person's role, the budget and the backups, not the conversation. An agent can still misunderstand you. An owner's or admin's agent can restart a database, rewind it or delete a server, within the limits above. Give apps **Act for you**, and API keys write access, only where you want that.
+  Rowsafe checks the change, the role, the budget and the backups, not the conversation. An agent can misunderstand you, and an owner's or admin's agent can restart, rewind or delete a server. Give apps **Act for you**, and keys write access, only where you want that.
 </Callout>
 
 ## Know what agents did
 
-- **In the audit log:** each change by the person through their agent, like *ana@example.com through their AI agent Claude*.
-- **In the dashboard:** **Settings → AI agents** lists what agents did (**Done by AI agents**), each with its own page, plus the servers agents created and what they cost. **Home** shows a banner, *Done by AI agents in the last 24 hours*.
-- **By email:** owners get a digest of what agents did, once no new change came for 15 minutes, and at most an hour after the first. Each owner can turn theirs off under **Settings → AI agents** (**Email me a digest of what AI agents did**).
-- **The agent says so.** `get_org` tells the agent who it acts as, `describe_change` says what would make Rowsafe refuse a change, and the change itself answers *Done* with the result in the same call. See the [MCP reference](/docs/reference/mcp#changes-to-production).
+- **Audit log:** *ana@example.com through their AI agent Claude*.
+- **Dashboard:** **Settings → AI agents** (**Done by AI agents**), and a banner on **Home** for the last 24 hours.
+- **Email:** owners get a digest (at most an hour after the first change). Turn yours off in **Settings → AI agents**.
+- **The agent:** `get_org` tells it who it acts as; each change answers with its result ([MCP reference](/docs/reference/mcp#changes-to-production)).
 
 ## Apps and keys connected earlier
 
-Apps connected and API keys made before AI agents could act as their person can't make changes until their person says so:
+They show **Can't make changes yet** until their person allows it:
 
-- **A connected app:** **Settings → Connected apps** shows **Can't make changes yet**. The person who connected it clicks **Let it act as me**. Or connect the app again.
-- **An API key, or the CLI's login:** **Settings → API keys** shows the same note. The person who made it clicks **Let agents using it act as me**. Or make a new key, or run `rowsafe login` again.
+- **An app:** in **Settings → Connected apps**, click **Let it act as me**, or connect it again.
+- **An API key or CLI login:** in **Settings → API keys**, click **Let agents using it act as me**, or make a new key or run `rowsafe login` again.
 
-Only that person can do it, signed in to the dashboard, and it's in the audit log. The button explains exactly what the app will be able to do first.
+Only that person can do it.
 
 ## Stop an agent
 
-- **One app:** **Settings → Connected apps**, **Disconnect**. It loses access right away.
+- **One app:** **Settings → Connected apps**, **Disconnect**. Access ends right away.
 - **One key:** **Settings → API keys**, revoke it.
-- **What agents' servers cost:** an owner sets a monthly budget in **Settings → AI agents**. Servers agents already created keep running; delete the ones you don't need on their page.
+- **Cost:** set a monthly budget in **Settings → AI agents**, and delete servers you don't need.
 
-To let an agent only read, connect the app without **Act for you**, or give it a read-only key.
+To let an agent only read, connect it without **Act for you**, or use a read-only key.
 
 ## Limits
 
-- Agents create servers in Rowsafe Cloud only, never in [your own cloud account](/docs/guides/create-a-server).
-- The budget is in US dollars, and a monthly rate, not a total: a server billed by the hour costs money from the hour it's created until it's deleted. Deleting a server frees its share of the budget.
-- With **Within a budget**, only creating servers (and the changes above on those servers) runs on the owner's behalf. Resizing or deleting a server runs as the agent's own person.
-- An app acts for the one organization picked when it was connected; an API key for its own organization.
-- The budget applies to AI apps and to `rowsafe mcp`. A read-write API key used directly, by the `rowsafe` CLI or a script, acts like the dashboard, with the rights of the person who made it now: if they're a member it only reads, if they left it changes nothing.
+- Agents create servers only in Rowsafe Cloud, never in [your own cloud account](/docs/guides/create-a-server).
+- The budget is a monthly rate, not a total: an hourly server costs money until it's deleted. Deleting a server frees its share.
+- With **Within a budget**, resizing or deleting a server runs as the agent's own person.
+- An app acts for the one organization picked when it connected; an API key for its own.
+- The budget applies to AI apps and `rowsafe mcp`. A read-write API key used directly (CLI, scripts) acts like the dashboard, with its maker's current rights.

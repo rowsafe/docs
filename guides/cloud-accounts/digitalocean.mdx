@@ -1,13 +1,9 @@
 ---
 title: Connect DigitalOcean
-description: Create a DigitalOcean personal access token, with Full Access or only the scopes Rowsafe needs, so Rowsafe can create database servers (Droplets) there for you. What the token lets Rowsafe do, and how to revoke it.
+description: Give Rowsafe a DigitalOcean personal access token so it can create database servers (Droplets) there.
 ---
 
-<Callout type="info">
-  **New:** tell us if anything in these steps doesn't match what you see, at hello@rowsafe.sh.
-</Callout>
-
-To [create servers for you](/docs/guides/create-a-server) in DigitalOcean, Rowsafe needs a **personal access token**. You create it in DigitalOcean and paste it into the dashboard once. It takes about two minutes.
+To [create servers for you](/docs/guides/create-a-server) in DigitalOcean, Rowsafe needs a **personal access token**. It takes about two minutes.
 
 ## Create the token
 
@@ -16,32 +12,30 @@ To [create servers for you](/docs/guides/create-a-server) in DigitalOcean, Rowsa
 
 ### Choose the team
 
-Sign in to [DigitalOcean](https://cloud.digitalocean.com). A token reaches everything in its team, so if you like, create a new team just for the databases Rowsafe creates: nothing else is then in reach.
+Sign in to [DigitalOcean](https://cloud.digitalocean.com). A token reaches its whole team, so you may want a new team just for these databases.
 
 </Step>
 <Step>
 
 ### Generate the token
 
-Open **API** in the left menu, then **Tokens**, and click **Generate New Token**. Name it `Rowsafe` and pick an expiration: **No expiry**, or a date you'll remember to renew.
-
-Choose **Custom Scopes** with the scopes listed [below](#what-access-this-gives-rowsafe), or **Full Access**.
+Open **API**, then **Tokens**, and click **Generate New Token**. Name it `Rowsafe` and pick an expiration (**No expiry**, or a date you'll remember). Choose **Custom Scopes** with the [scopes below](#what-access-this-gives-rowsafe), or **Full Access**.
 
 </Step>
 <Step>
 
 ### Paste it into Rowsafe
 
-Click **Generate Token** and copy it right away: DigitalOcean shows it only once. In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account**, choose **DigitalOcean**, paste the token into **Personal access token**, give the account a name your team will recognize, and click **Connect**.
+Click **Generate Token** and copy it now: DigitalOcean shows it only once. In the dashboard, open **Settings → Cloud accounts** (or **Create a server for me**) and click **Connect a cloud account**. Choose **DigitalOcean**, paste the token into **Personal access token**, name the account and click **Connect**.
 
 </Step>
 </Steps>
 
-Rowsafe checks the token before it saves it: that it works, that the account is active, and that it can write, without creating anything that costs money (it adds the free tag `rowsafe`). A read-only token is refused, with what to do.
+Rowsafe checks the token first, without creating anything that costs money (it adds the free tag `rowsafe`). A read-only token is refused.
 
 ## What access this gives Rowsafe
 
-With **Custom Scopes**, these are all Rowsafe needs:
+With **Custom Scopes**, Rowsafe needs only these:
 
 ```text
 account:read
@@ -55,25 +49,25 @@ ssh_key:create, ssh_key:read
 tag:create, tag:read
 ```
 
-They apply to the whole team: DigitalOcean doesn't limit a token to one project. With **Full Access**, the token could do anything in the team.
+Scopes apply to the whole team (DigitalOcean can't limit a token to one project). **Full Access** could do anything in the team.
 
-Rowsafe itself only touches what it creates for your servers, all tagged `rowsafe`:
+Rowsafe only touches what it creates, all tagged `rowsafe`:
 
-- **Droplets** (Debian 13, or 12 where 13 isn't offered), created, resized and deleted only when someone in your organization clicks and confirms;
-- **cloud firewalls**, one per server, that let in only the addresses you chose;
-- **SSH keys**, only the public keys you give it when you create a server. Rowsafe never adds its own.
+- **Droplets** (Debian 13, or 12 where 13 isn't offered), only when someone clicks and confirms;
+- **cloud firewalls**, one per server, letting in only your addresses;
+- **SSH keys**, only the ones you give it. Never its own.
 
-The token is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
 
 ## Revoke it
 
-- **In DigitalOcean:** **API**, **Tokens**, and delete the `Rowsafe` token. It stops working at once.
-- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the token; nothing in your DigitalOcean account changes. You can remove an account once its servers are deleted.
+- **In DigitalOcean:** **API**, **Tokens**: delete the `Rowsafe` token. It stops working at once.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove** (once its servers are deleted). Nothing in DigitalOcean changes.
 
-After you revoke the token, or when it expires, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their firewall or delete them. Do that in the DigitalOcean control panel.
+After you revoke it, or it expires, your servers keep running and stay protected. Resize, firewall changes and deletes then happen in the DigitalOcean control panel.
 
 ## Good to know
 
-- Prices in the dashboard are DigitalOcean's own. Your DigitalOcean bill is what counts.
-- DigitalOcean limits how many Droplets an account can have. If you reach the limit, Rowsafe says so: delete one you don't use, or ask DigitalOcean support to raise it.
-- DigitalOcean can't make a Droplet's disk smaller, so resizing offers only sizes with at least the same disk.
+- Prices are DigitalOcean's own. Your DigitalOcean bill is what counts.
+- If you reach DigitalOcean's Droplet limit, Rowsafe says so: delete one, or ask DigitalOcean to raise it.
+- Disks can't shrink, so resizing offers only sizes with at least the same disk.

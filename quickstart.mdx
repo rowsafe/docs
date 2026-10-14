@@ -156,7 +156,9 @@ Then log in. This opens the dashboard in your browser, where you confirm a code:
 rowsafe login
 ```
 
-Over SSH, or with `--no-browser`, open the printed link on any device. Then, for example:
+Over SSH there's no browser on the server, so `rowsafe login` prints a link instead: open it on your laptop or phone and confirm the code. `--no-browser` does the same anywhere.
+
+Once you're logged in, try:
 
 ```sh
 rowsafe status app      # is it protected?

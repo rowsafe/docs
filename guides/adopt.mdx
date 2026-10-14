@@ -84,6 +84,14 @@ curl -fsSL https://rowsafe.sh | sudo sh
 
 It prints a link that opens the approval page with its code filled in. Check that the code matches your terminal and approve the server; you need to be an admin or owner of the organization. Approving gives this server a single-use enrollment token, never an API key.
 
+**Or from your own computer** (macOS or Linux, with the [CLI](/docs/reference/cli#install) logged in), over SSH, with nothing to copy or approve:
+
+```sh
+rowsafe hosts add root@203.0.113.10
+```
+
+It connects with your SSH login (any user with `sudo` works; `-p PORT`, `-i KEY`, or a name from `~/.ssh/config`), checks the server, makes a one-time enrollment token for it and runs the same installer there. Its questions appear in your terminal. The token never shows up in a command line on the server. Installer options go after `--`, for example `rowsafe hosts add root@203.0.113.10 -- --storage rowsafe`.
+
 To skip the approval (or without a terminal), use the command from **Servers**, then **Add a server**, in the dashboard: it holds a one-time enrollment token, valid for one hour. (From the CLI: `rowsafe hosts enroll-token`.)
 
 ```sh

@@ -389,6 +389,7 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 | Command | What it does |
 |---|---|
 | `rowsafe hosts list` | Hosts with agent version and update state. |
+| `rowsafe hosts add [USER@]SERVER` | Install the agent on a Linux server over SSH from this computer (macOS or Linux): one SSH login (`-p PORT`, `-i KEY`, or a name from `~/.ssh/config`), a fresh one-time token passed without ever appearing in a command line, then the [installer](/docs/reference/agent-configuration#installer) with its questions in your terminal (`sudo` unless you log in as root). Installer options after `--`. Without `SERVER`, on a Linux server, installs here. |
 | `rowsafe hosts enroll-token` | A one-time token and the install command for a new host. `--ttl` (default `1h`, from 1 minute to 7 days). |
 | `rowsafe hosts pin HOST VERSION` | Keep a host's agent on `VERSION`. |
 | `rowsafe hosts unpin HOST` | Follow the host's update channel again. |

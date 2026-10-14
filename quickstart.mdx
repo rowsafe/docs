@@ -150,15 +150,13 @@ curl -fsSL https://rowsafe.sh/cli | sh
 
 It picks the right build, checks it, and puts `rowsafe` on your `PATH`. Run it again to update. Other ways: [Install the CLI](/docs/reference/cli#install).
 
-Then log in. This opens the dashboard in your browser, where you confirm a code:
+Then log in:
 
 ```sh
 rowsafe login
 ```
 
-Over SSH there's no browser on the server, so `rowsafe login` prints a link instead: open it on your laptop or phone and confirm the code. `--no-browser` does the same anywhere.
-
-Once you're logged in, try:
+Then, for example:
 
 ```sh
 rowsafe status app      # is it protected?

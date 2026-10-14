@@ -36,7 +36,7 @@ A file downloaded with a browser on a Mac is blocked the first time ("cannot be 
 </Accordion>
 </Accordions>
 
-Log in with `rowsafe login`: it opens the dashboard in your browser, where you confirm a code. Over SSH, or with `--no-browser`, open the printed link on any device.
+Log in with `rowsafe login`.
 
 ## Help
 
@@ -65,7 +65,6 @@ Commands that take `[NAME]` find the database like this:
 | Command | What it does |
 |---|---|
 | `rowsafe login` | Log in with your browser: confirm the code shown in the terminal. Saves a new API key. |
-| `rowsafe login --no-browser` | Print the link instead of opening a browser (automatic over SSH). |
 | `rowsafe login --key rsk_...` | Log in with an existing API key (CI, scripts). |
 | `rowsafe login --url URL` | Use another API URL. Default `https://api.rowsafe.sh`. |
 | `rowsafe logout` | Forget the login and revoke the key `rowsafe login` created. `--keep-key` keeps it valid. |

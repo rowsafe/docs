@@ -1,0 +1,110 @@
+---
+title: Backups to your own server (SFTP)
+description: Keep PostgreSQL backups on a Hetzner Storage Box or any server you reach over SSH, encrypted before they leave your database server.
+---
+
+Instead of a bucket, Rowsafe can keep your backups on a server of your own
+over SFTP: a Hetzner Storage Box, a NAS, or any Linux server you can reach
+with SSH. Everything else stays the same: continuous backups, Rewind to any
+second, Marks, and the weekly Proof.
+
+- **Encrypted first.** Backups are encrypted on your database server with
+  your passphrase before they're sent. The backup server only ever holds
+  encrypted files.
+- **No password in Rowsafe.** The install command makes an SSH key on your
+  database server. You add its public key to the backup server. The private
+  key never leaves your database server, and Rowsafe never sees it.
+- **Pinned identity.** The first connection remembers the backup server's
+  host key (or checks the one you give). If the server ever shows another
+  key, backups stop instead of connecting.
+
+## Limits
+
+- **PostgreSQL only, for now.** MySQL, MariaDB, MongoDB and the other
+  engines use a bucket or Rowsafe Storage.
+- **First storage only.** A second copy still goes to a bucket.
+- **Not yet with SFTP storage:** standby servers, forks and clones to another
+  server (that server would need the backups' SSH key), and Files (backups
+  of folders). The dashboard hides them for such a database. Rowsafe Storage
+  and an SFTP server can't be combined either: choose one.
+- **pgBackRest 2.48 or later** on the database server (the installer checks
+  and says how to update it).
+- **No price estimate.** Rowsafe doesn't know what your server costs, so the
+  Storage tab shows the space used, not a monthly cost.
+- **Use another machine.** Backups on the database server itself are lost
+  with it. Pulse warns when the backup server is the database server.
+
+## Hetzner Storage Box
+
+1. In the [Hetzner Console](https://console.hetzner.com/), open your Storage
+   Box and turn on **SSH support**. If your database server isn't at Hetzner,
+   turn on **External reachability** too.
+2. Note the box's **username**, like `u123456`. The server is
+   `u123456.your-storagebox.de` and the port is `23`.
+3. In Rowsafe, choose **Your own server (SFTP)** → **Hetzner Storage Box**,
+   type the username and, if you like, change the folder (default
+   `/home/rowsafe`). The install command fills in by itself.
+4. Run the command on your database server. The first run makes the SSH key,
+   shows its public key and how to add it, then stops:
+   - type the one command it shows, with the Storage Box password once (in
+     your terminal, not in Rowsafe), or
+   - add the key under your Storage Box's **SSH keys** in the Hetzner Console.
+5. Run the same command again. It checks the box, writes, reads and deletes a
+   test file, and goes on with the usual setup: the passphrase, PostgreSQL,
+   the first full backup.
+
+## Any server with SSH
+
+1. On the backup server, make a user for backups, like `rowsafe`, and a
+   folder it owns, like `/srv/backups/rowsafe`.
+2. Make sure your database server can reach the backup server's SSH port
+   (usually `22`).
+3. In Rowsafe, choose **Your own server (SFTP)** → **Any server with SSH** and
+   fill in the server, port, user and folder. Optional: paste the server's
+   host key fingerprint (`SHA256:...`, from `ssh-keygen -lf` on the backup
+   server) so the first connection is checked too.
+4. Run the command on your database server. The first run shows the public
+   key and stops: add it as one line to `~/.ssh/authorized_keys` of that user
+   on the backup server.
+5. Run the same command again. It tests the folder and finishes the setup.
+
+The install command carries these settings as environment variables, if you
+prefer to write it yourself:
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo ROWSAFE_REPO_TYPE=sftp \
+  ROWSAFE_REPO_SFTP_HOST=u123456.your-storagebox.de ROWSAFE_REPO_SFTP_PORT=23 \
+  ROWSAFE_REPO_SFTP_USER=u123456 ROWSAFE_REPO_SFTP_PATH=/home/rowsafe sh -s <token>
+```
+
+Optional: `ROWSAFE_REPO_SFTP_HOST_KEY` (a `SHA256:...` fingerprint or a
+`known_hosts` line) and `ROWSAFE_REPO_SFTP_KEY_FILE` (where the SSH key is
+made; default `/etc/rowsafe/pgbackrest/sftp_ed25519`, readable only by the
+backup user).
+
+## In the dashboard
+
+- **Storage tab** of the database: "Your server", its address and folder,
+  and the space used.
+- **Settings → Storage**: each server shows where its backups go, with
+  **Move to another destination** (done on the server with
+  `--setup-storage`, because its keys stay there; Rowsafe then takes a new
+  full backup in the new place).
+
+## If something goes wrong
+
+- **The SFTP server no longer accepts this server's key.** The key isn't
+  in the backup server's allowed keys, or was removed. Add the public key
+  again (run the installer with `--setup-storage` to see it), then press
+  **Try again**.
+- **The SFTP server's host key changed: check it with your provider.** The server showed another host
+  key than the one pinned at setup. If you reinstalled or replaced it, run
+  the installer with `--setup-storage` to trust the new key. If you didn't,
+  don't: check with your provider first. Nothing was sent.
+- **Your server can't reach the backup server.** Check the host and port
+  (23 for a Storage Box), and that outgoing SSH isn't blocked by a firewall.
+- **The backup folder wasn't found / refused access.** Create the folder on
+  the backup server, or give the SSH user read and write access to it.
+- **Backups are on the server they protect.** The backup server's address is
+  the database server's own. Point backups at another server, or add a second
+  copy in a bucket.

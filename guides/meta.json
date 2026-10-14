@@ -4,6 +4,7 @@
     "---Set up---",
     "storage",
     "rowsafe-storage",
+    "sftp",
     "second-copy",
     "adopt",
     "create-a-server",

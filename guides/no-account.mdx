@@ -1,0 +1,59 @@
+---
+title: "Pulse without an account"
+description: Check any PostgreSQL database from your computer with the rowsafe CLI, and fix what it finds. No account, no agent, nothing sent anywhere.
+---
+
+The `rowsafe` CLI can check a PostgreSQL database directly, with its connection string. You get the same 0–100 health score and the same fixes as in the dashboard, without signing up or installing anything on the server.
+
+```sh
+curl -fsSL https://rowsafe.sh/cli | sh
+rowsafe pulse postgres://user@host:5432/dbname
+```
+
+Or put the connection string in `DATABASE_URL` and run `rowsafe pulse` on its own. When you're logged in, `DATABASE_URL` is left alone; use `ROWSAFE_DATABASE_URL` or pass the string.
+
+Nothing is sent to Rowsafe: the CLI reads the database and works out the score on your computer.
+
+## What it checks
+
+- **Connections:** how many are in use, and sessions left idle inside a transaction.
+- **Cleanup:** tables whose dead rows autovacuum isn't clearing, transaction ID wraparound, long transactions, and wasted space (bloat).
+- **Speed:** queries stuck waiting for a lock, reads that miss the memory cache, unused and duplicate indexes, tables that may be missing an index, and settings that don't suit the server.
+- **Replication:** abandoned replication slots holding the change log, and replicas falling behind.
+- **Disk space**, when the database runs on the same computer as the CLI and you connect as a superuser.
+
+Each finding says what's wrong in plain words and what to do. The score works like the dashboard's: see [Monitoring](/docs/guides/monitoring).
+
+## Fix what it finds
+
+```sh
+rowsafe fix postgres://user@host:5432/dbname
+```
+
+It lists what Rowsafe can fix and asks which one: clean up tables, freeze the oldest ones, rebuild a bloated index, drop an unused or duplicate index, stop a query or end a stuck session, drop an abandoned replication slot, or tune settings. Fixes that end a session or remove something ask you to type the database name. `--yes` skips the questions (scripts).
+
+Before anything changes, Rowsafe checks the database again: a fix runs only if a fresh check still proposes it, and every table, index and session is looked up again. After dropping an index, Rowsafe prints its definition so you can create it again.
+
+## More commands
+
+| Command | What it does |
+|---|---|
+| `rowsafe insights CONN` | Largest tables, unused and duplicate indexes, bloat, dead rows, transaction ID age. |
+| `rowsafe top CONN` | The queries that took the most time (needs [pg_stat_statements](/docs/guides/tuning)). |
+| `rowsafe activity CONN` | Queries running, or idle in a transaction, for over a minute. |
+| `rowsafe settings CONN` | The settings that matter: value, default, where it's set. |
+| `rowsafe tune CONN` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload. Nothing restarts. |
+| `rowsafe mcp CONN` | The same as tools for AI assistants (Claude Code, Codex, Cursor). Read-only; `--allow-writes` adds `apply_fix`. |
+
+`CONN` is the connection string. Every command takes `--json`.
+
+## Good to know
+
+- **Use the direct connection, not a pooler.** Connection poolers such as PgBouncer refuse the session settings Rowsafe uses to keep its reads short.
+- **Any user can check; changing settings needs a superuser.** Over a connection, Rowsafe can't see another server's memory or CPUs: pass `--memory 16GB --cpus 4` to `pulse` or `tune` for settings advice that fits.
+- **The connection string names one database**, and Rowsafe looks at that one.
+- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass`. `rowsafe` never prints them.
+
+## What needs the agent
+
+Backups, restore to any second ([Rewind](/docs/concepts/restore-points)), the weekly restore test (Proof), alerts, history (which queries got slower, disk forecasts) and one-click fixes from the dashboard need the Rowsafe agent on your server. [Quickstart](/docs/quickstart) sets it up.

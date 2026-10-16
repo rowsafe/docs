@@ -49,6 +49,10 @@ rowsafe version
 
 Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes`).
 
+## Without an account
+
+`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly: pass its connection string instead of `NAME` (`rowsafe pulse postgres://user@host:5432/dbname`), or set `DATABASE_URL` and leave it out (used when you aren't logged in). Nothing is sent to Rowsafe. See [Pulse without an account](/docs/guides/no-account).
+
 ## Database names
 
 `[NAME]` is found in this order:
@@ -442,6 +446,8 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 | `ROWSAFE_API_KEY` | An API key instead of the saved login. |
 | `ROWSAFE_URL` | An API URL instead of the saved one. Default `https://api.rowsafe.sh`. |
 | `ROWSAFE_DATABASE` | The database when `NAME` is left out, and for `guard`. |
+| `ROWSAFE_DATABASE_URL` | A PostgreSQL connection string: `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` then work on it directly, [without an account](/docs/guides/no-account). |
+| `DATABASE_URL` | The same, only when you aren't logged in. |
 | `ROWSAFE_REQUIRE_PROTECTION` | For `guard`: `1` or `true` blocks destructive commands when the database isn't protected. Overrides `.rowsafe.json`. |
 
 ## `.rowsafe.json`

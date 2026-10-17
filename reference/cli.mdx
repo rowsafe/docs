@@ -389,7 +389,7 @@ Only on servers where the installer allowed updates. Through MCP, only for [an a
 | `rowsafe channels add --type pagerduty --name NAME [--routing-key KEY] [--region us\|eu]` | PagerDuty: the service's Events API v2 integration key. |
 | `rowsafe channels add --type opsgenie --name NAME [--api-key KEY] [--region us\|eu]` | Opsgenie: an API integration's key. |
 | `rowsafe channels add --type telegram --name NAME [--bot-token TOKEN] --chat-id ID` | Telegram: a bot token from @BotFather and a chat ID (or `@channel`). |
-| `rowsafe channels add --type ntfy --name NAME --topic TOPIC [--server URL] [--token tk_...]` | ntfy: `--server` defaults to `https://ntfy.sh`. |
+| `rowsafe channels add --type ntfy --name NAME --topic TOPIC [--server URL] [--token tk_...]` | ntfy: `--server` defaults to `https://ntfy.sh`. On a server without the dashboard, alerts go to Slack, Discord, ntfy or a webhook: [Alerts on the server](/docs/guides/no-account-server#alerts). |
 | `rowsafe channels remove ID` | Remove a channel. |
 | `rowsafe channels test ID` | Send a test notification now. |
 

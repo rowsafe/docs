@@ -51,7 +51,16 @@ Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes
 
 ## Without an account
 
-`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly: pass its connection string instead of `NAME` (`rowsafe pulse postgres://user@host:5432/dbname`), or set `DATABASE_URL` and leave it out (used when you aren't logged in). Nothing is sent to Rowsafe (unless you turn on [usage counts](#usage-counts), which never include your data). See [Pulse without an account](/docs/guides/no-account).
+`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly. Save it once, then use its name. Nothing is sent to Rowsafe (unless you turn on [usage counts](#usage-counts), which never include your data). See [Pulse without an account](/docs/guides/no-account).
+
+| Command | What it does |
+|---|---|
+| `rowsafe add NAME [CONN]` | Check that the database answers (read-only) and save its connection string on this computer, readable only by you. Without `CONN`: piped in, `--from-env VAR`, or the project's `DATABASE_URL` (asks first). `--no-check`, `--yes`, `--json`. |
+| `rowsafe use NAME` | Make `NAME` this project's database: writes the name, never the connection string, to `.rowsafe.json`. |
+| `rowsafe databases` | The saved databases: name, host, database, user. Also `rowsafe ls` when you aren't logged in. `--json`. |
+| `rowsafe forget NAME` | Delete a saved connection string. `--yes`. |
+
+Once, without saving: pass the connection string instead of `NAME` (`rowsafe pulse postgres://user@host:5432/dbname`), or set `DATABASE_URL` and leave it out (used when you aren't logged in).
 
 ## Database names
 
@@ -488,7 +497,7 @@ Names the project's database for the CLI, the MCP server and the guard hook:
 
 | Field | |
 |---|---|
-| `database` | The database's name in Rowsafe. |
+| `database` | The database's name in Rowsafe, or a name saved on this computer with `rowsafe add`. |
 | `require_protection` | For `guard` only: block destructive commands when the database isn't protected. |
 
-`rowsafe init app` writes it here, keeping other fields. Commands look in this directory, then each parent. It holds no secrets: commit it.
+`rowsafe init app` (or `rowsafe use app` for a saved database) writes it here, keeping other fields. Commands look in this directory, then each parent. It holds no secrets: commit it.

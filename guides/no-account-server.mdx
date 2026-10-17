@@ -39,7 +39,23 @@ The only thing the server fetches from Rowsafe is that release information (from
 - The dashboard, alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. Without an account, Rowsafe covers PostgreSQL for now.
 
-Commands that need an account say so. Connecting a server set up this way to an account is coming soon.
+Commands that need an account say so.
+
+## Connect it to an account later
+
+```sh
+sudo rowsafe login
+```
+
+After the usual login in the browser, it asks whether to connect this server to your account, then does it with nothing to reinstall:
+
+- The agent restarts and connects to the account. PostgreSQL doesn't restart: it keeps sending its changes to your bucket the whole time, so backups never stop.
+- Each database moves to the account under the same name, with its backups (the same files, in the same bucket), Proofs and Marks.
+- Rowsafe checks that each database's backups are already set up as before: nothing changes on PostgreSQL. If anything doesn't work out, the server is put back as it was, still backing up, and the command says what happened.
+
+It stops before changing anything if the account already has a database with the same name, or while a backup or Proof is running (try again once it's done). Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
+
+Once connected, `sudo rowsafe logout` only signs the CLI out: the server stays connected. To use it without an account again, run the installer with `--no-account`. The account then sees the server offline: remove it in the dashboard.
 
 ## Check any database too
 

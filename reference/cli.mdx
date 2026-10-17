@@ -80,6 +80,7 @@ Once, without saving: pass the connection string instead of `NAME` (`rowsafe pul
 | `rowsafe login` | Log in with your browser (confirm the code shown). Saves a new API key. |
 | `rowsafe login --key rsk_...` | Log in with an existing API key (CI, scripts). |
 | `rowsafe login --url URL` | Another API URL. Default `https://api.rowsafe.sh`. |
+| `sudo rowsafe login [--yes]` | On a server set up [without an account](/docs/guides/no-account-server#connect-it-to-an-account-later): also connects it to the account, with its backups, Proofs and Marks. |
 | `rowsafe logout` | Forget the login and revoke the key `login` created. `--keep-key` keeps it valid. |
 | `rowsafe whoami` | API URL, organization, plan and key in use. |
 | `rowsafe init [NAME]` | Write `.rowsafe.json` here, so this project uses `NAME`. |

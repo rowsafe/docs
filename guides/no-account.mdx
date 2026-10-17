@@ -116,7 +116,7 @@ Its limits:
 - **Through a connection pooler**, the temporary database usually can't be reached, so Rowsafe reads the SQL.
 - **No restore point:** back up before you run it, for example `pg_dump -Fc -f before.dump "$DATABASE_URL"`.
 
-### For AI agents
+### Migrations and AI agents
 
 - **`rowsafe mcp shop`** offers `check_migration`: agents check a migration's SQL before they run it. Read-only, it only reads the SQL; with `--allow-writes` it may use the temporary copy.
 - **The [guard hook](/docs/guides/ai-agents#the-guard-hook)** (`rowsafe guard`, in the Claude Code and Codex plugins): before a destructive command on the project's database (saved with `rowsafe use`, or `DATABASE_URL` in the environment or `.env`), it checks the command's SQL, read-only, and tells the agent there is no restore point to go back to, so the agent asks you first and suggests a backup.

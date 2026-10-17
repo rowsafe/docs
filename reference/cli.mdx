@@ -109,8 +109,10 @@ The login is saved, readable only by you, in `~/.config/rowsafe/config.json` (Li
 | `rowsafe apply [NAME]` | Apply the plan. Never restarts PostgreSQL. |
 | `rowsafe verify [NAME]` | Check now that changes reach your bucket (Rowsafe also does it once it notices the restart). Activates the schedules and queues the first full backup. |
 | `rowsafe restart NAME` | Restart PostgreSQL: a few seconds, open connections drop. Asks first; `--yes` skips. |
+| `rowsafe restart NAME --at TIME` | [Restart later](/docs/guides/monitoring#restart-now-or-later): `03:00` (the next one), `"2026-10-20 03:00"` (your time zone), `"in 2h"`, `2d` or RFC 3339, up to 30 days ahead. `--at window`: the next [maintenance window](/docs/guides/rowsafe-cloud#the-maintenance-window). Asks first; `--yes` skips. `--json`. CLI 0.10.23 or later. |
+| `rowsafe restart NAME --cancel` | Cancel the scheduled restart. |
 
-**`restart`** needs a server where install allowed restarts (`can_restart` is `true`, host online), and not Docker. Admins and owners only, never a read-only key, at most once every 2 minutes. A database in `awaiting_restart` then becomes `active` by itself.
+**`restart`** needs a server where install allowed restarts (`can_restart` is `true`, host online), and not Docker. Admins and owners only, never a read-only key, at most once every 2 minutes. A database in `awaiting_restart` then becomes `active` by itself. One scheduled restart per database: cancel it to pick another time.
 
 **`adopt` flags:**
 
@@ -237,6 +239,8 @@ Folders that go with a database, like uploads ([guide](/docs/guides/files)).
 | `rowsafe files restore [NAME] (--at TIME \| --mark LABEL)` | Bring files back; by default only missing ones. `--path REL` (repeatable) for listed paths, `--column DB:schema.table.column` for files a column points to, `--whole-folder` (kept for undo), `--overwrite` to also replace changed files, `--folder PATH` for one folder, `--preview` to only count. You type the database name unless `--yes`. |
 | `rowsafe files undo [NAME]` | Undo the last whole-folder restore. |
 | `rowsafe files proof [NAME]` | Restore a few files and compare them with the live ones, now. |
+
+With CLI 0.10.23 or later, add `--server SERVER` (hostname or ID, see `rowsafe hosts list`) instead of `NAME` for [a server's own files](/docs/guides/files#a-servers-own-files): any folder, or a Docker volume as `/var/lib/docker/volumes/VOLUME/_data`. For example `rowsafe files add --server web1 /srv/app/storage` or `rowsafe files restore --server web1 --at "14:04"`. A restore or undo asks you to type the server's hostname; `--column` is for databases only.
 
 ## Rewind
 
@@ -381,11 +385,15 @@ Only on servers where the installer allowed updates. Through MCP, only for [an a
 | `rowsafe activity NAME` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe channels list` | Notification channels. |
 | `rowsafe channels add --type email --name NAME --address A [--address B]` | Email channel. |
-| `rowsafe channels add --type slack\|discord\|webhook --name NAME --url URL` | Slack, Discord or webhook channel. A webhook prints its signing secret once. |
+| `rowsafe channels add --type slack\|discord\|teams\|webhook --name NAME --url URL` | Slack, Discord, Microsoft Teams or webhook channel. A webhook prints its signing secret once. |
+| `rowsafe channels add --type pagerduty --name NAME [--routing-key KEY] [--region us\|eu]` | PagerDuty: the service's Events API v2 integration key. |
+| `rowsafe channels add --type opsgenie --name NAME [--api-key KEY] [--region us\|eu]` | Opsgenie: an API integration's key. |
+| `rowsafe channels add --type telegram --name NAME [--bot-token TOKEN] --chat-id ID` | Telegram: a bot token from @BotFather and a chat ID (or `@channel`). |
+| `rowsafe channels add --type ntfy --name NAME --topic TOPIC [--server URL] [--token tk_...]` | ntfy: `--server` defaults to `https://ntfy.sh`. |
 | `rowsafe channels remove ID` | Remove a channel. |
 | `rowsafe channels test ID` | Send a test notification now. |
 
-`channels add` takes `--min-severity info|warning|critical` (default `warning`).
+`channels add` takes `--min-severity info|warning|critical` (default `warning`). Teams, PagerDuty, Opsgenie, Telegram and ntfy need CLI 0.10.23 or later. Keys and tokens can stay off the command line: leave out `--routing-key`, `--api-key` or `--bot-token` to type it (not shown) or pipe it, or pass `--secret-env VAR` to read it from an environment variable. A flag another type takes is refused, not ignored. On a server without an account: Slack, Discord, ntfy (without `--token`) or webhook.
 
 ## Connection pooling
 

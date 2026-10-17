@@ -92,9 +92,9 @@ claude plugin marketplace add rowsafe/rowsafe
 claude plugin install rowsafe@rowsafe
 ```
 
-It bundles Rowsafe's MCP server (sign in with `/mcp`), two skills (`rowsafe-safety` for the workflow, `rowsafe-new-database` for [a new database](#need-a-database)), and the [guard hook](#the-guard-hook). When you sign in, choose whether it may save Marks and **Act for you**.
+It bundles Rowsafe's MCP server (sign in with `/mcp`), three skills (`rowsafe-safety` for the workflow, `rowsafe-health` for health checks, which work [without an account](/docs/guides/no-account), and `rowsafe-new-database` for [a new database](#need-a-database)), and the [guard hook](#the-guard-hook). When you sign in, choose whether it may save Marks and **Act for you**.
 
-The hook, previews and safe copies need the `rowsafe` CLI, logged in: `curl -fsSL https://rowsafe.sh/cli | sh` ([CLI](/docs/reference/cli#install)). Without it, the MCP tools still work.
+The hook, previews and safe copies need the `rowsafe` CLI, logged in: `curl -fsSL https://rowsafe.sh/cli | sh` on macOS and Linux, a download on Windows ([CLI](/docs/reference/cli#install)). Without it, the MCP tools still work.
 
 </Tab>
 <Tab value="Codex plugin">
@@ -126,7 +126,7 @@ Other clients and the remote endpoint: [MCP reference](/docs/reference/mcp).
 </Tab>
 <Tab value="AGENTS.md only">
 
-Any agent that runs shell commands can follow the workflow with the CLI. Add the snippet below to your agent instructions.
+Any agent that runs shell commands can follow the workflow with the CLI. `rowsafe init app --yes` adds a short section to `AGENTS.md` (and `CLAUDE.md` if there is one) for you, keeping what's there; or add the snippet below to your agent instructions.
 
 </Tab>
 </Tabs>

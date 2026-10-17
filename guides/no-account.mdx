@@ -37,6 +37,8 @@ Give the connection string instead of a name, or put it in `DATABASE_URL` and ru
 rowsafe pulse postgres://user@host:5432/dbname
 ```
 
+On Windows, download `rowsafe-windows-amd64.exe` from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest) ([CLI](/docs/reference/cli#install)); everything here works there except `fix` and `tune --yes`, for now.
+
 When you're logged in, `DATABASE_URL` is left alone: pass the string or a saved name instead.
 
 Rowsafe picks the database in this order: a connection string; a saved name; the project's database (`.rowsafe.json` or `ROWSAFE_DATABASE`) when it's saved on this computer; `DATABASE_URL`. Logged in, a saved name works too, unless your account has a database with the same name: then Rowsafe uses the account's and says so.
@@ -75,6 +77,17 @@ Before anything changes, Rowsafe checks the database again: a fix runs only if a
 | `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor). Read-only; `--allow-writes` adds `apply_fix`. |
 
 Each takes a saved name, nothing in a project with one, or a connection string. Every command takes `--json`.
+
+## For AI agents
+
+The [Claude Code and Codex plugins](/docs/guides/ai-agents) include a `rowsafe-health` skill that runs these commands for you, without an account. For MCP tools instead, add the CLI's local server:
+
+```sh
+claude mcp add rowsafe-db -- rowsafe mcp "postgres://user@host:5432/dbname"   # Claude Code
+codex mcp add rowsafe-db -- rowsafe mcp "postgres://user@host:5432/dbname"    # Codex
+```
+
+A saved name works instead of the connection string (`rowsafe mcp shop`), and keeps the password out of the agent's settings. Cursor and other apps: a stdio server with command `rowsafe` and arguments `mcp` and the name or connection string.
 
 ## Good to know
 

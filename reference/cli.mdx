@@ -252,7 +252,7 @@ Same as the dashboard's **Rewind** page ([guide](/docs/guides/restore)). Owners 
 | `rowsafe rewind rows [NAME] TABLE...` | Bring back rows missing in production from the copy, after a Mark. `--include-changed` also resets changed rows to the copy's values. `--db DB`. You type the database name; `--yes` skips. |
 | `rowsafe rewind extend [NAME]` | Keep the copy longer: `--hours N` from now (default 24, at most 168). |
 | `rowsafe rewind drop [NAME]` | Delete the copy. Asks first; `--yes` skips. |
-| `rowsafe rewind database [NAME] (--at TIME \| --mark LABEL)` | Rewind the whole live database. PostgreSQL stops during the restore; current data is kept aside 7 days. Only on servers that allow it. You type the database name; `--yes` skips. |
+| `rowsafe rewind database [NAME] --to TIME\|MARK` | Rewind the whole live database (or `--at TIME`, `--mark LABEL`). A Mark first; PostgreSQL stops during the restore; current data is kept aside 7 days. Only on servers that allow restarts, also [on its own](/docs/guides/no-account-server#rewind-the-whole-database). You type the database name; `--yes` skips. |
 | `rowsafe rewind undo [NAME]` | Undo the latest rewind (put the data from before it back). You type the database name; `--yes` skips. |
 | `rowsafe rewind cleanup [NAME]` | Delete data kept aside by a rewind, to free disk. The rewind can't be undone after. Asks first; `--yes` skips. |
 

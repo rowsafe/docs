@@ -3,7 +3,7 @@ title: "Rowsafe on your server"
 description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, rewinds the whole database with Undo, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
@@ -52,6 +52,20 @@ sudo rowsafe rewind drop shop                # delete the copy (it goes by itsel
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
 
+### Rewind the whole database
+
+When the whole database has to go back:
+
+```sh
+sudo rowsafe rewind database shop --to "10m ago"   # or a time, or a Mark: --to before-migration
+sudo rowsafe rewind undo shop                      # put it back as it was before the rewind (7 days)
+sudo rowsafe rewind cleanup shop                   # delete the data kept aside, to free disk
+```
+
+You type the database's name first (`--yes` in scripts). Rowsafe saves a Mark, stops PostgreSQL, restores it to that point and starts it again: apps can't connect meanwhile. The data from before is kept aside on the server for 7 days. It needs the restart permission the installer asks for; without it, restore a copy and bring back rows instead.
+
+Restores, Proof and later rewinds keep working after a rewind or an undo: Rowsafe takes a full backup right after and follows PostgreSQL's history, so a copy at any second of the recovery window shows the data as it was then, even from before the rewind.
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -62,7 +76,6 @@ The only thing the server fetches from Rowsafe is that release information (from
 
 ## What the dashboard adds
 
-- Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 

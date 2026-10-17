@@ -1,6 +1,6 @@
 ---
-title: "Pulse without an account"
-description: Check any PostgreSQL, MySQL or MariaDB database from your computer with the rowsafe CLI, and fix what it finds. No account, no agent, nothing sent anywhere.
+title: "Pulse on any database"
+description: Check any PostgreSQL, MySQL or MariaDB database from your computer with the rowsafe CLI, and fix what it finds. No agent, nothing sent anywhere.
 ---
 
 The `rowsafe` CLI can check a PostgreSQL, MySQL or MariaDB database directly, with its connection string. You get the same 0–100 health score and the same fixes as in the dashboard, without signing up or installing anything on the server.
@@ -135,7 +135,7 @@ Its limits:
 
 ## For AI agents
 
-The [Claude Code and Codex plugins](/docs/guides/ai-agents) include a `rowsafe-health` skill that runs these commands for you, without an account. For MCP tools instead, add the CLI's local server:
+The [Claude Code and Codex plugins](/docs/guides/ai-agents) include a `rowsafe-health` skill that runs these commands for you. For MCP tools instead, add the CLI's local server:
 
 ```sh
 claude mcp add rowsafe-db -- rowsafe mcp "postgres://user@host:5432/dbname"   # Claude Code
@@ -153,6 +153,6 @@ A saved name works instead of the connection string (`rowsafe mcp shop`), and ke
 
 ## What needs the agent
 
-To back up a server without an account, install the agent with `--no-account`: see [Backups without an account](/docs/guides/no-account-server).
+To back up a server and restore it to any second with `sudo rowsafe` there, install the agent with `--no-account` and `sudo rowsafe add` the database on it: see [Rowsafe on your server](/docs/guides/no-account-server).
 
-Restore points before risky changes, backups, restore to any second ([Rewind](/docs/concepts/restore-points)), the weekly restore test (Proof), alerts, history (which queries got slower, disk forecasts) and one-click fixes from the dashboard need the Rowsafe agent on your server. [Quickstart](/docs/quickstart) sets it up.
+Restore points before risky changes, backups, restore to any second ([Rewind](/docs/concepts/restore-points)), the weekly restore test (Proof), alerts, history (which queries got slower, disk forecasts) and one-click fixes from the dashboard need the Rowsafe agent on your server (the dashboard for alerts, history and fixes from anywhere). [Quickstart](/docs/quickstart) sets it up.

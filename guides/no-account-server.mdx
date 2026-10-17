@@ -1,9 +1,9 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, migration previews, masked copies and Pulse, with sudo rowsafe.
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, previews migrations and makes masked copies from those backups, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
@@ -52,6 +52,33 @@ sudo rowsafe rewind drop shop                # delete the copy (it goes by itsel
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
 
+## Preview a migration
+
+Run a migration on a full copy of the data first, restored from your backups next to production:
+
+```sh
+sudo rowsafe preview shop migration.sql
+```
+
+You see what it would lock and for how long, what it rewrites, how many rows it touches, and a verdict: safe, careful, dangerous or failed. It runs on your real rows, so it also catches what fails only on the data (a value that isn't a number, a duplicate, a null). Production is never touched. The first preview restores the copy, which takes about as long as a restore test; the next ones within an hour reuse it. `sudo rowsafe previews shop` lists them. Same options as [with an account](/docs/guides/preview-migrations#preview-from-a-terminal-or-ci): `--json`, `--format markdown`, `--fail-on`.
+
+Before the first backup, and for a database on another machine, `rowsafe preview` checks the migration on an empty copy of the schema instead: see [Check a migration first](/docs/guides/no-account#check-a-migration-first).
+
+AI agents get the same: on this server, `rowsafe guard` (the [Claude Code and Codex hook](/docs/guides/ai-agents)) saves a Mark and runs the command's SQL on a full copy, and stops a migration that fails on the data before it runs. In `sudo rowsafe mcp shop`, `check_migration` runs on a full copy too.
+
+## Safe copies for development
+
+A masked copy of the database for developers and AI agents: every row, with personal data replaced by fake values.
+
+```sh
+sudo rowsafe masking shop                                 # which columns are masked, and how
+sudo rowsafe copies create shop --masked --port 55440     # restore, mask, open it on localhost
+```
+
+It prints the connection string once (the password is made on the server and never stored). The copy listens on localhost only, on the port you chose (any free port from 1024; without `--port`, the first free one from 55440). From your computer, reach it through SSH: `ssh -L 55440:127.0.0.1:55440 SERVER`, then connect to `127.0.0.1:55440`. To open it on the server's private network instead: `--listen private --allow 10.0.0.0/24`.
+
+It's deleted by itself after 24 hours (`--hours`, at most 7 days). `sudo rowsafe copies shop` lists copies; `copies extend`, `copies delete` and `copies password` work as [with an account](/docs/guides/safe-copies). Masking follows the suggested rules (emails, names, phone numbers, addresses...); `sudo rowsafe masking set shop users.email keep` changes one column. `--no-masking` makes a copy with the real data (you type the database's name).
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -80,7 +107,7 @@ After the usual login in the browser, it asks whether to connect this server to 
 - Each database moves to the account under the same name, with its backups (the same files, in the same bucket), Proofs and Marks.
 - Rowsafe checks that each database's backups are already set up as before: nothing changes on PostgreSQL. If anything doesn't work out, the server is put back as it was, still backing up, and the command says what happened.
 
-It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`), or it goes by itself when it expires. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
+It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server (or a safe copy) isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`, `sudo rowsafe copies delete shop ID`), or it goes by itself when it expires. Masking rules stay on the server: set them again in the dashboard. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
 
 Once connected, `sudo rowsafe logout` only signs the CLI out: the server stays connected. To run it on its own again, run the installer with `--no-account`. The account then sees the server offline: remove it in the dashboard.
 

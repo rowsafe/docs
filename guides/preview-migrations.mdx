@@ -43,7 +43,7 @@ AI agents use the `preview_migration` tool of the [MCP server](/docs/reference/m
 
 ## Without the agent
 
-`rowsafe preview postgres://user@host:5432/db FILE.sql` (or a [saved name](/docs/guides/no-account#save-a-database-once)) checks a PostgreSQL migration without the agent: on an empty copy of the schema in a temporary database on the same server when the connection's user may create databases, else by reading the SQL. Table sizes come from your database's statistics, so times are estimates, and errors that depend on your rows can't show. Same verdicts, options and exit codes; nothing on your database changes, and there is no restore point. See [Check a migration first](/docs/guides/no-account#check-a-migration-first).
+`rowsafe preview postgres://user@host:5432/db FILE.sql` (or a [saved name](/docs/guides/no-account#save-a-database-once)) checks a PostgreSQL migration without the agent: on an empty copy of the schema in a temporary database on the same server when the connection's user may create databases, else by reading the SQL. Table sizes come from your database's statistics, so times are estimates, and errors that depend on your rows can't show. Same verdicts, options and exit codes; nothing on your database changes, and there is no restore point. See [Check a migration first](/docs/guides/no-account#check-a-migration-first). On a server Rowsafe protects on its own, `sudo rowsafe preview NAME FILE` runs on a full copy restored from its backups, as here: see [Rowsafe on your server](/docs/guides/no-account-server#preview-a-migration).
 
 ## Get your migration's SQL
 

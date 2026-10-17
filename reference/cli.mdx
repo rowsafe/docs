@@ -446,8 +446,7 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 | `ROWSAFE_API_KEY` | An API key instead of the saved login. |
 | `ROWSAFE_URL` | An API URL instead of the saved one. Default `https://api.rowsafe.sh`. |
 | `ROWSAFE_DATABASE` | The database when `NAME` is left out, and for `guard`. |
-| `ROWSAFE_DATABASE_URL` | A PostgreSQL connection string: `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` then work on it directly, [without an account](/docs/guides/no-account). |
-| `DATABASE_URL` | The same, only when you aren't logged in. |
+| `DATABASE_URL` | A PostgreSQL connection string: when you aren't logged in, `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` work on it directly, [without an account](/docs/guides/no-account). |
 | `ROWSAFE_REQUIRE_PROTECTION` | For `guard`: `1` or `true` blocks destructive commands when the database isn't protected. Overrides `.rowsafe.json`. |
 
 ## `.rowsafe.json`

@@ -1,15 +1,15 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL, MySQL or MariaDB server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB or MongoDB server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL and MariaDB continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB and MongoDB continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
 ```
 
-From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL or MariaDB, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
+From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL, MariaDB or MongoDB, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
 
 ## Add a database
 
@@ -33,6 +33,17 @@ The same, with two differences:
 - Backups need the binary log (MySQL's change log). Rowsafe writes its settings to its own option file, which MySQL reads at start (`/etc/mysql/conf.d/zz-rowsafe.cnf`). MySQL 8 has the binary log on already; when it is off (MariaDB's default), the server needs a restart, which `sudo rowsafe restart crm` does when you choose.
 
 Backups use Percona XtraBackup (MySQL) or mariadb-backup (MariaDB): the installer installs it on a MySQL or MariaDB server, and the plan says when it is missing.
+
+### MongoDB
+
+```sh
+sudo rowsafe add docs 'mongodb://admin:PASSWORD@localhost:27017/?authSource=admin'
+```
+
+Turning on backups changes nothing in MongoDB and never restarts it: Rowsafe copies its change log (the oplog) to your bucket about every minute and takes a full backup every day.
+
+- Rowsafe backs up with its own MongoDB user (`rowsafe`, its password stays on the server). When it has none yet, `rowsafe add` asks, then creates it with the administrator login in the connection string (none needed when MongoDB doesn't check logins).
+- The oplog needs a replica set. A standalone server becomes a replica set of one member, which changes nothing for your apps but needs one restart: the installer does it when you say yes (`--mongodb-replica-set`), and `rowsafe add` says so.
 
 ### Added before
 
@@ -62,7 +73,7 @@ sudo rowsafe restore shop --to "10m ago"     # or "14:04", "2026-10-17 14:04", o
 sudo rowsafe restores shop                   # the copy, the recovery window, recent restores
 sudo rowsafe rewind compare shop             # rows deleted, changed or added since, by primary key
 sudo rowsafe rewind rows shop public.orders  # bring the deleted rows back (a Mark first; you type the name)
-                                             # MySQL and MariaDB: DATABASE:TABLE, e.g. crm:orders
+                                             # MySQL, MariaDB, MongoDB: DATABASE:TABLE, e.g. crm:orders
 sudo rowsafe rewind drop shop                # delete the copy (it goes by itself after 24 hours)
 ```
 
@@ -70,7 +81,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 
 ## What runs by itself
 
-- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
+- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC).
 - **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
 - **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
 
@@ -80,7 +91,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
-- MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL, MySQL and MariaDB for now.
+- Redis, Valkey, SQLite and the other engines. On the server alone, Rowsafe covers PostgreSQL, MySQL, MariaDB and MongoDB for now.
 
 Commands that need the dashboard say so.
 

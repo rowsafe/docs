@@ -76,7 +76,7 @@ Store it with the bucket keys in your secret manager, apart from the app's secre
 On the server:
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --account
 ```
 
 It prints a link to the approval page. Check the code matches your terminal and approve (admins and owners only). The server gets a single-use enrollment token, never an API key.

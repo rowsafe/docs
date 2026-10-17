@@ -484,6 +484,16 @@ When on, after each command the CLI sends one line to the control plane it uses 
 
 Never sent: arguments, flag values, names of databases or servers, connection strings, hostnames, error messages, or anything that identifies you or your account. A separate process sends it once, without retries, so a command never waits for it or fails because of it. Rowsafe keeps the counts 180 days and doesn't keep the address they came from. `ROWSAFE_TELEMETRY=0` or `DO_NOT_TRACK=1` keep them off even after `rowsafe telemetry on`. The exact format is [`protocol/telemetry.go`](https://github.com/rowsafe/rowsafe/blob/main/protocol/telemetry.go).
 
+## Tips
+
+After a command that worked, the CLI sometimes prints one short, dimmed tip about something useful next (alerts on a server, a Mark before a risky change, the MCP server for your AI agent). At most one an hour, each at most every two weeks, and only at a terminal: never with `--json`, in a pipe, for an AI agent or in CI. Nothing is sent anywhere.
+
+| Command | What it does |
+|---|---|
+| `rowsafe tips off` | No more tips (`ROWSAFE_NO_TIPS=1` too). |
+| `rowsafe tips on` | Tips again. |
+| `rowsafe tips status` | On or off. |
+
 ## Exit codes
 
 | Code | Meaning |

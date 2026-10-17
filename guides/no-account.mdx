@@ -10,7 +10,7 @@ curl -fsSL https://rowsafe.sh/cli | sh
 rowsafe pulse postgres://user@host:5432/dbname
 ```
 
-Or put the connection string in `DATABASE_URL` and run `rowsafe pulse` on its own. When you're logged in, `DATABASE_URL` is left alone; use `ROWSAFE_DATABASE_URL` or pass the string.
+Or put the connection string in `DATABASE_URL` and run `rowsafe pulse` on its own. When you're logged in, `DATABASE_URL` is left alone: pass the string instead.
 
 Nothing is sent to Rowsafe: the CLI reads the database and works out the score on your computer.
 

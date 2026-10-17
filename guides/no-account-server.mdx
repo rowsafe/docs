@@ -1,9 +1,9 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts and Pulse, with sudo rowsafe.
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, alerts you when something needs you, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
@@ -52,6 +52,33 @@ sudo rowsafe rewind drop shop                # delete the copy (it goes by itsel
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
 
+## Alerts
+
+Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to your phone) or a webhook.
+
+```sh
+sudo rowsafe channels add --type slack --name ops --url https://hooks.slack.com/services/T000/B000/XXXX
+sudo rowsafe channels add --type ntfy --name phone --url https://ntfy.sh/a-topic-nobody-can-guess
+sudo rowsafe channels add --type discord --name ops --url https://discord.com/api/webhooks/...
+sudo rowsafe channels add --type webhook --name pager --url https://hooks.example.com/rowsafe
+sudo rowsafe channels test ops           # send a test now
+sudo rowsafe alerts                      # what is firing; --all for resolved ones too
+sudo rowsafe alerts ack ID               # no more reminders for it
+```
+
+You get a message when an alert starts and when it ends, plus a daily reminder for a critical one nobody acknowledged. Each says what to do, with the `sudo rowsafe` command. Alerts on the server:
+
+- **Backups:** no successful backup in 26 hours, no full backup in 8 days.
+- **Proof:** the restore test failed, or none passed in 8 days.
+- **Continuous backup:** copying changes to your bucket keeps failing.
+- **PostgreSQL:** Rowsafe can't reach it, or it is still waiting for a restart after setup (24 hours).
+- **Setup:** the check that backups reach your bucket failed.
+- **Disk:** less than 15% free.
+
+A webhook is signed like the dashboard's ([Webhooks](/docs/reference/webhooks)), and prints its signing secret once. URLs stay on the server, readable only by root. They must be `https://`, or `http://` to the server itself or a private network (for example ntfy on your LAN). `--min-severity info|warning|critical` picks what goes where (default `warning`).
+
+**A server can't tell you it is down.** Alerts run on the server, so while it (or the agent) is stopped, nothing is sent. When it comes back after more than 10 minutes, you get one message saying how long it was out. The dashboard watches from outside and alerts you while the server is down.
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -63,7 +90,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 ## What the dashboard adds
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
-- Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
+- Alerts from outside (the server is down), email alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 
 Commands that need the dashboard say so.

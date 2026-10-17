@@ -381,7 +381,7 @@ Only on servers where the installer allowed updates. Through MCP, only for [an a
 | `rowsafe activity NAME` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe channels list` | Notification channels. |
 | `rowsafe channels add --type email --name NAME --address A [--address B]` | Email channel. |
-| `rowsafe channels add --type slack\|discord\|webhook --name NAME --url URL` | Slack, Discord or webhook channel. A webhook prints its signing secret once. |
+| `rowsafe channels add --type slack\|discord\|webhook --name NAME --url URL` | Slack, Discord or webhook channel. A webhook prints its signing secret once. On a server without the dashboard, `--type ntfy --url https://ntfy.sh/TOPIC` too ([Alerts on the server](/docs/guides/no-account-server#alerts)). |
 | `rowsafe channels remove ID` | Remove a channel. |
 | `rowsafe channels test ID` | Send a test notification now. |
 

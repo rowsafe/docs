@@ -51,7 +51,7 @@ Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes
 
 ## Without an account
 
-`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly: pass its connection string instead of `NAME` (`rowsafe pulse postgres://user@host:5432/dbname`), or set `DATABASE_URL` and leave it out (used when you aren't logged in). Nothing is sent to Rowsafe. See [Pulse without an account](/docs/guides/no-account).
+`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly: pass its connection string instead of `NAME` (`rowsafe pulse postgres://user@host:5432/dbname`), or set `DATABASE_URL` and leave it out (used when you aren't logged in). Nothing is sent to Rowsafe (unless you turn on [usage counts](#usage-counts), which never include your data). See [Pulse without an account](/docs/guides/no-account).
 
 ## Database names
 
@@ -430,6 +430,31 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 | `rowsafe copies [NAME]` | [Safe copies](/docs/guides/safe-copies). `copies create` (`--allow IP`, `--listen`, `--hours`, `--db`, `--json`), `copies extend ID`, `copies delete ID`, `copies password ID` (a new password, made on your machine). |
 | `rowsafe masking [NAME]` | Which columns safe copies mask. `masking set [DB:]TABLE.COLUMN STRATEGY`, `masking refresh`. |
 
+## Usage counts
+
+Off unless you turn them on. Rowsafe never asks, and with them off the CLI sends nothing about how you use it.
+
+| Command | What it does |
+|---|---|
+| `rowsafe telemetry status` | On or off, and exactly what would be sent. `--json` for scripts. |
+| `rowsafe telemetry on` | Send anonymous usage counts after each command. |
+| `rowsafe telemetry off` | Stop, and forget this computer's random ID. |
+
+When on, after each command the CLI sends one line to the control plane it uses (`https://api.rowsafe.sh/v1/telemetry` by default) with only these fields:
+
+| Field | Example |
+|---|---|
+| `command` | `cloud create`: the command's own names, never its arguments. Anything else is `other`. |
+| `version`, `os`, `arch` | `0.10.19`, `darwin`, `arm64` |
+| `exit_code` | `0` |
+| `duration` | A range: `0-1s`, `1-10s`, `10-60s`, `1-10m` or `10m+` |
+| `terminal` | `true` when run from a terminal, `false` from a script or an AI agent |
+| `agent` | `claude-code`, `codex`, `cursor`, `gemini`, or empty: found from variables only those agents set |
+| `logged_in` | `true` or `false` |
+| `install_id` | A random ID made on this computer by `rowsafe telemetry on`, not tied to your account |
+
+Never sent: arguments, flag values, names of databases or servers, connection strings, hostnames, error messages, or anything that identifies you or your account. A separate process sends it once, without retries, so a command never waits for it or fails because of it. Rowsafe keeps the counts 180 days and doesn't keep the address they came from. `ROWSAFE_TELEMETRY=0` or `DO_NOT_TRACK=1` keep them off even after `rowsafe telemetry on`. The exact format is [`protocol/telemetry.go`](https://github.com/rowsafe/rowsafe/blob/main/protocol/telemetry.go).
+
 ## Exit codes
 
 | Code | Meaning |
@@ -447,6 +472,7 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 | `ROWSAFE_URL` | An API URL instead of the saved one. Default `https://api.rowsafe.sh`. |
 | `ROWSAFE_DATABASE` | The database when `NAME` is left out, and for `guard`. |
 | `DATABASE_URL` | A PostgreSQL connection string: when you aren't logged in, `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` work on it directly, [without an account](/docs/guides/no-account). |
+| `ROWSAFE_TELEMETRY` | `0` keeps [usage counts](#usage-counts) off, whatever `rowsafe telemetry` says. `DO_NOT_TRACK=1` does the same. |
 | `ROWSAFE_REQUIRE_PROTECTION` | For `guard`: `1` or `true` blocks destructive commands when the database isn't protected. Overrides `.rowsafe.json`. |
 
 ## `.rowsafe.json`

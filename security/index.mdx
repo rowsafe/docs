@@ -174,6 +174,10 @@ On the server itself:
 
 Rowsafe stores only SHA-256 hashes of API keys, enrollment tokens and agent tokens.
 
+## Usage counts
+
+The CLI sends nothing about how you use it unless you run `rowsafe telemetry on`. Then it sends, after each command, the command's name, the CLI's version, OS, exit code, a duration range, whether a terminal or an AI agent ran it, whether you're logged in, and a random ID: never arguments, names, connection strings or errors. `rowsafe telemetry status` shows exactly what goes out; `rowsafe telemetry off`, `ROWSAFE_TELEMETRY=0` or `DO_NOT_TRACK=1` stop it. Details: [Usage counts](/docs/reference/cli#usage-counts).
+
 ## Signed releases
 
 The installer and the agent only install releases signed with Rowsafe's Ed25519 release key, which is built into them and never stored on the Rowsafe service. Every release also has build provenance, an SBOM and reproducible builds you can check yourself: see [Verifying releases](/docs/security/verifying-releases).

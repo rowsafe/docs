@@ -97,6 +97,10 @@ The password is shown once, with a copy button. Rowsafe never sees it. Apps usin
 - **New certificates are self-signed**, valid 3 years. `sslmode=require` works at once; `verify-full` needs a CA certificate you provide. Rowsafe never replaces a certificate it didn't make.
 - **Owners and admins only**, confirmed with the database name and [audited](/docs/guides/teams#audit-log). AI agents can apply fixes [as their person](/docs/guides/agent-autonomy); setting a password is for people only.
 
+## On a server without the dashboard
+
+On a server [running Rowsafe on its own](/docs/guides/no-account-server#security-check), `sudo rowsafe security NAME` shows the same grade and findings, and `sudo rowsafe security fix NAME FINDING` runs the same fixes after you type the database's name. The firewall and restarts still need root's yes on the server. The check from the internet needs the dashboard. PostgreSQL only, for now.
+
 ## MySQL, MariaDB, MongoDB and ClickHouse
 
 Same check every 15 minutes, including from the internet (it reads the greeting, or for ClickHouse tries one query without a password; never logs in). It looks at:

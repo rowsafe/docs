@@ -52,6 +52,24 @@ sudo rowsafe rewind drop shop                # delete the copy (it goes by itsel
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
 
+## Security check
+
+Rowsafe checks who can reach each database and how they log in, like the [security check](/docs/guides/security) in the dashboard: the access rules in `pg_hba.conf`, encryption, password hashing, privileges and the PostgreSQL version. The agent reads them every 15 minutes; only each user's password type is read, never a password.
+
+```sh
+sudo rowsafe security shop                       # the grade, each finding in plain words, and its fix
+sudo rowsafe security check shop                 # check again now
+sudo rowsafe security fix shop security_open_rules --allow 10.0.1.0/24   # only your app servers may log in
+sudo rowsafe security fix shop security_password_encryption              # new passwords hashed with SCRAM
+sudo rowsafe security fix shop                   # every fix, and whether it can run now
+```
+
+Each fix says what it changes and asks you to type the database's name first (`--yes` in scripts). New access rules are tested before they take effect and the old ones are kept: `sudo rowsafe security fix shop undo_restrict_access` puts them back. A finding that lets anyone log in without a password is also an alert.
+
+What touches the server itself waits for root's yes on that server: the firewall (only the database's port, never SSH) and the restart that `listen_local` needs. When root hasn't allowed it, Rowsafe asks at the terminal, and typing the permission's name (`firewall`) runs `rowsafe-allow` for it. `--yes` never answers that question, and `sudo rowsafe-allow --remove firewall` takes it back.
+
+The check from the internet (Rowsafe's servers trying your port like a stranger) needs the dashboard.
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -63,6 +81,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 ## What the dashboard adds
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
+- The security check from the internet.
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 

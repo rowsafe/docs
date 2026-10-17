@@ -2,6 +2,7 @@
   "title": "Guides",
   "pages": [
     "---Set up---",
+    "no-account-server",
     "storage",
     "rowsafe-storage",
     "sftp",

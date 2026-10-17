@@ -1,15 +1,15 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB or MongoDB server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB, MongoDB, Redis or Valkey server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB and MongoDB continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB, MongoDB, Redis and Valkey continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
 ```
 
-From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL, MariaDB or MongoDB, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
+From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL, MariaDB, MongoDB, Redis or Valkey, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
 
 ## Add a database
 
@@ -45,6 +45,17 @@ Turning on backups changes nothing in MongoDB and never restarts it: Rowsafe cop
 - Rowsafe backs up with its own MongoDB user (`rowsafe`, its password stays on the server). When it has none yet, `rowsafe add` asks, then creates it with the administrator login in the connection string (none needed when MongoDB doesn't check logins).
 - The oplog needs a replica set. A standalone server becomes a replica set of one member, which changes nothing for your apps but needs one restart: the installer does it when you say yes (`--mongodb-replica-set`), and `rowsafe add` says so.
 
+### Redis and Valkey
+
+```sh
+sudo rowsafe add cache redis://:PASSWORD@localhost:6379
+```
+
+Turning on backups changes nothing in Redis and never restarts it: Rowsafe follows it as a hidden replica that serves nothing, copies every change to your bucket about every minute, and takes a snapshot every day.
+
+- Rowsafe follows it with its own user (`rowsafe`, its password stays on the server). When it has none yet, `rowsafe add` asks, then creates it with the password in the connection string. When Redis can't keep the user by itself (no ACL file, no configuration file it may rewrite), Rowsafe adds the user's line (its password's hash, never the password) to the configuration file.
+- When Redis won't let Rowsafe follow it (replication refused, or `min-replicas-to-write`), backups are the daily snapshots only: restores go back to those, not to any second, Marks can't be taken, and `sudo rowsafe status` says why.
+
 ### Added before
 
 A database the installer already set up is found again: `rowsafe add` with its connection string saves the name, and that name works for every command. `--yes` answers the question (for scripts); it never restarts PostgreSQL.
@@ -74,6 +85,7 @@ sudo rowsafe restores shop                   # the copy, the recovery window, re
 sudo rowsafe rewind compare shop             # rows deleted, changed or added since, by primary key
 sudo rowsafe rewind rows shop public.orders  # bring the deleted rows back (a Mark first; you type the name)
                                              # MySQL, MariaDB, MongoDB: DATABASE:TABLE, e.g. crm:orders
+                                             # Redis, Valkey: DB:PATTERN, e.g. '0:user:*' 
 sudo rowsafe rewind drop shop                # delete the copy (it goes by itself after 24 hours)
 ```
 
@@ -81,7 +93,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 
 ## What runs by itself
 
-- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC).
+- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC; Redis and Valkey: every change, and a snapshot every day at 01:00 UTC).
 - **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
 - **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
 
@@ -91,7 +103,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
-- Redis, Valkey, SQLite and the other engines. On the server alone, Rowsafe covers PostgreSQL, MySQL, MariaDB and MongoDB for now.
+- SQLite and the other engines. On the server alone, Rowsafe covers PostgreSQL, MySQL, MariaDB, MongoDB, Redis and Valkey for now.
 
 Commands that need the dashboard say so.
 

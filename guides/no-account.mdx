@@ -49,7 +49,7 @@ Before anything changes, Rowsafe checks the database again: a fix runs only if a
 
 ## Good to know
 
-- **Use the direct connection, not a pooler.** Connection poolers such as PgBouncer refuse the session settings Rowsafe uses to keep its reads short.
+- **Connection poolers work** (PgBouncer, Supabase's Supavisor, Neon's pooler): every command takes the pooler's connection string, and nothing is left behind on its connections. Fixes that run inside the database (cleaning up tables, indexes, ending a session, replication slots) need a session of their own, so through a pooler `rowsafe fix` asks for the direct connection string. Settings changes work either way.
 - **Any user can check; changing settings needs a superuser.** Over a connection, Rowsafe can't see another server's memory or CPUs: pass `--memory 16GB --cpus 4` to `pulse` or `tune` for settings advice that fits.
 - **The connection string names one database**, and Rowsafe looks at that one.
 - **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass`. `rowsafe` never prints them.

@@ -55,7 +55,7 @@ Each finding says what's wrong in plain words and what to do. The score works li
 
 ## MySQL and MariaDB
 
-Give a `mysql://` (or `mariadb://`) connection string: `rowsafe add shop mysql://user@host:3306/dbname`. Rowsafe works out whether it's MySQL or MariaDB from the server. It looks at the whole server, every schema the account can see.
+Give a `mysql://` (or `mariadb://`) connection string: `rowsafe add shop mysql://user@host:3306/dbname`. Rowsafe works out whether it's MySQL or MariaDB from the server. It looks at the whole server, every schema the account can see. From macOS and Linux for now (not yet from Windows).
 
 - **What it checks:** connections, stuck sessions and the locks they hold, long transactions and InnoDB's old row versions piling up behind them, reads that miss the buffer pool, free space inside tables, unused and duplicate indexes, tables without a primary key, the slow query log, and the disk when the data directory is on the same computer.
 - **What it fixes:** stop a query or end a session, drop an unused or duplicate index (online: reads and writes go on), turn on the slow query log, and rebuild a table to give its free space back (`OPTIMIZE TABLE`). Rebuilding copies the table, so Rowsafe only does it when it can check the disk has room: when the data directory is on this computer. Adding a primary key changes your table's structure, so Rowsafe shows the statement instead of running it.

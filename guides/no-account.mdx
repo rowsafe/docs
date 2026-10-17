@@ -153,6 +153,6 @@ A saved name works instead of the connection string (`rowsafe mcp shop`), and ke
 
 ## What needs the agent
 
-To back up a server and restore it to any second with `sudo rowsafe` there, install the agent with `--no-account` and `sudo rowsafe add` the database on it: see [Rowsafe on your server](/docs/guides/no-account-server).
+To back up a server and restore it to any second with `sudo rowsafe` there, install Rowsafe on it (`curl -fsSL https://rowsafe.sh | sudo sh`) and `sudo rowsafe add` the database: see [Rowsafe on your server](/docs/guides/no-account-server).
 
 Restore points before risky changes, backups, restore to any second ([Rewind](/docs/concepts/restore-points)), the weekly restore test (Proof), alerts, history (which queries got slower, disk forecasts) and one-click fixes from the dashboard need the Rowsafe agent on your server (the dashboard for alerts, history and fixes from anywhere). [Quickstart](/docs/quickstart) sets it up.

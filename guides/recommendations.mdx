@@ -91,6 +91,8 @@ Every night at your database's quietest hour (03:00 UTC until there's a day of s
 
 The **index check** box shows the last run ("Looked at 24 busy queries and tested 3 index ideas on a copy: 1 is worth adding"), live progress, and **Check now**. **More options** sets the schedule: nightly (default), your own UTC cron, or off. Ideas tested in the last 7 days aren't retested. **Tested but not recommended** lists the rest, with why.
 
+**With hypopg.** Where the `hypopg` extension is on, Rowsafe first tries each idea as a hypothetical index on production: PostgreSQL only plans the queries, in a read-only session. Nothing is built and no data is read. Only ideas it would use go on to the copy. When no copy can be made (no backup yet, not enough disk), they show as **Checked without a copy (estimate)**, and the next check tests them on a copy when there's room. Installed but off? Pulse offers **Turn on hypopg**.
+
 **Create index** runs `CREATE INDEX CONCURRENTLY` (reads and writes go on), named `rs_<table>_<columns>_idx`. Rowsafe first rechecks the table, columns and existing indexes, refuses on a replica or with less than about twice the index size free, waits at most 5 seconds for a lock, and removes a half-built index on failure.
 
 A week later it reports the real effect ("used 1.2 million times in its first week, and the queries it was made for got about 31× faster"). A new index isn't called unused for two weeks.

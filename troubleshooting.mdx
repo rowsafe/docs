@@ -42,7 +42,7 @@ ALTER SYSTEM RESET archive_command; SELECT pg_reload_conf();
 
 The status says `awaiting PostgreSQL restart`, or `rowsafe verify` says `archive_mode is still off`. The settings need one restart, and Rowsafe never restarts on its own.
 
-Click **Restart PostgreSQL now** on the database's page (or **Apply fix** on Health). Rowsafe restarts, checks changes reach your bucket, and starts the first full backup.
+Click **Restart PostgreSQL now** on the database's page (or **Apply fix** on Health), now or [at a time you pick](/docs/guides/monitoring#restart-now-or-later). Rowsafe restarts, checks changes reach your bucket, and starts the first full backup.
 
 <Accordions>
 <Accordion title="The button is disabled">
@@ -71,7 +71,8 @@ not enough disk for a drill: 8.1 GiB free in /var/lib/rowsafe/drills, need about
 Proof restores a full copy, so it needs about **1.3 × the database size + 1 GiB** free. Either:
 
 - free or add disk on the filesystem holding `/var/lib/rowsafe/drills`, or
-- set `ROWSAFE_DRILL_DIR` in `/etc/rowsafe/agent.env` to a bigger filesystem (short absolute path, outside `/home`, owned by `postgres`), then restart the agent.
+- set `ROWSAFE_DRILL_DIR` in `/etc/rowsafe/agent.env` to a bigger filesystem (short absolute path, outside `/home`, owned by `postgres`), then restart the agent, or
+- run Proof on another server: **Proof** → [Where restore tests run](/docs/concepts/restore-drills#where-restore-tests-run).
 
 Until Proof passes again, the database isn't protected.
 

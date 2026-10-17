@@ -27,7 +27,7 @@ The agent:
 - makes **only outbound HTTPS requests**, to `api.rowsafe.sh` and your bucket (or Rowsafe Storage). Nothing listens on your server, except PgBouncer if you turn on [connection pooling](/docs/guides/connection-pooling);
 - runs **only a fixed set of tasks**: inspect, adopt (plan or apply), check, backup, drill (Proof), restore point (Mark), restart and connection pooling (each only where you allowed it), maintenance, the short list of fixes below, the [security check](/docs/guides/security) and its fixes, PostgreSQL updates and upgrades, security updates and reboots (only where you allowed them), Databases & users (create or remove databases, users and extensions, when a person asks), the [standby](/docs/guides/standby) tasks, and the Rewind tasks (restore a copy, compare, bring back rows, rewind in place, undo, clean up). **It never runs commands or SQL sent over the network.**
 
-**Proof**, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards. A **Rewind copy** is restored the same way and kept until it expires (24 hours by default, at most 7 days). The agent deletes it on time even when it can't reach Rowsafe.
+**Proof**, the weekly restore test, restores your data onto the same server, into a scratch cluster with no network listener, and deletes it afterwards. If you [choose another server](/docs/concepts/restore-drills#where-restore-tests-run) for it, the copy is restored there instead: another of yours (the backup settings sealed to its agent's key, as for a fork), or a temporary Rowsafe Cloud server, deleted right after. A **Rewind copy** is restored the same way and kept until it expires (24 hours by default, at most 7 days). The agent deletes it on time even when it can't reach Rowsafe.
 
 **Rewind runs only when a person, or their AI agent, asks.** Restoring a copy, bringing rows back, rewinding a whole database, undoing it and deleting the data kept aside all start from the dashboard or `rowsafe rewind`, by an owner or admin. Bringing rows back and rewinding ask you to type the database name, and Rowsafe saves a Mark first. The comparison and the rows stay on your server: only table names, counts and sizes reach Rowsafe. Read-only API keys can't do any of it. An AI agent (MCP) does it only [as the person who connected it](/docs/guides/agent-autonomy), when that person is an owner or admin, and only with a backup to go back to; otherwise Rowsafe refuses. See [Restore a database](/docs/guides/restore).
 
@@ -121,7 +121,7 @@ Someone who controlled the Rowsafe service, or held one of your API keys, **coul
 They **could not**:
 
 - run arbitrary commands or SQL on your server;
-- read your backups: they are encrypted with a passphrase that never leaves your server, except encrypted to another of your servers' agents for a standby or a fork to another server (see above);
+- read your backups: they are encrypted with a passphrase that never leaves your server, except encrypted to another of your servers' agents for a standby, a fork to another server or Proof there, or to a temporary Rowsafe Cloud server you chose for Proof (see above);
 - with your own bucket, reach it at all: its keys never leave your server, except in that same way;
 - make an agent run a binary that wasn't signed with Rowsafe's release key, or downgrade an agent;
 - change the firewall on a server where you didn't allow it, or touch any port but PostgreSQL's;

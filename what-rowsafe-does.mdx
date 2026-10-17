@@ -11,7 +11,7 @@ Once your database is set up ([Quickstart](/docs/quickstart)), most of Rowsafe r
 - **Nightly backups** at 01:00 UTC: full on Sundays, only the changes other nights. Two full backups kept (about two weeks). Old ones are removed for you.
 - **[Proof](/docs/concepts/restore-drills) every Sunday evening**: restores your latest backup into a scratch copy, checks it, deletes it.
 - **[Pulse](/docs/guides/monitoring) every minute**: disk, connections, slow queries, cleanup, backups. A health score 0-100, findings in plain words, and **Apply fix** for most.
-- **Alerts** when something needs you. Add a channel under **Settings** → **Alerts and notifications** ([channels](/docs/guides/monitoring#notification-channels)).
+- **Alerts** when something needs you, by email, Slack, Discord, Teams, PagerDuty, Opsgenie, Telegram, ntfy or webhook. Add a channel under **Settings** → **Alerts and notifications** ([channels](/docs/guides/monitoring#notification-channels)).
 - **[Your weekly Pulse](/docs/guides/monitoring#your-weekly-pulse)** email every Monday.
 
 Everything is encrypted on your server, with a passphrase only you have.
@@ -49,7 +49,7 @@ For example, your bucket keys changed. A critical alert fires within about 10 mi
 ### The server dies
 
 - **With a [standby](/docs/guides/standby):** **Standby** → **Promote**. Automatic failover is available, off by default.
-- **Without one:** your backups are safe in your bucket. Restore them onto a new server with pgBackRest: [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server). Practise it once.
+- **Without one:** your backups are safe in your bucket. After 10 minutes of silence, click **Restore to another server** on the database: it restores onto another of your servers with the same storage and passphrase. [Server lost](/docs/guides/restore#server-lost-restore-to-another-server).
 
 ## What Rowsafe never does
 

@@ -1,6 +1,6 @@
 ---
 title: Back up and restore files
-description: Back up the folders that go with a database, and bring files back from the same moment.
+description: Back up the folders that go with a database, or any folder on a server, and bring files back from any moment.
 ---
 
 Your app stores uploads, CVs or photos in a folder, and the database holds their paths. Restore the database alone and rows point to files that are gone.
@@ -64,7 +64,7 @@ Run `docker compose up -d rowsafe-agent`, then add `/rowsafe-files/uploads` in t
 
 - **Snapshots every 15 minutes** (5 minutes to daily, in **Settings**) and **one at every Mark**, so a Mark covers database and files.
 - **Only changes are stored**, deduplicated and compressed. The first snapshot of a large folder takes a while.
-- **Same bucket** as the database, under `<prefix>/<name>/files` (`/rowsafe/app/files` by default), with [restic](https://restic.net).
+- **Same storage** as the database (your bucket or [Rowsafe Storage](/docs/guides/rowsafe-storage)), under `<prefix>/<name>/files` (`/rowsafe/app/files` by default), with [restic](https://restic.net).
 - **Encrypted on the server** with a key derived from your backup passphrase. No second secret to keep.
 - **Kept for the database's recovery window** (at least 7 days): every snapshot for two days, one an hour for a week, then one a day. Mark snapshots are all kept for the window.
 - **Low priority**: low CPU and disk priority, at most two cores, one filesystem.
@@ -123,6 +123,27 @@ The helper doesn't trust what the agent staged. It takes its own copy (20 GB at 
 </Accordion>
 </Accordions>
 
+## A server's own files
+
+Any folder or Docker volume on a server, with or without a database on it: app files, configs, a static site. Open the server's page, then **Files**, and **Add a folder** or **Find folders on the server**. It works like a database's files, except:
+
+- **Kept 30 days** by default; change it under **Keep snapshots** (7 days to a year).
+- **No Marks**, and no **files a table column points to**.
+- A whole-folder restore asks you to type the **server's hostname**.
+- Stored in the server's storage under `<prefix>/<server ID>/files`, encrypted with its passphrase.
+- A folder belongs to the server or to one of its databases, never both.
+- Not on Rowsafe Cloud servers.
+
+Root allows reading and putting files back the same way ([below](#permissions-on-the-server)). Rowsafe doesn't snapshot whole servers or disks.
+
+<Accordions>
+<Accordion title="With the API or an AI agent">
+
+`/v1/hosts/{ref}/files` has the same routes as a database's `/v1/databases/{ref}/files`. AI agents: `files_status` and `backup_files` with `server`, and `request_change` with `restore_server_files` or `undo_server_files_restore` ([MCP](/docs/reference/mcp)).
+
+</Accordion>
+</Accordions>
+
 ## Browse a snapshot
 
 **Browse** lists a folder's latest snapshot, marks files deleted since, and searches by name. Pick files and **Restore selected**.
@@ -171,4 +192,4 @@ restic snapshots --tag rowsafe
 restic restore <snapshot>:/srv/app/storage/app --target /tmp/restored --include /cvs/a.pdf
 ```
 
-Replace `app` with the database's name in Rowsafe and the path with your folder. Add `-o s3.region=auto` for R2 and `-o s3.bucket-lookup=path` for path-style stores.
+Replace `app` with the database's name in Rowsafe (for a server's own folders, the server's ID, in both places) and the path with your folder. Add `-o s3.region=auto` for R2 and `-o s3.bucket-lookup=path` for path-style stores.

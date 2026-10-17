@@ -9,7 +9,7 @@ This page describes PostgreSQL. Other engines: [MySQL and MariaDB](#mysql-and-ma
 
 ## What you need
 
-- **Backups running**, with at least one full backup.
+- **Backups running**, with at least one full backup, and the source's **server reporting**. A server that's gone can't hand over its backups: [restore to another server](/docs/guides/restore#server-lost-restore-to-another-server) instead.
 - **A server** with the Rowsafe agent (the same one or another), with the **same PostgreSQL major version**, a [place for the fork](#choose-where), and free disk of the source's size plus 10%.
 - To be an **owner or admin**.
 
@@ -109,7 +109,7 @@ Without `--name`, it's named `<source>-fork`. Without `--to`, the CLI lists the 
 
 - **Now**: Rowsafe saves a Mark (`fork-<id>`) and forks from it.
 - **A time**: any second between the oldest kept full backup and the last archived change. `--at` takes `2026-09-24 14:04`, `14:04`, `10m ago` (your time zone) or RFC 3339.
-- **A Mark**: in your bucket, after a full backup, like a [restore to a Mark](/docs/guides/restore#to-a-restore-point).
+- **A Mark**: in your bucket, after a full backup, like a [restore to a Mark](/docs/concepts/restore-points).
 
 ## Choose where
 
@@ -296,6 +296,7 @@ The failed step says why:
 
 | Message | What to do |
 |---|---|
+| `Can't fork app now: its server isn't reporting. If it's lost, restore app to another server instead.` | Wait for the server, or [restore to another server](/docs/guides/restore#server-lost-restore-to-another-server). |
 | `Rowsafe isn't allowed to create a PostgreSQL cluster there, and there's no empty cluster it may use` | Run the installer there again with `--allow-create-cluster`, or give it an empty cluster. |
 | `PostgreSQL 17 isn't installed there, and a fork needs the same major version` | Install that version (`apt-get install postgresql-17`), or pick another server. |
 | `its Rowsafe agent is too old to receive a fork (or forks are turned off there)` | Update the agent there. With `ROWSAFE_STANDBY=off`, fork on the same server. |

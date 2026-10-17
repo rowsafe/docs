@@ -56,6 +56,7 @@ Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes
 | Command | What it does |
 |---|---|
 | `rowsafe add NAME [CONN]` | Check that the database answers (read-only) and save its connection string on this computer, readable only by you. Without `CONN`: piped in, `--from-env VAR`, or the project's `DATABASE_URL` (asks first). On the database's own server where Rowsafe runs [on its own](/docs/guides/no-account-server) (`sudo`), it also offers to turn on backups, Marks, Proof and restores, and every command then takes the name. `--no-check`, `--yes`, `--json`. |
+| `rowsafe add NAME ssh://USER@HOST` | Save a database on a server where Rowsafe runs [on its own](/docs/guides/no-account-server#from-your-computer-over-ssh), reached over your own SSH: only the address is saved, the connection string stays on the server. Commands then take `NAME` and run on that server: `status`, `mark`, `backups`, `restore`, `rewind`, `proof`, `alerts`, `channels`, `mcp` through its agent, `pulse`, `fix` and the other direct ones with its `rowsafe`. `--ssh USER@HOST`, `--database DB` (its name on the server), `--no-check`, `--yes`, `--json`. |
 | `rowsafe use NAME` | Make `NAME` this project's database: writes the name, never the connection string, to `.rowsafe.json`. |
 | `rowsafe databases` | The saved databases: name, host, database, user. Also `rowsafe ls` when you aren't logged in. `--json`. |
 | `rowsafe forget NAME` | Delete a saved connection string. `--yes`. |

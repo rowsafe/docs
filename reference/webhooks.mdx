@@ -139,3 +139,5 @@ Use the body exactly as received: re-serialized JSON breaks the signature.
 ## Slack, Discord and email
 
 These get a readable message instead of JSON: state, severity, summary, description, target, value and threshold, since when, next step, and a dashboard link. Discord messages never mention anyone. Reminder emails say how to acknowledge.
+
+Microsoft Teams, Telegram and ntfy get the same readable message. PagerDuty and Opsgenie get one incident per alert: a reminder adds to it, and it resolves (or closes) when the alert does. Each test is its own incident. [Channel types](/docs/guides/monitoring#notification-channels).

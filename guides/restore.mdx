@@ -21,7 +21,8 @@ Works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. Thi
 | Rows deleted or overwritten by mistake (a `DELETE` without `WHERE`, a bad script, a bug) | [Restore a copy](#restore-a-copy), [compare](#compare-with-production), [bring back rows](#bring-back-rows) | Only the rows you choose are put back. Everything else, including newer writes, stays. |
 | You want to see the data as it was at 14:04 | [Restore a copy](#restore-a-copy) | Nothing. |
 | A migration or script damaged many tables, or a table was dropped | [Rewind the whole database](#rewind-the-whole-database) | PostgreSQL stops while Rowsafe restores. Later writes are removed, and kept aside 7 days for undo. |
-| The server is lost, or you want the database elsewhere | [Restore by hand](#advanced-restore-by-hand-or-to-another-server) | Nothing: you restore onto a new server. |
+| The server is lost (dead disk, deleted server) | [Restore to another server](#server-lost-restore-to-another-server) | A new database on another of your servers. |
+| You want the database elsewhere | [Fork it](/docs/guides/fork) | Nothing. |
 
 You can go back to any second from the start of your oldest full backup up to the last change in your bucket (at most about a minute ago).
 
@@ -165,6 +166,54 @@ Same buttons; what happens underneath depends on the database.
 
 Undo works the same everywhere: the old data is kept 7 days (on the server; for Redis and Valkey, as a snapshot in your bucket). Details: [MySQL and MariaDB](/docs/guides/mysql#rewind-the-whole-server), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse), [Redis and Valkey](/docs/guides/redis#rewind), [SQLite](/docs/guides/sqlite#restore), [OpenSearch](/docs/guides/opensearch#rewind), [Qdrant](/docs/guides/qdrant#rewind-the-whole-database), [Meilisearch](/docs/guides/meilisearch#rewind). The rest of this page is about PostgreSQL.
 
+## Server lost: restore to another server
+
+When a server stops reporting for **10 minutes**, its databases show **Server gone?** with **Restore to another server**. Nothing changes on the old server.
+
+<Steps>
+<Step>
+
+### Have another server ready
+
+It must use the **same storage** (the same bucket, or Rowsafe Storage) and the **same passphrase** as the lost one, and run the same engine (for PostgreSQL, the same major version). Rowsafe lists your servers and says which can take it.
+
+None yet? Install Rowsafe on a new server: the page shows the command under **Do it yourself**. Pick the same storage, then **Use my own passphrase** and paste the lost server's. It shows up in a minute.
+
+</Step>
+<Step>
+
+### Pick the moment and the server
+
+**Latest** (the last change that reached your backups), **any second**, or a **Mark**. Name the new database and pick the server. Rowsafe restores it there and turns on its backups.
+
+</Step>
+<Step>
+
+### Retire the old one
+
+Point your apps at the new server. Then click **Retire** on the old database: Rowsafe stops watching it and **keeps its backups** (in Rowsafe Storage, until an owner deletes them; in your bucket, Rowsafe deletes nothing).
+
+</Step>
+</Steps>
+
+Works for every engine that can be [forked](/docs/guides/fork): PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite.
+
+<Callout type="warn" title="Save your passphrase somewhere safe">
+  Rowsafe never sees it. A new server needs it to read your backups: keep it in your password manager, not only on the server.
+</Callout>
+
+<Accordions>
+<Accordion title="With the API or an AI agent">
+
+- `POST /v1/databases/{ref}/restore-elsewhere` with `name`, `host_id` (ID or hostname), and optionally `at` (RFC 3339) or `mark`. Neither: the latest point. Returns `202` and the restore's progress (like a fork).
+- `POST /v1/databases/{ref}/retire` with `{"confirm": "app"}` retires the old one. Returns `204`.
+- `GET /v1/databases/{ref}/forks` has `source_lost`: since when, and the servers that can take it.
+
+AI agents use `request_change` with `restore_elsewhere` and `retire_database`, [as their person](/docs/guides/agent-autonomy).
+
+</Accordion>
+</Accordions>
+
 ## Who can do this
 
 - **Owners and admins** only, and API keys with write access. Every step is in the [audit log](/docs/guides/teams#audit-log).
@@ -206,49 +255,24 @@ It's read-only. Use it for tables without a primary key, or to `pg_dump --table=
 
 ## Advanced: restore by hand or to another server
 
-Restore by hand with pgBackRest when:
-
-- the server or its disk is lost: the restored server becomes production;
-- you want the database on another server, to test or investigate;
-- you can't reach Rowsafe. Your backups are a standard pgBackRest repository in your bucket.
-
-Practise once on a scratch server and note how long it took. The examples restore `app` on PostgreSQL 18 on a fresh Debian or Ubuntu server.
-
-Just want the old state as a separate database? [Fork it](/docs/guides/fork) to a new database on one of your servers.
+Lost the server? Use [Restore to another server](#server-lost-restore-to-another-server): no commands. Restore by hand only when you can't use Rowsafe (no account, no access), or to practise. Your PostgreSQL backups are a standard pgBackRest repository in your bucket.
 
 <Callout type="warn" title="Two rules">
-  **Never restore over the only copy.** Use a new server, or at least a new data directory. The old cluster, even damaged, is evidence and a fallback.
+  **Never restore over the only copy.** Use a new server, or at least a new data directory.
 
   **One writer per bucket path.** Always restore with `--archive-mode=off`, so the restored cluster can't archive into the same repository.
 </Callout>
 
-### What you need
+<Accordions>
+<Accordion title="Restore with pgBackRest by hand">
 
-- **Bucket settings and passphrase** from your secret manager: endpoint, bucket, key, secret and the **encryption passphrase**. Without the passphrase, nothing can be restored.
-- The repository path (`/rowsafe/<name>` by default) and the stanza (the database's name in Rowsafe).
-- If the old server is reachable, `/etc/rowsafe/pgbackrest/app.conf` has all of this.
-- A server with the **same PostgreSQL major version**, the same extensions (compare `shared_preload_libraries` and `\dx`), the same or newer pgBackRest, and disk for the data directory plus WAL.
+You need the **bucket settings and passphrase** (from your secret manager, or `/etc/rowsafe/pgbackrest/app.conf` on the old server), the repository path (`/rowsafe/<name>` by default), the stanza (the database's name in Rowsafe), and a server with the **same PostgreSQL major version**, the same extensions, and disk for the data. The example restores `app` on PostgreSQL 18 on Debian or Ubuntu.
 
-<Steps>
-<Step>
-
-### Prepare the server
-
-With [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) configured:
+**1. Prepare the server** (with [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt)):
 
 ```sh
-sudo apt-get install -y postgresql-18 pgbackrest     # creates and starts cluster 18/main
+sudo apt-get install -y postgresql-18 pgbackrest
 sudo systemctl stop postgresql@18-main
-```
-
-This keeps Debian's layout: config in `/etc/postgresql/18/main/`, data in `/var/lib/postgresql/18/main`.
-
-</Step>
-<Step>
-
-### Configure pgBackRest
-
-```sh
 sudo install -d -o postgres -g postgres -m 0750 /etc/pgbackrest /var/log/pgbackrest
 sudo install -o postgres -g postgres -m 0600 /dev/null /etc/pgbackrest/pgbackrest.conf
 sudoedit /etc/pgbackrest/pgbackrest.conf
@@ -267,116 +291,44 @@ repo1-path=/rowsafe/app
 repo1-cipher-type=aes-256-cbc
 repo1-cipher-pass=<passphrase>
 process-max=4
-log-level-console=info
 log-path=/var/log/pgbackrest
 
 [app]
 pg1-path=/var/lib/postgresql/18/main
 ```
 
-This server only **reads**. Don't run `backup`, `expire` or `stanza-*` from it while the original is alive. If your token only allows the old server's IP, make a read-only one (Object Read, this bucket only).
+This server only **reads**: never run `backup`, `expire` or `stanza-*` from it while the original is alive.
 
-</Step>
-<Step>
-
-### Choose the backup and target
+**2. Restore** into the empty data directory (check the path twice):
 
 ```sh
-sudo -u postgres pgbackrest --stanza=app info
-```
-
-Any moment from the end of the oldest full backup to the end of the archive is reachable.
-
-For a Mark, on your computer:
-
-```sh
-rowsafe marks app
-```
-
-Use Marks with status `archived`, and note the **RESTORE FROM BACKUP** column.
-
-</Step>
-<Step>
-
-### Restore
-
-The new data directory must be empty. **Check the path twice**: this empties the new cluster, never production.
-
-```sh
+sudo -u postgres pgbackrest --stanza=app info                  # what's there
 sudo -u postgres sh -c 'find /var/lib/postgresql/18/main -mindepth 1 -delete'
-```
 
-Then run one of these.
-
-#### To the latest state
-
-```sh
+# the latest state
 sudo -u postgres pgbackrest --stanza=app --archive-mode=off restore
-```
 
-#### To a point in time
-
-Stops just before the mistake. Always give a UTC offset:
-
-```sh
+# or a point in time (always with a UTC offset)
 sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
   --type=time --target="2026-09-20 14:05:00+00" --target-action=promote restore
-```
 
-pgBackRest picks the newest backup ending before the target; `--set=<label>` picks one yourself.
-
-#### To a restore point
-
-Stops exactly at a Mark made with `rowsafe mark`:
-
-```sh
-sudo -u postgres pgbackrest --stanza=app --archive-mode=off \
-  --set=20260921-010002F \
+# or a Mark: pass the RESTORE FROM BACKUP label from `rowsafe marks app`
+sudo -u postgres pgbackrest --stanza=app --archive-mode=off --set=20260921-010002F \
   --type=name --target=before-migration-42 --target-action=promote restore
 ```
 
-<Callout type="warn" title="Always pass --set for a Mark">
-  With `--type=name`, pgBackRest takes the newest backup. If it finished after the Mark, PostgreSQL refuses to start ("recovery ended before configured recovery target was reached"). Pass the **RESTORE FROM BACKUP** label from `rowsafe marks`, or an older backup.
-</Callout>
+For a Mark, always pass `--set`: without it pgBackRest takes the newest backup, and if that finished after the Mark, PostgreSQL refuses to start.
 
-`--archive-mode=off` writes `archive_mode = 'off'` into `postgresql.auto.conf`, so this cluster can't push WAL to production's repository. Rowsafe's `archive_command` is carried over but does nothing.
-
-</Step>
-<Step>
-
-### Start and check
+**3. Start and check:**
 
 ```sh
 sudo systemctl start postgresql@18-main
-sudo tail -f /var/log/postgresql/postgresql-18-main.log    # "ready to accept connections"
 sudo -u postgres psql -Xc "select pg_is_in_recovery()"     # f
 ```
 
-Check the data around the target, then run your app's smoke tests against this server.
+**4. Afterwards.** If it becomes production: stop the old primary for good, copy over `pg_hba.conf`, your settings and TLS files, point your app at it, and protect it again with the install command under a **new name** (like `app-2`). If it was a scratch restore: copy out what you need, then delete it.
 
-</Step>
-</Steps>
+Docker backups are the same pgBackRest backups: restore them the same way, with the bucket settings from `rowsafe-agent.env`.
 
-### Afterwards
-
-<Tabs items={["This server becomes production", "It was a scratch restore"]}>
-<Tab value="This server becomes production">
-
-1. **Fence the old primary** so it can never write again: stop and disable its PostgreSQL, or shut it down.
-2. Copy over what the restore lacks: `pg_hba.conf`, your `conf.d/` files, TLS certificates and keys, systemd drop-ins. Restart PostgreSQL.
-3. Point your app at the new server and redeploy.
-4. **Protect it again**: run the install command and give a **new name** (like `app-2`), for a fresh bucket path. Leave the old `app` path until you no longer need it.
-
-</Tab>
-<Tab value="It was a scratch restore">
-
-Copy out what you need (`pg_dump --table=...`) and load it into production inside a transaction. Then delete the scratch cluster and revoke any read-only token you made.
-
-</Tab>
-</Tabs>
-
-### From Docker backups
-
-In the dashboard, copies and bringing back rows work in Docker too. Rewinding the whole database needs the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container).
-
-Docker backups are ordinary pgBackRest backups. Restore them the same way on a Linux server with the same PostgreSQL major version, using the bucket settings from `rowsafe-agent.env`.
+</Accordion>
+</Accordions>

@@ -1,6 +1,6 @@
 ---
 title: Teams, API keys and audit log
-description: Invite your team with roles, create API keys, and see who changed what.
+description: Invite your team with roles, sign in with SSO, create API keys, and see who changed what.
 ---
 
 ## Members and roles
@@ -12,6 +12,39 @@ description: Invite your team with roles, create API keys, and see who changed w
 | **Owner** | Everything, including billing and [what AI agents may do](/docs/guides/agent-autonomy#the-team-setting). |
 
 Admins and owners invite people under **Settings → Members** (invitations expire after 7 days). Only owners can make or change an owner. The organization's creator is its first owner.
+
+## Single sign-on
+
+Sign in with your identity provider, over **SAML** or **OIDC**. One per organization, on every plan. Owners set it up under **Settings → Single sign-on**:
+
+<Steps>
+<Step>
+
+### Prove your domain
+
+Type your team's email domain (like `example.com`). Add the TXT record Rowsafe shows (`_rowsafe-sso.example.com`) at your DNS provider, then click **Check**. DNS can take a few minutes.
+
+</Step>
+<Step>
+
+### Connect your identity provider
+
+- **SAML:** in your identity provider, add an app with the **ACS URL** and **Entity ID** Rowsafe shows, and send the email as the NameID. Paste its metadata URL or XML.
+- **OIDC:** add a web app with the **redirect URL** Rowsafe shows. Paste its issuer URL, client ID and client secret.
+
+</Step>
+<Step>
+
+### Require SSO (optional)
+
+People with an email on your domain can then only sign in with SSO. Members who aren't owners are signed out once and sign back in with SSO. **Owners can still use their password, Google or GitHub**, so you're never locked out.
+
+</Step>
+</Steps>
+
+People sign in with **Sign in with SSO** and their work email. Someone new from your domain joins as a **member**, also when they sign in with Google or GitHub using an email on the verified domain. Every SSO sign-in is in the [audit log](#audit-log).
+
+**Remove** in the same place removes the domain and the connection. People who only used SSO reset their password to sign in.
 
 ## API keys
 

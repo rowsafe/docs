@@ -1,6 +1,6 @@
 ---
 title: "Pulse: monitoring and alerts"
-description: Health score, one-click fixes, alerts, the weekly email and where alerts go.
+description: Health score, one-click fixes, alerts, the weekly email, and alerts by email, Slack, Discord, Microsoft Teams, PagerDuty, Opsgenie, Telegram, ntfy or webhook.
 ---
 
 **Pulse** watches your databases with nothing to set up. It gives each a **health score**, findings, graphs, alerts, slow queries and a Monday email. Most problems come with **Apply fix**.
@@ -25,7 +25,7 @@ Every 60 seconds the agent runs a few cheap catalog queries (session `rowsafe-ag
 | Checkpoints | Scheduled and requested per minute |
 | Long-running work | Oldest open transaction, longest query, oldest idle-in-transaction session, waiting locks |
 | Replication slots | Inactive slots and the WAL they hold back |
-| Wraparound | Transaction ID age and the headroom left before PostgreSQL stops writes |
+| Wraparound | Transaction and multixact ID age, and the headroom left before PostgreSQL stops writes |
 | Disk | Free space on the data directory's filesystem |
 
 </Accordion>
@@ -60,7 +60,7 @@ CPU use and count, load, memory and swap, and disk use of the data directory's f
 
 ### Privacy
 
-- `pg_stat_statements` text is normalized: values become `$1`, `$2`.
+- `pg_stat_statements` text is normalized: values become `$1`, `$2`. So are [query plans](#slow-queries).
 - **Activity query text is not.** It can hold personal data. `ROWSAFE_COLLECT_QUERY_TEXT=false` in `/etc/rowsafe/agent.env` leaves it out.
 - Statements that look like they carry a password are redacted on your server.
 - `ROWSAFE_MONITORING=false` turns monitoring off (heartbeats and task results only).
@@ -130,11 +130,15 @@ Fix buttons appear under **Pulse → Health**, and next to the same problem on *
 | Backups can be up to 5 minutes behind | **Apply fix** | Sets `archive_timeout` to a minute. A reload, no restart. |
 | A [Rewind](/docs/guides/restore) copy is about to expire | **Keep it 24 hours longer** | Keeps the copy 24 more hours. |
 | Data kept aside by a rewind uses disk | **Delete the old data now** | Deletes the data from before the rewind. Can't be undone. |
-| Dead rows piling up, vacuum behind, transaction ID wraparound | **Clean up** | `VACUUM (ANALYZE)` on those tables, with `FREEZE` for wraparound. |
+| Dead rows piling up, vacuum behind, transaction or multixact ID wraparound | **Clean up** | `VACUUM (ANALYZE)` on those tables, with `FREEZE` for wraparound. |
+| Cleanup is blocked: something holds old rows that VACUUM can't remove | One button per blocker | Ends the old session (or cancels its query), rolls back a forgotten prepared transaction, removes an inactive replication slot or moves a logical one forward. You confirm each. A standby's queries: under **Do it yourself**. |
+| Every autovacuum worker is busy for 30 minutes | **Give cleanup more room** | Raises `autovacuum_vacuum_cost_limit` at once and `autovacuum_max_workers` by 2. Before PostgreSQL 18, the extra workers need a restart, which you choose when. |
 | A query got slower | **Refresh statistics** | `ANALYZE` on the tables it reads, when their statistics may be stale, then checks again. Otherwise (or for inserts) it shows the likely causes. |
 | An index with a lot of wasted space | **Rebuild index** | `REINDEX INDEX CONCURRENTLY` (PostgreSQL 12 and later). |
+| A table with a lot of wasted space, where `pg_repack` is installed | **Rebuild (pg_repack)** | Rebuilds the table while your app keeps working (a short lock at the start and end), after a Mark. Needs a primary key and free disk for the copy. |
 | An unused or duplicate index | **Remove** | `DROP INDEX CONCURRENTLY`, after saving a Mark. |
 | An index would make slow queries faster ([tested on a copy](/docs/guides/recommendations#indexes)) | **Create index** | `CREATE INDEX CONCURRENTLY`; a failed build leaves nothing behind. |
+| The `hypopg` package is installed but off | **Turn on hypopg** | `CREATE EXTENSION hypopg`, so index ideas are [checked without a copy](/docs/guides/recommendations#indexes) first. Tables and data don't change. |
 | A session idle in a transaction, a transaction open too long, a session blocking others | **End this session**, or cancel its query | `pg_terminate_backend`, or `pg_cancel_backend` for a running query. |
 | An inactive replication slot holding back WAL | **Remove the slot** | `pg_drop_replication_slot`. |
 | Most connections are in use, or almost none are left | **Turn on pooling** | Installs and starts PgBouncer, where allowed. See [Connection pooling](/docs/guides/connection-pooling). |
@@ -155,7 +159,7 @@ Fix buttons appear under **Pulse → Health**, and next to the same problem on *
 
 Pulse also warns when your major version stops getting security fixes, or will within six months. Upgrading starts with a check and a rehearsal on the **Updates** tab ([how](/docs/guides/updates#major-upgrades)).
 
-No button for (the finding explains, with commands under **Do it yourself**): an **offline agent**, **storage keys** (they never leave your server), **an untested index** (only foreign-key indexes and [indexes proven on a copy](/docs/guides/recommendations#indexes) are created), a **full table rebuild** (`VACUUM FULL`, `pg_repack`), **your own PgBouncer**, and replication lag.
+No button for (the finding explains, with commands under **Do it yourself**): an **offline agent**, **storage keys** (they never leave your server), **an untested index** (only foreign-key indexes and [indexes proven on a copy](/docs/guides/recommendations#indexes) are created), a **full table rebuild** without `pg_repack` on the server (`VACUUM FULL`), **your own PgBouncer**, and replication lag.
 
 ### What keeps it safe
 
@@ -181,6 +185,28 @@ It asks to confirm like the dashboard. `--yes` skips that, including the databas
 </Accordion>
 </Accordions>
 
+### Restart now or later
+
+Some fixes and settings only take effect after a restart: a few seconds of refused connections. **Restart** (on the database's page, or the fix) asks when:
+
+- **Now.**
+- **Later:** a time you pick, up to 30 days ahead.
+- **In the next maintenance window,** on [Rowsafe Cloud](/docs/guides/rowsafe-cloud#the-maintenance-window).
+
+You confirm with the database's name. A banner on the database's page shows the scheduled restart, with **Cancel**. The addresses that get [your weekly Pulse](#your-weekly-pulse) get an email when it's scheduled, an hour before, and after.
+
+At that time Rowsafe restarts it like **Restart now**, only where root allowed restarts. If the server isn't reporting, it keeps trying for an hour, then gives up and tells you. If it was restarted since, Rowsafe skips it and says so.
+
+<Accordions>
+<Accordion title="With the API or an AI agent">
+
+`POST /v1/databases/{ref}/tasks` with `{"type": "restart", "params": {"confirm": "app", "at": "2026-10-20T03:00:00Z"}}` schedules it (`"at": "window"` for the next maintenance window; without `at`, it restarts now). One per database at a time. `DELETE /v1/databases/{ref}/scheduled-restart` cancels it.
+
+AI agents use `request_change` with the action `restart` and `params.at`, [as their person](/docs/guides/agent-autonomy).
+
+</Accordion>
+</Accordions>
+
 ## Disk forecast
 
 From 14 days of disk use, Rowsafe tells you **when the disk will be full** ("in about 9 days"), ignoring one-off spikes. It needs about 2 days of history. `disk_full_forecast` warns 14 days ahead.
@@ -194,13 +220,15 @@ About every 30 minutes, from catalog statistics (never your rows):
 - **wasted space** (bloat);
 - tables with many **dead rows**;
 - tables read by **full scans** ([index recommendations](/docs/guides/recommendations#indexes) test a fix);
-- **transaction ID age**.
+- **transaction and multixact ID age**.
 
 Buttons: **Remove**, **Rebuild index**, **Clean up**. CLI: `rowsafe insights app`.
 
 ## Slow queries
 
 With `pg_stat_statements` on (**Turn on query statistics**, then a restart), Rowsafe keeps 14 days of per-query timing. It shows the queries that took the most time and **which got slower**: average time more than doubled, adding at least 5 ms per call or a minute in all.
+
+**Query plans** (PostgreSQL 12+): for the busiest queries, a plan in plain words, like "Reads the whole table orders: about 2.1 million rows." The agent asks PostgreSQL how it would run the query, without running it and without values (conditions show `$1`). They're estimates, not timings from real runs: Rowsafe never turns on `auto_explain`.
 
 ```sh
 rowsafe top app                   # last 24 hours
@@ -254,6 +282,7 @@ Rules are checked every 30 seconds. An alert fires once its condition has held f
 | `long_transaction` | warning | 30 minutes | | A transaction open longer than the threshold. |
 | `idle_in_transaction` | warning | 10 minutes | | A session idle in an open transaction longer than the threshold. |
 | `xid_wraparound` | critical | 50% | | Transaction ID headroom below the threshold. |
+| `multixact_wraparound` | critical | 50% | | Multixact ID headroom (row locks shared by several transactions) below the threshold. |
 | `replication_slot_inactive` | warning | 1 GiB | 15m | An inactive replication slot holds back more WAL than the threshold. |
 | `blocked_queries` | warning | 60 seconds | 1m | A query waited longer than the threshold for another session's lock. |
 | `replication_lag` | warning | 5 minutes | 5m | A replica is further behind than the threshold. |
@@ -288,9 +317,14 @@ Add and test channels under **Settings → Alerts and notifications**. Each has 
 | `email` | Up to 20 addresses (repeat `--address`) | Plain text. |
 | `slack` | A Slack [incoming webhook](https://api.slack.com/messaging/webhooks) | |
 | `discord` | A Discord webhook | Mentions are off, so nobody is pinged. |
+| `teams` | A Microsoft Teams incoming webhook or Workflows URL | A card with the details. |
+| `pagerduty` | A service's **Events API v2 integration key** (routing key), US or EU account | Opens an incident and resolves it when the alert clears. |
+| `opsgenie` | An API integration's **key**, US or EU account | Priority from severity (critical P1). Closes the alert when it clears. |
+| `telegram` | A **bot token** (from @BotFather) and a **chat ID** (or `@channel`) | Add the bot to the chat first. |
+| `ntfy` | A **server** (default `https://ntfy.sh`), a **topic** and an optional access token | Priority from severity. On a public server, pick a topic nobody can guess. |
 | `webhook` | Any public `https` URL | JSON, signed. The signing secret is shown **once**. See [Webhooks](/docs/reference/webhooks). |
 
-Tests send at once, whatever the severity. URLs are secrets and never shown in full again. Up to 20 channels per organization.
+Tests send at once, whatever the severity. URLs, keys, tokens and topics are secrets and never shown in full again. Up to 20 channels per organization.
 
 <Accordions>
 <Accordion title="With the CLI">
@@ -304,6 +338,8 @@ rowsafe channels test chn_...
 rowsafe channels list
 rowsafe channels remove chn_...
 ```
+
+Add Teams, PagerDuty, Opsgenie, Telegram and ntfy channels in the dashboard.
 
 </Accordion>
 </Accordions>

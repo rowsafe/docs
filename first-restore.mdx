@@ -100,7 +100,7 @@ Note how long the copy took: a real one on this database takes about as long.
 ## Other ways to practise
 
 - **With a Mark.** Set one before you delete (on the database's page, or `rowsafe mark app before-practice`). Then on **Marks**, click **Restore a copy at this Mark**. [Marks](/docs/concepts/restore-points).
-- **By hand, on another server.** For when your server is lost: practise [restoring by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server) once on a scratch server.
+- **On another server.** [Fork](/docs/guides/fork) the database to another of your servers. That's close to what [Restore to another server](/docs/guides/restore#server-lost-restore-to-another-server) does when a server is lost.
 
 <Callout type="warn" title="Rewinding the whole database is not a practice step">
   [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database) replaces your live database and stops PostgreSQL while it works. Never practise it on production.

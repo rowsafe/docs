@@ -51,11 +51,25 @@ A failed Proof, or none passing in 8 days, means not [protected](/docs/concepts/
 - **Memory:** a few hundred MB (about 128 MB shared buffers plus pgBackRest). Out of memory, the kernel stops Proof before production.
 - **Time:** about the same as a real restore.
 
+Not enough disk on the database's server? Run Proof [on another server](#where-restore-tests-run).
+
 Sunday evening busy? Move it in the database's settings, or:
 
 ```sh
 rowsafe set app --proof-schedule "0 4 * * 3"   # Wednesdays at 04:00 UTC
 ```
+
+## Where restore tests run
+
+On the database's **Proof** tab, **Where restore tests run** picks the server. Owners and admins change it.
+
+- **This server** (default).
+- **Another of my servers**, with the free disk and the same engine (for PostgreSQL, the same major version), the agent installed on the server itself (not in Docker) and up to date. You check its key's fingerprint when you pick it: Rowsafe hands it read access to the backups, sealed to that key, as for a [fork](/docs/guides/fork).
+- **A temporary Rowsafe Cloud server**, for PostgreSQL, MySQL and MariaDB, with pay as you go on. Rowsafe picks the smallest size with enough disk, shows the price per test (billed by the hour, usually about an hour), and deletes the server right after.
+
+While it's set, every Proof runs there, scheduled or **Run Proof now**. Results show in Proof history as usual, with the server it ran on. Your database isn't touched, and no new database is added or backed up.
+
+Works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite. Off the database's server, Proof can't ask production, so the checks that need it (like waiting for the newest changes to reach the bucket, or comparing row counts with production) are skipped. AI agents can't change this setting.
 
 <Accordions type="single">
 <Accordion title="Extensions loaded with shared_preload_libraries">
@@ -65,7 +79,7 @@ Proof first starts without production's `shared_preload_libraries`. If that fail
 </Accordion>
 <Accordion title="Does Proof read production data?">
 
-Yes, on the same server that already holds it. No network listener; deleted at the end. Nothing leaves your server.
+Yes, on the same server that already holds it. No network listener; deleted at the end. Nothing leaves your server, unless you [run Proof elsewhere](#where-restore-tests-run): then the copy is restored on that server (or on the temporary Rowsafe Cloud server) and deleted the same way.
 
 </Accordion>
 </Accordions>

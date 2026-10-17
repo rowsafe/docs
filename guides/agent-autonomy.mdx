@@ -43,14 +43,14 @@ What never touches production, agents with write access do themselves: reading, 
 
 | | Changes |
 |---|---|
-| Pulse | Apply a fix, change database settings or undo a change, the index check schedule, restart the database, turn on backups |
+| Pulse | Apply a fix, change database settings or undo a change, the index check schedule, restart the database (now or at a time), turn on backups |
 | Rewind | Restore a copy, compare it with production, keep it longer or delete it, bring back rows, rewind the whole database, undo or finish a rewind |
 | Updates | Install a minor update, upgrade to a new major version, undo or finish an upgrade, install the server's security updates, reboot the server, automatic minor updates |
 | Standby | Promote (fail over) or remove a standby, start or stop watching a fenced old primary, automatic failover |
-| Move | Schedule or make the switch, cancel, switch back, finish |
+| Move | Schedule or make the switch, cancel, switch back, finish; restore a database whose server is lost to another server, retire it |
 | Security | Turn connection pooling on or off, change security settings, fix a security finding |
 | Data | Create a database for an app (Rowsafe Cloud), create a database for an existing owner, remove a database or user, turn an extension on or off, change masking rules, stop protecting a database |
-| Files and alerts | Restore files and undo it, change an alert rule |
+| Files and alerts | Restore a database's or a server's files and undo it, change an alert rule |
 | Rowsafe Cloud | Create a server, change who can connect, change a server's size, clone a database to a new server, delete a server |
 
 The agent's `describe_change` tool lists them with their parameters. Creating a standby, starting a move and forking need a person ([below](#when-rowsafe-refuses)).

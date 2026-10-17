@@ -138,7 +138,7 @@ An owner or admin approves each app in the dashboard, for one organization; the 
 | `list_tasks` | read | Tasks, filtered by database, status and type. |
 | `get_task` | read | One task: result, end of its log, next step. |
 | `backup_storage` | read | Backup size per bucket, estimated monthly cost, and whether a [second copy](/docs/guides/second-copy) exists and is current. |
-| `files_status` | read | Folders backed up with a database: status, last snapshot, size, how far back; with `at`, the files backup nearest that time. |
+| `files_status` | read | Folders backed up with a database, or with `server`, with a server itself: status, last snapshot, size, how far back; with `at`, the files backup nearest that time. |
 
 ### Pulse: health and monitoring
 
@@ -166,7 +166,7 @@ An owner or admin approves each app in the dashboard, for one organization; the 
 | `updates_status` | read | [Updates](/docs/guides/updates): running version, newer minor and majors, the server's security updates and reboot, automatic updates, latest upgrade check and rehearsal. |
 | `standby_status` | read | The [standby](/docs/guides/standby): in sync or not, streaming or via the bucket, lag, fenced old primaries, automatic failover, connection strings; with `candidates`, servers that could hold one. |
 | `pooling_status` | read | [Connection pooling](/docs/guides/connection-pooling): on or off, whether root allowed it, settings, connection strings (no passwords), live pool numbers. |
-| `list_forks` | read | [Forks](/docs/guides/fork) and [move-ins](/docs/guides/move-in) with progress, or one fork. |
+| `list_forks` | read | [Forks](/docs/guides/fork) and [move-ins](/docs/guides/move-in) with progress, or one fork. When the database's server is offline, `source_lost`: since when, whether it can be [restored to another server](/docs/guides/restore#server-lost-restore-to-another-server) now, and the servers that can take it. |
 | `list_databases_on_server` | read | Databases, users and extensions inside one server, as last read. |
 
 ### Copies: never production
@@ -195,7 +195,7 @@ An owner or admin approves each app in the dashboard, for one organization; the 
 | `check_upgrade` | write | Read-only preflight for a major upgrade: blockers and possible modes. |
 | `rehearse_upgrade` | write | Upgrade a throwaway copy, check it, measure downtime, delete it. A passed rehearsal allows the real upgrade. |
 | `run_security_check` | write | Re-read security settings and re-check the port from the internet now. |
-| `backup_files` | write | Back up the database's folders now, optionally tagged; with `check`, run the files Proof instead. |
+| `backup_files` | write | Back up the database's folders (or with `server`, a server's own) now, optionally tagged; with `check`, run the files Proof instead. |
 
 ### Rowsafe Cloud
 
@@ -228,16 +228,19 @@ The actions `request_change` can make:
 | Rewind | `restore_copy`, `compare_copy`, `extend_copy`, `delete_copy`, `bring_back_rows`, `rewind_in_place`, `undo_rewind`, `finish_rewind` |
 | Updates | `update_database`, `upgrade_database`, `undo_upgrade`, `finish_upgrade`, `security_updates`, `reboot_server`, `auto_updates` |
 | Standby | `create_standby`, `promote_standby`, `rebuild_standby`, `remove_standby`, `unfence`, `forget_fence`, `failover_settings` |
-| Move | `move_database`, `move_schedule`, `move_switch`, `move_cancel`, `move_switch_back`, `move_finish`, `fork_database` |
+| Move | `move_database`, `move_schedule`, `move_switch`, `move_cancel`, `move_switch_back`, `move_finish`, `fork_database`, `restore_elsewhere`, `retire_database` |
 | Security | `pooling_on`, `pooling_off`, `security_settings`, `security_action` |
 | Data | `create_app_database` (through the `create_app_database` tool), `manage_databases_users`, `masking_rules`, `delete_database` |
-| Files | `restore_files`, `undo_files_restore` |
+| Files | `restore_files`, `undo_files_restore`, `restore_server_files`, `undo_server_files_restore` |
 | Alerts | `alert_rule` |
 | Rowsafe Cloud | `create_cloud_server`, `cloud_firewall`, `resize_cloud_server`, `clone_to_new_server`, `delete_cloud_server` |
 
 - **Paid.** `create_cloud_server`, `resize_cloud_server` and `clone_to_new_server` record the size and price; the agent tells you first. A first payment is always an owner's: an owner's agent gets the checkout link, others are refused. `delete_cloud_server` is destructive: Rowsafe types the server's name for the agent and records it. [Rowsafe Cloud changes](/docs/guides/agent-autonomy#rowsafe-cloud-changes).
 - **Extensions.** `manage_databases_users` turning on `vector`, `postgis` or `timescaledb` installs the package first where root allowed PostgreSQL updates. `timescaledb` needs `restart: true` in `params` unless already loaded: Rowsafe saves a Mark, then restarts PostgreSQL once (apps disconnect for a few seconds); the agent tells you first. [Extensions](/docs/guides/databases-and-users#pgvector-postgis-and-timescaledb).
-- **Always refused.** `create_standby`, `rebuild_standby`, `move_database` and `fork_database`: a person compares the server's key in the dashboard or CLI. A destructive action with no backup yet (the agent can `run_backup` and retry).
+- **Restart later.** `restart` takes `params.at`: a time (RFC 3339, up to 30 days ahead) or `"window"` for a Rowsafe Cloud server's next maintenance window. [Restart now or later](/docs/guides/monitoring#restart-now-or-later).
+- **A lost server.** `restore_elsewhere` restores a database whose server has been silent 10 minutes onto another server with the same storage and passphrase (`name`, `host_id`, and `at` or `mark`; neither: the latest point). `retire_database` then removes the old one (`confirm`: its name); its backups are kept. [Server lost](/docs/guides/restore#server-lost-restore-to-another-server).
+- **A server's files.** `restore_server_files` and `undo_server_files_restore` take `host` (hostname or ID) and `confirm` (its hostname). [A server's own files](/docs/guides/files#a-servers-own-files).
+- **Always refused.** `create_standby`, `rebuild_standby`, `move_database` and `fork_database`: a person compares the server's key in the dashboard or CLI. A destructive action with no backup yet (the agent can `run_backup` and retry). Where Proof runs is a dashboard setting agents can't change.
 - **Within a budget.** `create_cloud_server` runs on the owner's behalf, plus `create_app_database`, `cloud_firewall` and `clone_to_new_server` on servers created this way; everything else runs as the agent's person. [When Rowsafe refuses](/docs/guides/agent-autonomy#when-rowsafe-refuses).
 
 Two prompts: `incident_triage` checks the fleet, reads the evidence behind each problem, and proposes next steps without changing anything. `fix_what_pulse_found` lists a database's fixable findings, lets you pick, and files each with `request_change`.
@@ -248,7 +251,7 @@ Two prompts: `incident_triage` checks the fleet, reads the evidence behind each 
 | Tool | Parameters |
 |---|---|
 | `get_database`, `safety_check`, `list_restore_points`, `rewind_window`, `backup_storage`, `disk_forecast`, `uptime`, `security_status`, `updates_status`, `pooling_status` | `database` (required) |
-| `files_status` | `database` (required), `at` (a time: the files backup a restore to it would use) |
+| `files_status` | `database` or `server`, `at` (a time: the files backup a restore to it would use) |
 | `standby_status` | `database` (required), `candidates` |
 | `database_health` | `database` (optional) |
 | `database_insights` | `database` (required), `limit` (1 to 20, default 10) |
@@ -271,7 +274,7 @@ Two prompts: `incident_triage` checks the fleet, reads the evidence behind each 
 | `run_backup` | `database` and `type` (required), `wait_seconds` |
 | `run_drill`, `verify_database`, `run_index_check`, `run_security_check` | `database` (required), `wait_seconds` |
 | `check_upgrade`, `rehearse_upgrade` | `database` (required), `to` (major version; default the newest), `wait_seconds` |
-| `backup_files` | `database` (required), `folders`, `mark`, `check`, `wait_seconds` |
+| `backup_files` | `database` or `server`, `folders`, `mark`, `check`, `wait_seconds` |
 | `ack_alert` | `alert_id` (required) |
 | `dismiss_recommendation` | `database` and `id` (required), `reason` (`not_relevant`, `intended`, `later`, `wrong`), `note`, `undo` |
 | `preview_migration` | `database` and `sql` (required; SQL, or plain mongosh calls for MongoDB), `db` (the database inside the server, if several), `label`, `wait_seconds` |

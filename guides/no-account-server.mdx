@@ -6,10 +6,10 @@ description: Install Rowsafe on your PostgreSQL server and use it from there. Co
 Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, alerts you when something needs you, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
+curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
-From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
+That's all: nothing is sent to Rowsafe, and no account is needed. The installer sets up your storage (your own bucket; picking Rowsafe Storage instead connects the server to the dashboard), finds PostgreSQL, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
 
 ## Add a database
 
@@ -58,7 +58,7 @@ Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to y
 
 ```sh
 sudo rowsafe channels add --type slack --name ops --url https://hooks.slack.com/services/T000/B000/XXXX
-sudo rowsafe channels add --type ntfy --name phone --url https://ntfy.sh/a-topic-nobody-can-guess
+sudo rowsafe channels add --type ntfy --name phone --topic a-topic-nobody-can-guess
 sudo rowsafe channels add --type discord --name ops --url https://discord.com/api/webhooks/...
 sudo rowsafe channels add --type webhook --name pager --url https://hooks.example.com/rowsafe
 sudo rowsafe channels test ops           # send a test now

@@ -14,7 +14,7 @@ db-1  host_9h8g7f6e5d4c3  0.4.2  linux/amd64  stable   -    confirmed    12s ago
 
 A host joins your organization with a one-time **enrollment token** (`rse_...`). Three ways:
 
-- **Approve in the browser.** Run `curl -fsSL https://rowsafe.sh | sudo sh`. It prints a link to an approval page showing the server's name, address and OS. An owner or admin approves; the installer gets a single-use token for that server (valid a day, never an API key). **Deny anything you didn't start**: whoever sent the link wants their server in your organization.
+- **Approve in the browser.** Run `curl -fsSL https://rowsafe.sh | sudo sh -s -- --account`. It prints a link to an approval page showing the server's name, address and OS. An owner or admin approves; the installer gets a single-use token for that server (valid a day, never an API key). **Deny anything you didn't start**: whoever sent the link wants their server in your organization.
 - **From your computer, over SSH.** `rowsafe hosts add root@203.0.113.10` makes a token for that server and runs the installer there. Nothing to copy or approve.
 - **Copy a token.** **Servers** → **Add a server** shows the command with a fresh token. Use this for automation.
 

@@ -43,10 +43,10 @@ Where to find them, per provider: [Set up backup storage](/docs/guides/storage).
 ### Run the installer on the database server
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --account
 ```
 
-It prints a link. Open it, check the code matches your terminal, pick your organization and click **Approve**.
+It prints a link. Open it, check the code matches your terminal, pick your organization and click **Approve**. (Without `--account`, Rowsafe runs on the server on its own, with no dashboard: [Rowsafe on your server](/docs/guides/no-account-server). `sudo rowsafe login` connects it later.)
 
 <Callout title="From the dashboard">
   **Servers** → **Add a server** gives the same command with a one-time token in it. Nothing to approve.

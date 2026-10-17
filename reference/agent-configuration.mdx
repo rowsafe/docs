@@ -187,7 +187,8 @@ The container control service (`ghcr.io/rowsafe/docker-control:latest`, or `:<ve
 ## Installer
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh                              # install: approve the server in your browser, then questions
+curl -fsSL https://rowsafe.sh | sudo sh                              # install, on its own (no dashboard; sudo rowsafe login later)
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --account         # install and connect: approve the server in your browser
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...                   # the same with an enrollment token: nothing to approve
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_... --protect app     # without questions (automation)
 curl -fsSL https://rowsafe.sh | sudo sh                              # run again: update, re-test, start

@@ -37,6 +37,8 @@ Give the connection string instead of a name, or put it in `DATABASE_URL` and ru
 rowsafe pulse postgres://user@host:5432/dbname
 ```
 
+On Windows, download `rowsafe-windows-amd64.exe` from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest) ([CLI](/docs/reference/cli#install)); everything here works there except `fix` and `tune --yes`, for now.
+
 When you're logged in, `DATABASE_URL` is left alone: pass the string or a saved name instead.
 
 Rowsafe picks the database in this order: a connection string; a saved name; the project's database (`.rowsafe.json` or `ROWSAFE_DATABASE`) when it's saved on this computer; `DATABASE_URL`. Logged in, a saved name works too, unless your account has a database with the same name: then Rowsafe uses the account's and says so.
@@ -126,10 +128,21 @@ Its limits:
 - **Through a connection pooler**, the temporary database usually can't be reached, so Rowsafe reads the SQL.
 - **No restore point:** back up before you run it, for example `pg_dump -Fc -f before.dump "$DATABASE_URL"`.
 
-### For AI agents
+### Migrations and AI agents
 
 - **`rowsafe mcp shop`** offers `check_migration`: agents check a migration's SQL before they run it. Read-only, it only reads the SQL; with `--allow-writes` it may use the temporary copy.
 - **The [guard hook](/docs/guides/ai-agents#the-guard-hook)** (`rowsafe guard`, in the Claude Code and Codex plugins): before a destructive command on the project's database (saved with `rowsafe use`, or `DATABASE_URL` in the environment or `.env`), it checks the command's SQL, read-only, and tells the agent there is no restore point to go back to, so the agent asks you first and suggests a backup.
+
+## For AI agents
+
+The [Claude Code and Codex plugins](/docs/guides/ai-agents) include a `rowsafe-health` skill that runs these commands for you, without an account. For MCP tools instead, add the CLI's local server:
+
+```sh
+claude mcp add rowsafe-db -- rowsafe mcp "postgres://user@host:5432/dbname"   # Claude Code
+codex mcp add rowsafe-db -- rowsafe mcp "postgres://user@host:5432/dbname"    # Codex
+```
+
+A saved name works instead of the connection string (`rowsafe mcp shop`), and keeps the password out of the agent's settings. Cursor and other apps: a stdio server with command `rowsafe` and arguments `mcp` and the name or connection string.
 
 ## Good to know
 

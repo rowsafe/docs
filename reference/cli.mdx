@@ -3,7 +3,7 @@ title: CLI reference
 description: Every rowsafe command and flag, exit codes, environment variables and .rowsafe.json.
 ---
 
-The `rowsafe` CLI talks to the Rowsafe API. It runs on macOS and Linux (Intel/AMD and ARM).
+The `rowsafe` CLI talks to the Rowsafe API. It runs on macOS, Linux and Windows (Intel/AMD and ARM).
 
 ## Install
 
@@ -20,7 +20,7 @@ The script downloads the latest [release](https://github.com/rowsafe/rowsafe/rel
 - **A specific version**: `curl -fsSL https://rowsafe.sh/cli | ROWSAFE_VERSION=0.10.12 sh`.
 - **Another folder**: `ROWSAFE_INSTALL_DIR=~/bin`. `ROWSAFE_NO_MODIFY_PATH=1` leaves your shell profile alone.
 - **Uninstall**: `rowsafe logout` (revokes its key), then `rm "$(command -v rowsafe)"`.
-- **Windows**: use WSL.
+- **Windows**: download `rowsafe-windows-amd64.exe` (or `rowsafe-windows-arm64.exe`) from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest), check it against `SHA256SUMS`, rename it `rowsafe.exe` and put it in a folder on your `PATH`. Everything works there except `rowsafe hosts add` (use WSL) and, [without an account](/docs/guides/no-account), applying fixes and settings (`fix`, `tune --yes`), for now.
 
 <Accordions>
 <Accordion title="Download it yourself">
@@ -91,7 +91,7 @@ Logged in too, they work on a saved database, the project's, or `DATABASE_URL`.
 | `rowsafe login --url URL` | Another API URL. Default `https://api.rowsafe.sh`. |
 | `rowsafe logout` | Forget the login and revoke the key `login` created. `--keep-key` keeps it valid. |
 | `rowsafe whoami` | API URL, organization, plan and key in use. |
-| `rowsafe init [NAME]` | Write `.rowsafe.json` here, so this project uses `NAME`. |
+| `rowsafe init [NAME] [--yes] [--no-agents]` | Write `.rowsafe.json` here, so this project uses `NAME`, and offer to add a short Rowsafe section to `AGENTS.md` and `CLAUDE.md` for AI agents. |
 | `rowsafe org` | Plan, limits and usage. |
 
 The login is saved, readable only by you, in `~/.config/rowsafe/config.json` (Linux) or `~/Library/Application Support/rowsafe/config.json` (macOS).
@@ -510,3 +510,5 @@ Names the project's database for the CLI, the MCP server and the guard hook:
 | `require_protection` | For `guard` only: block destructive commands when the database isn't protected. |
 
 `rowsafe init app` (or `rowsafe use app` for a saved database) writes it here, keeping other fields. Commands look in this directory, then each parent. It holds no secrets: commit it.
+
+`rowsafe init` also offers to tell the project's AI agents (Claude Code, Codex, Cursor) about Rowsafe: a short section in `AGENTS.md` and `CLAUDE.md` (a new `AGENTS.md` if there's neither) saying to run `rowsafe status` and set a Mark (`rowsafe mark app before-<what>`) before a migration, and `rowsafe pulse` for health. It only appends, between `<!-- rowsafe:start -->` and `<!-- rowsafe:end -->`, and never adds it twice. `--yes` adds it without asking, `--no-agents` leaves the files alone, `--json` lists what it did.

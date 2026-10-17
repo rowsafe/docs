@@ -198,6 +198,15 @@ You confirm with the database's name. A banner on the database's page shows the 
 At that time Rowsafe restarts it like **Restart now**, only where root allowed restarts. If the server isn't reporting, it keeps trying for an hour, then gives up and tells you. If it was restarted since, Rowsafe skips it and says so.
 
 <Accordions>
+<Accordion title="With the CLI">
+
+```sh
+rowsafe restart app --at 03:00        # the next 03:00, your time zone
+rowsafe restart app --at window       # the next maintenance window (Rowsafe Cloud)
+rowsafe restart app --cancel
+```
+
+</Accordion>
 <Accordion title="With the API or an AI agent">
 
 `POST /v1/databases/{ref}/tasks` with `{"type": "restart", "params": {"confirm": "app", "at": "2026-10-20T03:00:00Z"}}` schedules it (`"at": "window"` for the next maintenance window; without `at`, it restarts now). One per database at a time. `DELETE /v1/databases/{ref}/scheduled-restart` cancels it.
@@ -334,12 +343,15 @@ rowsafe channels add --type email --name oncall --address oncall@example.com --m
 rowsafe channels add --type slack --name team --url https://hooks.slack.com/services/T000/B000/XXXX
 rowsafe channels add --type discord --name ops --url https://discord.com/api/webhooks/...
 rowsafe channels add --type webhook --name pager --url https://hooks.example.com/rowsafe
+rowsafe channels add --type pagerduty --name oncall --region eu          # asks for the key (not shown)
+rowsafe channels add --type telegram --name ops --chat-id @myops --secret-env TELEGRAM_TOKEN
+rowsafe channels add --type ntfy --name phone --topic alerts-7f3k
 rowsafe channels test chn_...
 rowsafe channels list
 rowsafe channels remove chn_...
 ```
 
-Add Teams, PagerDuty, Opsgenie, Telegram and ntfy channels in the dashboard.
+Also `--type teams --url ...` and `--type opsgenie`. Every flag: [CLI reference](/docs/reference/cli).
 
 </Accordion>
 </Accordions>

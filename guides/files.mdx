@@ -137,6 +137,18 @@ Any folder or Docker volume on a server, with or without a database on it: app f
 Root allows reading and putting files back the same way ([below](#permissions-on-the-server)). Rowsafe doesn't snapshot whole servers or disks.
 
 <Accordions>
+<Accordion title="With the CLI">
+
+Every `rowsafe files` command takes `--server` instead of a database's name:
+
+```sh
+rowsafe files add --server web1 /srv/app/storage
+rowsafe files add --server web1 /var/lib/docker/volumes/app_media/_data   # a Docker volume
+rowsafe files --server web1                                               # status
+rowsafe files restore --server web1 --at "14:04"
+```
+
+</Accordion>
 <Accordion title="With the API or an AI agent">
 
 `/v1/hosts/{ref}/files` has the same routes as a database's `/v1/databases/{ref}/files`. AI agents: `files_status` and `backup_files` with `server`, and `request_change` with `restore_server_files` or `undo_server_files_restore` ([MCP](/docs/reference/mcp)).

@@ -1,13 +1,13 @@
 ---
 title: "Pulse without an account"
-description: Check any PostgreSQL database from your computer with the rowsafe CLI, and fix what it finds. No account, no agent, nothing sent anywhere.
+description: Check any PostgreSQL, MySQL or MariaDB database from your computer with the rowsafe CLI, and fix what it finds. No account, no agent, nothing sent anywhere.
 ---
 
-The `rowsafe` CLI can check a PostgreSQL database directly, with its connection string. You get the same 0–100 health score and the same fixes as in the dashboard, without signing up or installing anything on the server.
+The `rowsafe` CLI can check a PostgreSQL, MySQL or MariaDB database directly, with its connection string. You get the same 0–100 health score and the same fixes as in the dashboard, without signing up or installing anything on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh/cli | sh
-rowsafe add shop postgres://user@host:5432/dbname
+rowsafe add shop postgres://user@host:5432/dbname   # or mysql://user@host:3306/dbname
 rowsafe pulse shop
 ```
 
@@ -53,6 +53,18 @@ Nothing is sent to Rowsafe: the CLI reads the database and works out the score o
 
 Each finding says what's wrong in plain words and what to do. The score works like the dashboard's: see [Monitoring](/docs/guides/monitoring).
 
+## MySQL and MariaDB
+
+Give a `mysql://` (or `mariadb://`) connection string: `rowsafe add shop mysql://user@host:3306/dbname`. Rowsafe works out whether it's MySQL or MariaDB from the server. It looks at the whole server, every schema the account can see.
+
+- **What it checks:** connections, stuck sessions and the locks they hold, long transactions and InnoDB's old row versions piling up behind them, reads that miss the buffer pool, free space inside tables, unused and duplicate indexes, tables without a primary key, the slow query log, and the disk when the data directory is on the same computer.
+- **What it fixes:** stop a query or end a session, drop an unused or duplicate index (online: reads and writes go on), turn on the slow query log, and rebuild a table to give its free space back (`OPTIMIZE TABLE`). Rebuilding copies the table, so Rowsafe only does it when it can check the disk has room: when the data directory is on this computer. Adding a primary key changes your table's structure, so Rowsafe shows the statement instead of running it.
+- **`rowsafe top`** reads `performance_schema` (totals since the server started). MariaDB turns it off by default; `top` says so.
+- **`rowsafe tune`** changes MySQL's settings with `SET PERSIST`, so they last after a restart (the account needs `SYSTEM_VARIABLES_ADMIN`). MariaDB keeps lasting settings only in its configuration file on the server, which a connection can't reach: `tune` shows what to set and leaves the change to you (or the agent).
+- **Privileges:** any account can check. To see other sessions (long transactions, locks), it needs `PROCESS`; `pulse` says when it can't see them. Ending another account's session needs `CONNECTION_ADMIN` (or `SUPER`).
+- **Not yet:** replication checks, and the dashboard's index recommendations tested on a copy.
+- **Connection options:** `ssl-mode=DISABLED|PREFERRED|REQUIRED|VERIFY_CA|VERIFY_IDENTITY` (default `PREFERRED`, like the `mysql` client), `socket=/path` for a Unix socket. The password can be in the string or in `MYSQL_PWD`.
+
 ## Fix what it finds
 
 ```sh
@@ -83,13 +95,13 @@ In `rowsafe mcp`, the same are the `describe_schema` and `explain_query` tools.
 | Command | What it does |
 |---|---|
 | `rowsafe insights shop` | Largest tables, unused and duplicate indexes, bloat, dead rows, transaction ID age. |
-| `rowsafe top shop` | The queries that took the most time (needs [pg_stat_statements](/docs/guides/tuning)). |
+| `rowsafe top shop` | The queries that took the most time (needs [pg_stat_statements](/docs/guides/tuning); MySQL and MariaDB: `performance_schema`). |
 | `rowsafe activity shop` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe settings shop` | The settings that matter: value, default, where it's set. |
-| `rowsafe tune shop` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload. Nothing restarts. |
-| `rowsafe schema shop [TABLE...]` | Tables, columns, keys, indexes (used or not), views and enums, compact for an AI agent. |
-| `rowsafe explain shop "SELECT ..."` | Why a query is slow, in plain words, and the index that would likely help. `-f FILE` reads it from a file. |
-| `rowsafe preview shop FILE.sql` | Check a migration before it runs: see [below](#check-a-migration-first). |
+| `rowsafe tune shop` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload (MySQL: `SET PERSIST`). Nothing restarts. |
+| `rowsafe schema shop [TABLE...]` | Tables, columns, keys, indexes (used or not), views and enums, compact for an AI agent. PostgreSQL for now. |
+| `rowsafe explain shop "SELECT ..."` | Why a query is slow, in plain words, and the index that would likely help. `-f FILE` reads it from a file. PostgreSQL for now. |
+| `rowsafe preview shop FILE.sql` | Check a migration before it runs: see [below](#check-a-migration-first). PostgreSQL for now. |
 | `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor), `describe_schema`, `explain_query` and `check_migration` included. Read-only; `--allow-writes` adds `apply_fix`. |
 
 Each takes a saved name, nothing in a project with one, or a connection string. Every command takes `--json`.
@@ -123,8 +135,8 @@ Its limits:
 
 - **Connection poolers work** (PgBouncer, Supabase's Supavisor, Neon's pooler): every command takes the pooler's connection string, and nothing is left behind on its connections. Fixes that run inside the database (cleaning up tables, indexes, ending a session, replication slots) need a session of their own, so through a pooler `rowsafe fix` asks for the direct connection string. Settings changes work either way.
 - **Any user can check; changing settings needs a superuser.** Over a connection, Rowsafe can't see another server's memory or CPUs: pass `--memory 16GB --cpus 4` to `pulse` or `tune` for settings advice that fits.
-- **The connection string names one database**, and Rowsafe looks at that one.
-- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass`. `rowsafe` never prints them, and never writes them to `.rowsafe.json`.
+- **The connection string names one database**, and Rowsafe looks at that one (MySQL and MariaDB: the whole server).
+- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass` (MySQL: `MYSQL_PWD`). `rowsafe` never prints them, and never writes them to `.rowsafe.json`.
 
 ## What needs the agent
 

@@ -89,9 +89,35 @@ In `rowsafe mcp`, the same are the `describe_schema` and `explain_query` tools.
 | `rowsafe tune shop` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload. Nothing restarts. |
 | `rowsafe schema shop [TABLE...]` | Tables, columns, keys, indexes (used or not), views and enums, compact for an AI agent. |
 | `rowsafe explain shop "SELECT ..."` | Why a query is slow, in plain words, and the index that would likely help. `-f FILE` reads it from a file. |
-| `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor), `describe_schema` and `explain_query` included. Read-only; `--allow-writes` adds `apply_fix`. |
+| `rowsafe preview shop FILE.sql` | Check a migration before it runs: see [below](#check-a-migration-first). |
+| `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor), `describe_schema`, `explain_query` and `check_migration` included. Read-only; `--allow-writes` adds `apply_fix`. |
 
 Each takes a saved name, nothing in a project with one, or a connection string. Every command takes `--json`.
+
+## Check a migration first
+
+```sh
+rowsafe preview shop migrations/0042_add_reference.sql
+```
+
+Without the agent on the server there's no copy of your data to run it on, so Rowsafe does what it can without changing your database:
+
+- **When the connection's user may create databases**, Rowsafe makes a temporary database on the same server, copies your schema into it (no rows: with `pg_dump --schema-only` when it's installed, else from PostgreSQL's catalogs), runs the migration there in one transaction while watching its locks, and deletes the database. SQL that fails shows up (a missing column, a view in the way of a type change).
+- **Otherwise**, or with `--static`, Rowsafe reads the SQL statement by statement: the lock each one takes on each table, table rewrites, index builds without `CONCURRENTLY`, drops, `UPDATE` or `DELETE` without `WHERE`, a missing `lock_timeout`, a `NOT NULL` column without a default on a table that has rows.
+
+Either way, table sizes and row counts come from your database's statistics (read-only), so the times are estimates. You get the same verdicts, `--json`, `--format markdown` and `--fail-on` exit codes as [with an account](/docs/guides/preview-migrations#preview-from-a-terminal-or-ci).
+
+Its limits:
+
+- **The copy has no rows**, so errors that depend on your data (duplicates for a new unique index, `NULL`s for `SET NOT NULL`, values that don't convert) can't show. With the agent, previews run on a full copy.
+- **Migrations that reach beyond their database** (roles, `ALTER SYSTEM`, `GRANT ... ON DATABASE`, `COPY` to a file, `dblink`) never run next to your database: Rowsafe reads their SQL instead.
+- **Through a connection pooler**, the temporary database usually can't be reached, so Rowsafe reads the SQL.
+- **No restore point:** back up before you run it, for example `pg_dump -Fc -f before.dump "$DATABASE_URL"`.
+
+### For AI agents
+
+- **`rowsafe mcp shop`** offers `check_migration`: agents check a migration's SQL before they run it. Read-only, it only reads the SQL; with `--allow-writes` it may use the temporary copy.
+- **The [guard hook](/docs/guides/ai-agents#the-guard-hook)** (`rowsafe guard`, in the Claude Code and Codex plugins): before a destructive command on the project's database (saved with `rowsafe use`, or `DATABASE_URL` in the environment or `.env`), it checks the command's SQL, read-only, and tells the agent there is no restore point to go back to, so the agent asks you first and suggests a backup.
 
 ## Good to know
 
@@ -104,4 +130,4 @@ Each takes a saved name, nothing in a project with one, or a connection string. 
 
 To back up a server without an account, install the agent with `--no-account`: see [Backups without an account](/docs/guides/no-account-server).
 
-Backups, restore to any second ([Rewind](/docs/concepts/restore-points)), the weekly restore test (Proof), alerts, history (which queries got slower, disk forecasts) and one-click fixes from the dashboard need the Rowsafe agent on your server. [Quickstart](/docs/quickstart) sets it up.
+Restore points before risky changes, backups, restore to any second ([Rewind](/docs/concepts/restore-points)), the weekly restore test (Proof), alerts, history (which queries got slower, disk forecasts) and one-click fixes from the dashboard need the Rowsafe agent on your server. [Quickstart](/docs/quickstart) sets it up.

@@ -37,7 +37,7 @@ Give the connection string instead of a name, or put it in `DATABASE_URL` and ru
 rowsafe pulse postgres://user@host:5432/dbname
 ```
 
-On Windows, download `rowsafe-windows-amd64.exe` from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest) ([CLI](/docs/reference/cli#install)); everything here works there except `fix` and `tune --yes`, for now.
+On Windows, download `rowsafe-windows-amd64.exe` from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest) ([CLI](/docs/reference/cli#install)); everything here works there, `fix` and `tune --yes` included (for a database on that Windows machine, give `tune` its memory: `--memory 16GB --cpus 4`).
 
 When you're logged in, `DATABASE_URL` is left alone: pass the string or a saved name instead.
 

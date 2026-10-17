@@ -20,7 +20,7 @@ The script downloads the latest [release](https://github.com/rowsafe/rowsafe/rel
 - **A specific version**: `curl -fsSL https://rowsafe.sh/cli | ROWSAFE_VERSION=0.10.12 sh`.
 - **Another folder**: `ROWSAFE_INSTALL_DIR=~/bin`. `ROWSAFE_NO_MODIFY_PATH=1` leaves your shell profile alone.
 - **Uninstall**: `rowsafe logout` (revokes its key), then `rm "$(command -v rowsafe)"`.
-- **Windows**: download `rowsafe-windows-amd64.exe` (or `rowsafe-windows-arm64.exe`) from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest), check it against `SHA256SUMS`, rename it `rowsafe.exe` and put it in a folder on your `PATH`. Everything works there except `rowsafe hosts add` (use WSL) and, [without an account](/docs/guides/no-account), applying fixes and settings (`fix`, `tune --yes`), for now.
+- **Windows**: download `rowsafe-windows-amd64.exe` (or `rowsafe-windows-arm64.exe`) from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest), check it against `SHA256SUMS`, rename it `rowsafe.exe` and put it in a folder on your `PATH`. Everything works there except `rowsafe hosts add` (use WSL) and, [without an account](/docs/guides/no-account), MySQL and MariaDB, for now.
 
 <Accordions>
 <Accordion title="Download it yourself">

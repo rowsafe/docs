@@ -1,6 +1,6 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, major upgrades and Pulse, with sudo rowsafe.
 ---
 
 Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
@@ -52,6 +52,24 @@ sudo rowsafe rewind drop shop                # delete the copy (it goes by itsel
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
 
+## Upgrade PostgreSQL
+
+Move to a new major version (16 to 17 or 18) with a test on a copy first and a way back:
+
+```sh
+sudo rowsafe upgrade shop                            # versions, and the majors your package sources offer
+sudo rowsafe upgrade shop --to 18 --rehearse-only    # test it on a copy of the latest backup; production isn't touched
+sudo rowsafe upgrade shop --to 18                    # the upgrade: you type the name; a Mark first
+sudo rowsafe upgrade undo shop                       # back to 16, for 7 days
+sudo rowsafe upgrade cleanup shop                    # remove the kept 16 (it goes by itself after 7 days)
+```
+
+1. **Check and rehearse:** Rowsafe checks the new version's packages, extensions, disk and pgBackRest, then restores the latest backup into a scratch copy, upgrades it and checks every database opens. The report gives the expected downtime. A pass allows the upgrade for 14 days.
+2. **Upgrade:** it asks you to type the database's name, saves a Mark, stops PostgreSQL, runs `pg_upgradecluster` (same port, same settings) and starts the new version. If anything fails before it accepts connections, the old version is put back. Then backups move to the new version: a full backup and a Proof.
+3. **Undo:** Safe mode (the default) keeps the old version stopped, so undo switches back in seconds; what was written after the upgrade stays in the kept new version. `--mode fast` hard-links the files (less disk, less downtime), and its undo restores the old version from the backup at the Mark instead.
+
+Root allows it once, at install or later: `sudo rowsafe-allow restart updates`. Debian and Ubuntu with PostgreSQL from packages; in Docker, change the image in your compose file. More in [Update and upgrade](/docs/guides/updates#major-upgrades).
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -64,6 +82,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
+- Minor updates, the server's security updates and reboots. Major upgrades work on the server too ([above](#upgrade-postgresql)).
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 
 Commands that need the dashboard say so.

@@ -62,6 +62,15 @@ Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes
 
 Once, without saving: pass the connection string instead of `NAME` (`rowsafe pulse postgres://user@host:5432/dbname`), or set `DATABASE_URL` and leave it out (used when you aren't logged in).
 
+Two commands work only this way, to help AI coding agents understand a database (both read-only):
+
+| Command | What it does |
+|---|---|
+| `rowsafe schema [NAME] [TABLE...] [--table T] [--schema S] [--limit N] [--json]` | Tables with their columns, keys, constraints, indexes (and how often each was used), triggers, sizes; views, enums, extensions. One line per column. The 100 largest tables unless you name some (`*` matches); `--limit 0` for all. |
+| `rowsafe explain [NAME] "SELECT ..." \| -f FILE [--analyze [--timeout 30s]] [--json]` | The query's plan one step per line, what makes it slow in plain words, and the index that would likely help (`CREATE INDEX CONCURRENTLY`, not tested). Plans without running the query; `--analyze` runs a `SELECT` in a read-only transaction that is rolled back. |
+
+Logged in too, they work on a saved database, the project's, or `DATABASE_URL`.
+
 ## Database names
 
 `[NAME]` is found in this order:
@@ -480,7 +489,7 @@ Never sent: arguments, flag values, names of databases or servers, connection st
 | `ROWSAFE_API_KEY` | An API key instead of the saved login. |
 | `ROWSAFE_URL` | An API URL instead of the saved one. Default `https://api.rowsafe.sh`. |
 | `ROWSAFE_DATABASE` | The database when `NAME` is left out, and for `guard`. |
-| `DATABASE_URL` | A PostgreSQL connection string: when you aren't logged in, `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` work on it directly, [without an account](/docs/guides/no-account). |
+| `DATABASE_URL` | A PostgreSQL connection string: when you aren't logged in, `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` work on it directly (`schema` and `explain` use it even when you are), [without an account](/docs/guides/no-account). |
 | `ROWSAFE_TELEMETRY` | `0` keeps [usage counts](#usage-counts) off, whatever `rowsafe telemetry` says. `DO_NOT_TRACK=1` does the same. |
 | `ROWSAFE_REQUIRE_PROTECTION` | For `guard`: `1` or `true` blocks destructive commands when the database isn't protected. Overrides `.rowsafe.json`. |
 

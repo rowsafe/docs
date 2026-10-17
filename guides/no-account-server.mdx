@@ -1,6 +1,6 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, a second copy, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
 ---
 
 Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
@@ -52,6 +52,42 @@ sudo rowsafe rewind drop shop                # delete the copy (it goes by itsel
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
 
+## Keep a second copy
+
+One bucket is one place that can go wrong: deleted by mistake, an account locked, leaked keys. A second copy keeps the backups and the change log in a second bucket too, ideally at another provider:
+
+```sh
+sudo rowsafe secondcopy add shop
+```
+
+It asks for the bucket's URL (for example `https://s3.eu-central-003.backblazeb2.com/shop-copy`) and its key, the secret without showing it. It tests the bucket first (writes, reads back and deletes a small file) and saves nothing if that fails. It refuses the bucket you already use. Without a terminal, pass `--endpoint URL` (and `--region` when it can't tell from the URL) and put the key in the environment:
+
+```sh
+sudo ROWSAFE_REPO2_S3_KEY=... ROWSAFE_REPO2_S3_KEY_SECRET=... \
+  rowsafe secondcopy add shop --endpoint https://s3.eu-central-003.backblazeb2.com/shop-copy --yes
+```
+
+- Its key and a **new passphrase** go in `/etc/rowsafe/agent.env`, next to the first storage's, and nowhere else. The passphrase is shown once: keep it in your password manager, apart from the first one. Without it, the copy can't be restored on another server.
+- The agent restarts to read them (not while a backup, Proof or restore runs). PostgreSQL doesn't: its change log goes to both buckets after a reload.
+- The first full backup into the copy runs right away, then one every Sunday at 03:30 UTC; the last 2 are kept. Proof alternates between the two buckets.
+- If the second bucket is down, PostgreSQL and the first bucket carry on, the change log waits in a queue on the server (at most 256 files), and the copy catches up by itself. With alerts set up (`sudo rowsafe channels add`), **Second copy not up to date** fires after 30 minutes.
+
+```sh
+sudo rowsafe secondcopy shop                  # where it is, how far it is, its backups
+sudo rowsafe status shop                      # shows it too
+sudo rowsafe backup shop --second-copy        # a full backup to it now
+sudo rowsafe proof shop --second-copy         # a restore test from it now
+sudo rowsafe secondcopy remove                # turn it off (what is in its bucket stays there)
+```
+
+If the first bucket is lost, restore from the second:
+
+```sh
+sudo rowsafe restore shop --to before-migration --second-copy
+```
+
+It reaches as far as the newest change that got to the second bucket (usually within a minute of the first). To change the key, run `sudo rowsafe secondcopy add` again with the same bucket: the passphrase stays. The second copy covers every database on the server.
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -63,7 +99,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 ## What the dashboard adds
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
-- Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
+- Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, what each storage costs, and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 
 Commands that need the dashboard say so.

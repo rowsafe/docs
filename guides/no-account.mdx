@@ -63,6 +63,21 @@ It lists what Rowsafe can fix and asks which one: clean up tables, freeze the ol
 
 Before anything changes, Rowsafe checks the database again: a fix runs only if a fresh check still proposes it, and every table, index and session is looked up again. After dropping an index, Rowsafe prints its definition so you can create it again.
 
+## Help your AI agent understand the database
+
+Coding agents (Claude Code, Codex, Cursor) write better SQL and migrations when they know the real schema, and fix slow queries faster when they know why they're slow. Both commands only read.
+
+```sh
+rowsafe schema shop
+rowsafe explain shop "SELECT * FROM orders WHERE customer_id = 42"
+```
+
+`rowsafe schema` describes every table in one line per column: type, not null, default, primary key, foreign keys both ways, unique and check constraints, indexes with how often each was used, triggers, the row estimate and size; then partitioned tables, views, enums and extensions. It reads the catalogs only, never your rows. On a big database it shows the 100 largest tables: name the ones you want (`rowsafe schema shop orders 'billing.*'`) or pass `--limit 0`.
+
+`rowsafe explain` asks PostgreSQL for the query's plan without running it, then says in plain words what makes it slow: a big table read start to finish, a sort or hash that spills to disk, a loop that repeats a scan, or rows the planner misestimated. When an index would help, it gives the `CREATE INDEX CONCURRENTLY` statement. That index is a likely fix worked out from the plan and the table's statistics: Rowsafe doesn't create it to test it, so run `rowsafe explain` again once it exists. `--analyze` runs the query to measure real times and rows, only for a `SELECT`, in a read-only transaction that is rolled back and stopped after 30 seconds (`--timeout`). Queries with `$1` placeholders work without `--analyze`.
+
+In `rowsafe mcp`, the same are the `describe_schema` and `explain_query` tools.
+
 ## More commands
 
 | Command | What it does |
@@ -72,7 +87,9 @@ Before anything changes, Rowsafe checks the database again: a fix runs only if a
 | `rowsafe activity shop` | Queries running, or idle in a transaction, for over a minute. |
 | `rowsafe settings shop` | The settings that matter: value, default, where it's set. |
 | `rowsafe tune shop` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload. Nothing restarts. |
-| `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor). Read-only; `--allow-writes` adds `apply_fix`. |
+| `rowsafe schema shop [TABLE...]` | Tables, columns, keys, indexes (used or not), views and enums, compact for an AI agent. |
+| `rowsafe explain shop "SELECT ..."` | Why a query is slow, in plain words, and the index that would likely help. `-f FILE` reads it from a file. |
+| `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor), `describe_schema` and `explain_query` included. Read-only; `--allow-writes` adds `apply_fix`. |
 
 Each takes a saved name, nothing in a project with one, or a connection string. Every command takes `--json`.
 

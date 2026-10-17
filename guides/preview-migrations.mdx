@@ -41,7 +41,7 @@ In GitHub Actions, use the action's `preview-sql` ([Save a Mark before every dep
 
 AI agents use the `preview_migration` tool of the [MCP server](/docs/reference/mcp). It needs no write access: an API key and a local `rowsafe mcp` always have it; apps signed in with Rowsafe get it with **Act for you**. The [Guard skill](/docs/guides/ai-agents) tells agents to preview every migration.
 
-## Without an account
+## Without the agent
 
 `rowsafe preview postgres://user@host:5432/db FILE.sql` (or a [saved name](/docs/guides/no-account#save-a-database-once)) checks a PostgreSQL migration without the agent: on an empty copy of the schema in a temporary database on the same server when the connection's user may create databases, else by reading the SQL. Table sizes come from your database's statistics, so times are estimates, and errors that depend on your rows can't show. Same verdicts, options and exit codes; nothing on your database changes, and there is no restore point. See [Check a migration first](/docs/guides/no-account#check-a-migration-first).
 

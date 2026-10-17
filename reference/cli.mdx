@@ -20,7 +20,7 @@ The script downloads the latest [release](https://github.com/rowsafe/rowsafe/rel
 - **A specific version**: `curl -fsSL https://rowsafe.sh/cli | ROWSAFE_VERSION=0.10.12 sh`.
 - **Another folder**: `ROWSAFE_INSTALL_DIR=~/bin`. `ROWSAFE_NO_MODIFY_PATH=1` leaves your shell profile alone.
 - **Uninstall**: `rowsafe logout` (revokes its key), then `rm "$(command -v rowsafe)"`.
-- **Windows**: download `rowsafe-windows-amd64.exe` (or `rowsafe-windows-arm64.exe`) from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest), check it against `SHA256SUMS`, rename it `rowsafe.exe` and put it in a folder on your `PATH`. Everything works there except `rowsafe hosts add` (use WSL) and, [without an account](/docs/guides/no-account), MySQL and MariaDB, for now.
+- **Windows**: download `rowsafe-windows-amd64.exe` (or `rowsafe-windows-arm64.exe`) from the [latest release](https://github.com/rowsafe/rowsafe/releases/latest), check it against `SHA256SUMS`, rename it `rowsafe.exe` and put it in a folder on your `PATH`. Everything works there except `rowsafe hosts add` (use WSL) and MySQL and MariaDB [used directly](/docs/guides/no-account), for now.
 
 <Accordions>
 <Accordion title="Download it yourself">
@@ -49,13 +49,13 @@ rowsafe version
 
 Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes`).
 
-## Without an account
+## Saved databases
 
-`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly. Save it once, then use its name. Nothing is sent to Rowsafe (unless you turn on [usage counts](#usage-counts), which never include your data). See [Pulse without an account](/docs/guides/no-account).
+`pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` also work on a PostgreSQL database you reach directly. Save it once, then use its name. Nothing is sent to Rowsafe (unless you turn on [usage counts](#usage-counts), which never include your data). See [Pulse on any database](/docs/guides/no-account).
 
 | Command | What it does |
 |---|---|
-| `rowsafe add NAME [CONN]` | Check that the database answers (read-only) and save its connection string on this computer, readable only by you. Without `CONN`: piped in, `--from-env VAR`, or the project's `DATABASE_URL` (asks first). `--no-check`, `--yes`, `--json`. |
+| `rowsafe add NAME [CONN]` | Check that the database answers (read-only) and save its connection string on this computer, readable only by you. Without `CONN`: piped in, `--from-env VAR`, or the project's `DATABASE_URL` (asks first). On the database's own server where Rowsafe runs [on its own](/docs/guides/no-account-server) (`sudo`), it also offers to turn on backups, Marks, Proof and restores, and every command then takes the name. `--no-check`, `--yes`, `--json`. |
 | `rowsafe use NAME` | Make `NAME` this project's database: writes the name, never the connection string, to `.rowsafe.json`. |
 | `rowsafe databases` | The saved databases: name, host, database, user. Also `rowsafe ls` when you aren't logged in. `--json`. |
 | `rowsafe forget NAME` | Delete a saved connection string. `--yes`. |
@@ -89,7 +89,7 @@ Logged in too, they work on a saved database, the project's, or `DATABASE_URL`.
 | `rowsafe login` | Log in with your browser (confirm the code shown). Saves a new API key. |
 | `rowsafe login --key rsk_...` | Log in with an existing API key (CI, scripts). |
 | `rowsafe login --url URL` | Another API URL. Default `https://api.rowsafe.sh`. |
-| `sudo rowsafe login [--yes]` | On a server set up [without an account](/docs/guides/no-account-server#connect-it-to-an-account-later): also connects it to the account, with its backups, Proofs and Marks. |
+| `sudo rowsafe login [--yes]` | On a server where Rowsafe runs [on its own](/docs/guides/no-account-server#connect-it-to-the-dashboard-later): also connects it to the dashboard, with its backups, Proofs and Marks. |
 | `rowsafe logout` | Forget the login and revoke the key `login` created. `--keep-key` keeps it valid. |
 | `rowsafe whoami` | API URL, organization, plan and key in use. |
 | `rowsafe init [NAME] [--yes] [--no-agents]` | Write `.rowsafe.json` here, so this project uses `NAME`, and offer to add a short Rowsafe section to `AGENTS.md` and `CLAUDE.md` for AI agents. |
@@ -244,6 +244,8 @@ Same as the dashboard's **Rewind** page ([guide](/docs/guides/restore)). Owners 
 
 | Command | What it does |
 |---|---|
+| `rowsafe restore [NAME] --to TIME\|MARK` | Restore a copy next to production as it was at `TIME` or a Mark (`rowsafe rewind copy` in one flag). `--hours N`, `--no-wait`. |
+| `rowsafe restores [NAME]` | The copy, the recovery window and recent restores (as `rowsafe rewind`). `--json`. |
 | `rowsafe rewind [NAME]` | Recovery window, newest Marks, the copy, data kept aside by a rewind, and the next command to run. `--json`. |
 | `rowsafe rewind copy [NAME] (--at TIME \| --mark LABEL)` | Restore a copy next to production (never touches production). `--hours N` keeps it N hours (default 24, 1 to 168). `--no-wait` returns at once. |
 | `rowsafe rewind compare [NAME] [TABLE...]` | Count, by primary key, rows missing in production, changed, and added since. No `TABLE`: every table. `--db DB`, `--json`. |
@@ -490,7 +492,7 @@ Never sent: arguments, flag values, names of databases or servers, connection st
 | `ROWSAFE_API_KEY` | An API key instead of the saved login. |
 | `ROWSAFE_URL` | An API URL instead of the saved one. Default `https://api.rowsafe.sh`. |
 | `ROWSAFE_DATABASE` | The database when `NAME` is left out, and for `guard`. |
-| `DATABASE_URL` | A PostgreSQL connection string: when you aren't logged in, `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` work on it directly (`schema` and `explain` use it even when you are), [without an account](/docs/guides/no-account). |
+| `DATABASE_URL` | A PostgreSQL connection string: when you aren't logged in, `pulse`, `fix`, `insights`, `top`, `activity`, `settings`, `tune` and `mcp` work on it directly (`schema` and `explain` use it even when you are), [see Pulse on any database](/docs/guides/no-account). |
 | `ROWSAFE_TELEMETRY` | `0` keeps [usage counts](#usage-counts) off, whatever `rowsafe telemetry` says. `DO_NOT_TRACK=1` does the same. |
 | `ROWSAFE_REQUIRE_PROTECTION` | For `guard`: `1` or `true` blocks destructive commands when the database isn't protected. Overrides `.rowsafe.json`. |
 

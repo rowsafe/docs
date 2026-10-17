@@ -1,0 +1,46 @@
+---
+title: "Backups without an account"
+description: Install Rowsafe on your PostgreSQL server with no account. Continuous backups to your own storage, Marks, a weekly restore test and Pulse, all used from the server.
+---
+
+Rowsafe's agent can run on your server with no account and no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, and you use it with `sudo rowsafe …` on the server.
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account
+```
+
+From a terminal, the installer also asks whether to use an account: answer **No account**. It then sets up your storage, finds PostgreSQL, shows exactly what it will change and asks before changing anything, as it does with an account. It also installs the `rowsafe` CLI.
+
+## Use it
+
+```sh
+sudo rowsafe status shop                 # protected? backups, the change log, Proof
+sudo rowsafe mark shop before-migration  # a named restore point (a Mark)
+sudo rowsafe marks shop
+sudo rowsafe backups shop                # backups, newest first
+sudo rowsafe backup shop --type diff     # back up now
+sudo rowsafe proof shop                  # run the restore test now
+sudo rowsafe proofs shop                 # restore test results
+```
+
+`shop` is the name you gave the database during setup. Every command takes `--json`. Only root (and the agent's own user) can use it.
+
+## What runs by itself
+
+- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
+- **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
+- **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
+
+The only thing the server fetches from Rowsafe is that release information (from releases.rowsafe.sh). Nothing about your databases is sent.
+
+## What needs an account
+
+- **Rewind** (restore a copy to any second, compare, bring deleted rows back, rewind in place) through Rowsafe. Your backups can still be restored by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
+- The dashboard, alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
+- MySQL, MongoDB and the other engines. Without an account, Rowsafe covers PostgreSQL for now.
+
+Commands that need an account say so. Connecting a server set up this way to an account is coming soon.
+
+## Check any database too
+
+`rowsafe pulse postgres://…` checks a database you can reach, even one you can't install anything on (RDS, Supabase, Neon): see [Pulse without an account](/docs/guides/no-account).

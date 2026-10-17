@@ -7,10 +7,39 @@ The `rowsafe` CLI can check a PostgreSQL database directly, with its connection 
 
 ```sh
 curl -fsSL https://rowsafe.sh/cli | sh
+rowsafe add shop postgres://user@host:5432/dbname
+rowsafe pulse shop
+```
+
+Nothing is sent to Rowsafe: the CLI reads the database and works out the score on your computer.
+
+## Save a database once
+
+`rowsafe add` checks that the database answers (it only reads), then saves the connection string on your computer under the name you chose. From then on, every command takes that name.
+
+- **Keep the password out of your shell history:** pipe the string in (`rowsafe add shop < url.txt`) or read it from a variable (`rowsafe add shop --from-env PROD_URL`). On a terminal, `rowsafe add shop` asks for it without showing it.
+- **In a project with a `DATABASE_URL`** (in the environment, `.env` or `.env.local`), `rowsafe add` on its own offers to save that one under the folder's name, and makes it the project's database. It asks first; `--yes` skips the question.
+- **Where it's kept:** in your config folder, readable only by you: `~/.config/rowsafe/databases.json` (Linux) or `~/Library/Application Support/rowsafe/databases.json` (macOS). Never in your project, never sent to Rowsafe.
+
+```sh
+rowsafe use shop          # this project's database: then just rowsafe pulse
+rowsafe databases         # what's saved (name, host, database, user; never passwords)
+rowsafe forget shop       # delete a saved connection string (asks first)
+```
+
+`rowsafe use` writes only the name to [`.rowsafe.json`](/docs/reference/cli#rowsafejson), so you can commit it: a teammate saves the same name on their computer and the commands work for them too. AI agents such as Claude Code and Codex run the same commands by name, with no password in the conversation.
+
+## Once, without saving
+
+Give the connection string instead of a name, or put it in `DATABASE_URL` and run `rowsafe pulse` on its own:
+
+```sh
 rowsafe pulse postgres://user@host:5432/dbname
 ```
 
-Or put the connection string in `DATABASE_URL` and run `rowsafe pulse` on its own. When you're logged in, `DATABASE_URL` is left alone: pass the string instead.
+When you're logged in, `DATABASE_URL` is left alone: pass the string or a saved name instead.
+
+Rowsafe picks the database in this order: a connection string; a saved name; the project's database (`.rowsafe.json` or `ROWSAFE_DATABASE`) when it's saved on this computer; `DATABASE_URL`. Logged in, a saved name works too, unless your account has a database with the same name: then Rowsafe uses the account's and says so.
 
 Nothing is sent to Rowsafe: the CLI reads the database and works out the score on your computer. (If you turn on [usage counts](/docs/reference/cli#usage-counts), the CLI also sends which command ran, never your data or connection string. They're off unless you do.)
 
@@ -27,7 +56,7 @@ Each finding says what's wrong in plain words and what to do. The score works li
 ## Fix what it finds
 
 ```sh
-rowsafe fix postgres://user@host:5432/dbname
+rowsafe fix shop
 ```
 
 It lists what Rowsafe can fix and asks which one: clean up tables, freeze the oldest ones, rebuild a bloated index, drop an unused or duplicate index, stop a query or end a stuck session, drop an abandoned replication slot, or tune settings. Fixes that end a session or remove something ask you to type the database name. `--yes` skips the questions (scripts).
@@ -38,21 +67,21 @@ Before anything changes, Rowsafe checks the database again: a fix runs only if a
 
 | Command | What it does |
 |---|---|
-| `rowsafe insights CONN` | Largest tables, unused and duplicate indexes, bloat, dead rows, transaction ID age. |
-| `rowsafe top CONN` | The queries that took the most time (needs [pg_stat_statements](/docs/guides/tuning)). |
-| `rowsafe activity CONN` | Queries running, or idle in a transaction, for over a minute. |
-| `rowsafe settings CONN` | The settings that matter: value, default, where it's set. |
-| `rowsafe tune CONN` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload. Nothing restarts. |
-| `rowsafe mcp CONN` | The same as tools for AI assistants (Claude Code, Codex, Cursor). Read-only; `--allow-writes` adds `apply_fix`. |
+| `rowsafe insights shop` | Largest tables, unused and duplicate indexes, bloat, dead rows, transaction ID age. |
+| `rowsafe top shop` | The queries that took the most time (needs [pg_stat_statements](/docs/guides/tuning)). |
+| `rowsafe activity shop` | Queries running, or idle in a transaction, for over a minute. |
+| `rowsafe settings shop` | The settings that matter: value, default, where it's set. |
+| `rowsafe tune shop` | Settings that suit the server, applied with `ALTER SYSTEM` and a reload. Nothing restarts. |
+| `rowsafe mcp shop` | The same as tools for AI assistants (Claude Code, Codex, Cursor). Read-only; `--allow-writes` adds `apply_fix`. |
 
-`CONN` is the connection string. Every command takes `--json`.
+Each takes a saved name, nothing in a project with one, or a connection string. Every command takes `--json`.
 
 ## Good to know
 
 - **Connection poolers work** (PgBouncer, Supabase's Supavisor, Neon's pooler): every command takes the pooler's connection string, and nothing is left behind on its connections. Fixes that run inside the database (cleaning up tables, indexes, ending a session, replication slots) need a session of their own, so through a pooler `rowsafe fix` asks for the direct connection string. Settings changes work either way.
 - **Any user can check; changing settings needs a superuser.** Over a connection, Rowsafe can't see another server's memory or CPUs: pass `--memory 16GB --cpus 4` to `pulse` or `tune` for settings advice that fits.
 - **The connection string names one database**, and Rowsafe looks at that one.
-- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass`. `rowsafe` never prints them.
+- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass`. `rowsafe` never prints them, and never writes them to `.rowsafe.json`.
 
 ## What needs the agent
 

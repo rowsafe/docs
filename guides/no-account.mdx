@@ -1,13 +1,13 @@
 ---
 title: "Pulse on any database"
-description: Check any PostgreSQL, MySQL or MariaDB database from your computer with the rowsafe CLI, and fix what it finds. No agent, nothing sent anywhere.
+description: Check any PostgreSQL, MySQL, MariaDB, MongoDB, Redis or Valkey database from your computer with the rowsafe CLI, and fix what it finds. No agent, nothing sent anywhere.
 ---
 
-The `rowsafe` CLI can check a PostgreSQL, MySQL or MariaDB database directly, with its connection string. You get the same 0–100 health score and the same fixes as in the dashboard, without signing up or installing anything on the server.
+The `rowsafe` CLI can check a PostgreSQL, MySQL, MariaDB, MongoDB, Redis or Valkey database directly, with its connection string. You get the same 0–100 health score and the same fixes as in the dashboard, without signing up or installing anything on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh/cli | sh
-rowsafe add shop postgres://user@host:5432/dbname   # or mysql://user@host:3306/dbname
+rowsafe add shop postgres://user@host:5432/dbname   # or mysql://, mongodb://, redis://
 rowsafe pulse shop
 ```
 
@@ -66,6 +66,23 @@ Give a `mysql://` (or `mariadb://`) connection string: `rowsafe add shop mysql:/
 - **Privileges:** any account can check. To see other sessions (long transactions, locks), it needs `PROCESS`; `pulse` says when it can't see them. Ending another account's session needs `CONNECTION_ADMIN` (or `SUPER`).
 - **Not yet:** replication checks, and the dashboard's index recommendations tested on a copy.
 - **Connection options:** `ssl-mode=DISABLED|PREFERRED|REQUIRED|VERIFY_CA|VERIFY_IDENTITY` (default `PREFERRED`, like the `mysql` client), `socket=/path` for a Unix socket. The password can be in the string or in `MYSQL_PWD`.
+
+## MongoDB
+
+Give a `mongodb://` (or `mongodb+srv://`) connection string: `rowsafe add docs 'mongodb://user@host:27017/?authSource=admin'`. Rowsafe looks at the whole server. From macOS and Linux for now.
+
+- **What it checks:** connections, operations running for over 5 minutes, writes waiting for the disk (the WiredTiger cache), queued operations, how far back the oplog reaches, secondaries falling behind, the profiler, indexes nobody used for a week or that another index covers, and the disk when the data directory is on the same computer.
+- **What it fixes:** stop an operation, turn the profiler on for slow operations (nothing restarts), and drop an unused or redundant index. Rowsafe never drops `_id` or a unique index, and prints the definition of what it dropped.
+- **`rowsafe top`** reads the profiler's slow operations. **`rowsafe settings`** shows the settings; changing them needs MongoDB's configuration file on the server, so `tune` shows what to set.
+- **Roles:** `clusterMonitor` to check; `dbAdmin` on a database for its fixes.
+
+## Redis and Valkey
+
+Give a `redis://` connection string (`rediss://` for TLS): `rowsafe add cache redis://:password@host:6379`. The password can also be in `REDISCLI_AUTH`. From macOS and Linux for now.
+
+- **What it checks:** connections, memory near its limit (and writes refused when full), fragmentation, clients stuck in a blocking command or not reading their replies, slow commands, latency spikes, saving to its own disk, replicas, a default user without a password, and a server that would come back empty after a restart.
+- **What it fixes:** evict old keys instead of refusing writes (for a cache: it asks first), give unused memory back, turn on defragmentation, disconnect a stuck client, and turn on snapshots. `rowsafe tune` changes settings with `CONFIG SET` and keeps them with `CONFIG REWRITE`. Nothing restarts.
+- **Not here:** `insights`, `top` and `activity` are about tables and queries; `pulse` covers Redis. Evictions and the hit rate need two readings, so they're left out.
 
 ## Fix what it finds
 
@@ -148,8 +165,8 @@ A saved name works instead of the connection string (`rowsafe mcp shop`), and ke
 
 - **Connection poolers work** (PgBouncer, Supabase's Supavisor, Neon's pooler): every command takes the pooler's connection string, and nothing is left behind on its connections. Fixes that run inside the database (cleaning up tables, indexes, ending a session, replication slots) need a session of their own, so through a pooler `rowsafe fix` asks for the direct connection string. Settings changes work either way.
 - **Any user can check; changing settings needs a superuser.** Over a connection, Rowsafe can't see another server's memory or CPUs: pass `--memory 16GB --cpus 4` to `pulse` or `tune` for settings advice that fits.
-- **The connection string names one database**, and Rowsafe looks at that one (MySQL and MariaDB: the whole server).
-- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass` (MySQL: `MYSQL_PWD`). `rowsafe` never prints them, and never writes them to `.rowsafe.json`.
+- **The connection string names one database**, and Rowsafe looks at that one (MySQL, MariaDB, MongoDB and Redis: the whole server).
+- **Passwords** can be in the string, in `PGPASSWORD` or in `~/.pgpass` (MySQL: `MYSQL_PWD`; Redis: `REDISCLI_AUTH`). `rowsafe` never prints them, and never writes them to `.rowsafe.json`.
 
 ## What needs the agent
 

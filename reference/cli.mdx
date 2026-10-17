@@ -233,14 +233,16 @@ Folders that go with a database, like uploads ([guide](/docs/guides/files)).
 | Command | What it does |
 |---|---|
 | `rowsafe files [NAME]` | Protected folders, status and last snapshot. `--json`. |
-| `rowsafe files add [NAME] PATH` | Back up the folder `PATH` on the database server with the database. `--exclude cache,*.tmp` leaves files out. |
+| `rowsafe files add [NAME] PATH` | Back up the folder `PATH` on the database server with the database (`docker:VOLUME` for a Docker volume). `--exclude cache,*.tmp` leaves files out. On the server, it offers to give the agent read access (`--yes`). |
 | `rowsafe files remove [NAME] PATH` | Stop backing it up (its snapshots age out). `--yes` skips the question. |
 | `rowsafe files backup [NAME]` | Snapshot the folders now. `--no-wait` returns at once. |
-| `rowsafe files restore [NAME] (--at TIME \| --mark LABEL)` | Bring files back; by default only missing ones. `--path REL` (repeatable) for listed paths, `--column DB:schema.table.column` for files a column points to, `--whole-folder` (kept for undo), `--overwrite` to also replace changed files, `--folder PATH` for one folder, `--preview` to only count. You type the database name unless `--yes`. |
+| `rowsafe files snapshots [NAME]` | Each folder's snapshots, newest first. `--folder PATH`, `--json`. |
+| `rowsafe files set [NAME] --every 15m` | How often to snapshot (5m to 24h). `--keep-days N` for a server's own folders (7 to 400). |
+| `rowsafe files restore [NAME] (--at TIME \| --mark LABEL \| --snapshot ID)` | Bring files back; by default only missing ones. `--path REL` (repeatable) for listed paths, `--column DB:schema.table.column` for files a column points to, `--whole-folder` (kept for undo), `--overwrite` to also replace changed files, `--folder PATH` for one folder, `--into DIR` to restore into another folder instead (a server on its own), `--preview` to only count. You type the database name unless `--yes` (not needed with `--into`). |
 | `rowsafe files undo [NAME]` | Undo the last whole-folder restore. |
 | `rowsafe files proof [NAME]` | Restore a few files and compare them with the live ones, now. |
 
-With CLI 0.10.23 or later, add `--server SERVER` (hostname or ID, see `rowsafe hosts list`) instead of `NAME` for [a server's own files](/docs/guides/files#a-servers-own-files): any folder, or a Docker volume as `/var/lib/docker/volumes/VOLUME/_data`. For example `rowsafe files add --server web1 /srv/app/storage` or `rowsafe files restore --server web1 --at "14:04"`. A restore or undo asks you to type the server's hostname; `--column` is for databases only.
+With CLI 0.10.23 or later, add `--server SERVER` (hostname or ID, see `rowsafe hosts list`) instead of `NAME` for [a server's own files](/docs/guides/files#a-servers-own-files): any folder, or a Docker volume as `/var/lib/docker/volumes/VOLUME/_data`. For example `rowsafe files add --server web1 /srv/app/storage` or `rowsafe files restore --server web1 --at "14:04"`. On the server itself, `--server` alone is this server (the default when it has no database). A restore or undo asks you to type the server's hostname; `--column` is for databases only.
 
 ## Rewind
 

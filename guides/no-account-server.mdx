@@ -7,6 +7,7 @@ title: "Rowsafe on your server"
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts and Pulse, with sudo rowsafe.
 =======
 description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, major upgrades and Pulse, with sudo rowsafe.
@@ -14,6 +15,9 @@ description: Install Rowsafe on your PostgreSQL server and use it from there. Co
 =======
 description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second or onto another server, major upgrades and Pulse, with sudo rowsafe.
 >>>>>>> origin/no-account-restore-bucket
+=======
+description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts and Pulse with history, with sudo rowsafe.
+>>>>>>> origin/no-account-history
 ---
 
 <<<<<<< HEAD
@@ -143,7 +147,7 @@ sudo rowsafe backups shop                # backups, newest first
 sudo rowsafe backup shop --type diff     # back up now
 sudo rowsafe proof shop                  # run the restore test now
 sudo rowsafe proofs shop                 # restore test results
-sudo rowsafe pulse shop                  # health score and findings
+sudo rowsafe pulse shop                  # health score and findings (see Pulse below)
 ```
 
 Every command takes `--json`. Only root (and the agent's own user) can use it.
@@ -189,12 +193,13 @@ You get a message when an alert starts and when it ends, plus a daily reminder f
 - **Continuous backup:** copying changes to your bucket keeps failing.
 - **PostgreSQL:** Rowsafe can't reach it, or it is still waiting for a restart after setup (24 hours).
 - **Setup:** the check that backups reach your bucket failed.
-- **Disk:** less than 15% free.
+- **Disk:** less than 15% free, or full within 14 days at its growth of the last two weeks (critical within 3).
 
 A webhook is signed like the dashboard's ([Webhooks](/docs/reference/webhooks)), and prints its signing secret once. URLs stay on the server, readable only by root. They must be `https://`, or `http://` to the server itself or a private network (for example ntfy on your LAN). `--min-severity info|warning|critical` picks what goes where (default `warning`).
 
 **A server can't tell you it is down.** Alerts run on the server, so while it (or the agent) is stopped, nothing is sent. When it comes back after more than 10 minutes, you get one message saying how long it was out. The dashboard watches from outside and alerts you while the server is down.
 
+<<<<<<< HEAD
 ## Your weekly Pulse
 
 Every Monday at 08:00 UTC, the alert channels above get a summary of the week for each database: protected or not, backups and any that failed, the restore test, how far back you can restore, Marks, alerts and free disk. A webhook gets it as JSON too (event `weekly_report`).
@@ -263,6 +268,29 @@ You type the database's name first (`--yes` in scripts). Rowsafe saves a Mark, s
 
 Restores, Proof and later rewinds keep working after a rewind or an undo: Rowsafe takes a full backup right after and follows PostgreSQL's history, so a copy at any second of the recovery window shows the data as it was then, even from before the rewind.
 >>>>>>> origin/no-account-rewind-in-place
+=======
+## Pulse, with history
+
+```sh
+sudo rowsafe pulse shop      # health score and findings, with what the agent saw over time
+sudo rowsafe fix shop        # apply what it found (asks first)
+sudo rowsafe top shop        # the queries that took the most time, and which got slower
+sudo rowsafe insights shop   # largest tables, unused indexes, bloat
+sudo rowsafe pulse           # every database on the server
+```
+
+The agent keeps what it reads, on the server, so `pulse` also finds what one reading can't:
+
+- **The disk filling up:** when it will be full at its growth of the last two weeks. Alerts warn you within 14 days.
+- **Queries that got slower:** more than twice as slow today as yesterday. When their tables' statistics may be out of date, `rowsafe fix` refreshes them (`ANALYZE`); otherwise it says what usually causes it.
+- **Backups:** whether the database is protected, from the same check as `rowsafe status`.
+
+`top` compares any range up to 14 days with the one before it: `--since 1h`, `--since 168h`, and `--query ID` for one query hour by hour. It needs [pg_stat_statements](/docs/guides/tuning).
+
+What it keeps, next to its state in `/var/lib/rowsafe` (readable only by the agent's user, a few MB at most): hourly averages of the disk, database size, connections, cache and commits for 30 days; each hour's 50 busiest queries for 14 days, as PostgreSQL normalizes them (values become `$1`); and the newest reading. The queries running right now stay in memory. Forecasts and slow-downs need about two days of readings first.
+
+Without a saved connection string (a database the installer set up), `pulse` works from the agent's readings alone; `rowsafe add` the database to apply fixes.
+>>>>>>> origin/no-account-history
 
 ## What runs by itself
 
@@ -277,6 +305,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 <<<<<<< HEAD
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Alerts from outside (the server is down), email alerts and the weekly email by email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 =======
 =======
@@ -284,6 +313,9 @@ The only thing the server fetches from Rowsafe is that release information (from
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - Minor PostgreSQL updates. Major upgrades, the server's security updates and reboots work on the server too ([above](#upgrade-postgresql)).
 >>>>>>> origin/no-account-upgrade
+=======
+- Alerts from outside (the server is down), email alerts and the weekly email, charts and uptime, index recommendations tested on a copy of your data, fixes from anywhere, teams, a second copy and Rowsafe Storage.
+>>>>>>> origin/no-account-history
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 

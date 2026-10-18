@@ -189,6 +189,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Alerts
 
 Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to your phone) or a webhook.
@@ -533,11 +534,35 @@ What touches the server itself waits for root's yes on that server: the firewall
 
 The check from the internet (Rowsafe's servers trying your port like a stranger) needs the dashboard.
 >>>>>>> origin/no-account-security
+=======
+## Files and Docker volumes
+
+Back up the folders that go with a database (uploads, CVs, photos), or a folder or Docker volume with no database at all, into the same bucket:
+
+```sh
+sudo rowsafe files add shop /var/www/uploads        # with the database: a Mark covers both
+sudo rowsafe files add --server docker:app_data     # a Docker volume on its own (or any folder)
+sudo rowsafe files shop                             # status and last snapshot (--server for the server's own)
+sudo rowsafe files snapshots shop                   # snapshots, newest first
+sudo rowsafe files set shop --every 30m             # how often (15 minutes by default)
+```
+
+If the agent's user can't read the folder, `files add` asks to give it **read-only** access with an ACL (owners and modes stay as they are). On a server with no database, `--server` is the default.
+
+Restore into another folder to look or compare, with nothing live touched:
+
+```sh
+sudo rowsafe files restore shop --at "10m ago" --into /srv/restored
+```
+
+Or in place (you type the name; with a database, a Mark comes first): by default only missing files come back, `--whole-folder` makes the folder exactly as it was and `sudo rowsafe files undo shop` reverts that. The agent puts files back itself where its user may write; files it may only read wait in `/var/lib/rowsafe/files-restored/`, and the restore says so. More in [Files](/docs/guides/files).
+>>>>>>> origin/no-account-files
 
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC; Redis and Valkey: every change, and a snapshot every day at 01:00 UTC; SQLite: every change from its -wal file, and a whole copy every day at 01:00 UTC; ClickHouse: each new part, and a backup every hour; OpenSearch, Qdrant and Meilisearch: a snapshot every few minutes).
 - **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
+- **Files:** a snapshot of each protected folder every 15 minutes (and at every Mark), old ones forgotten as backups expire, and a weekly files Proof. `sudo rowsafe status` lists the folders.
 - **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
 
 The only thing the server fetches from Rowsafe is that release information (from releases.rowsafe.sh). Nothing about your databases is sent.
@@ -603,10 +628,14 @@ After the usual login in the browser, it asks whether to connect this server to 
 - Rowsafe checks that each database's backups are already set up as before: nothing changes on PostgreSQL. If anything doesn't work out, the server is put back as it was, still backing up, and the command says what happened.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server (or a safe copy) isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`, `sudo rowsafe copies delete shop ID`), or it goes by itself when it expires. Masking rules stay on the server: set them again in the dashboard. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
 =======
 It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`), or it goes by itself when it expires. Log lines kept on the server and its log destinations don't move: the dashboard's Logs start from then, and you add destinations again in **Settings → Log forwarding**. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
 >>>>>>> origin/no-account-logs
+=======
+It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). Protected folders aren't carried over yet: add them again in the dashboard. A copy restored on the server isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`), or it goes by itself when it expires. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
+>>>>>>> origin/no-account-files
 
 Once connected, `sudo rowsafe logout` only signs the CLI out: the server stays connected. To run it on its own again, run the installer with `--no-account`. The account then sees the server offline: remove it in the dashboard.
 

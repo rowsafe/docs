@@ -40,8 +40,13 @@ If it shows **Can't read it all**, root must allow it: run the install command a
 
 ```sh
 rowsafe files add app /srv/app/storage/app --exclude cache,tmp
+rowsafe files add app docker:uploads   # a Docker volume, on a server with Docker
 rowsafe files app              # the folders, their status and last snapshot
+rowsafe files snapshots app    # snapshots, newest first
+rowsafe files set app --every 30m
 ```
+
+On the server itself (`sudo rowsafe`), `files add` also offers to give the agent read access when it can't read the folder.
 
 </Tab>
 <Tab value="Docker">
@@ -96,8 +101,11 @@ In **Rewind**, then **Files**, click **Restore files**:
 rowsafe files restore app --at "14:04"                                         # missing files only
 rowsafe files restore app --at "14:04" --column app:public.applications.cv_path
 rowsafe files restore app --mark before-import --whole-folder
+rowsafe files restore app --snapshot 3f2a9c1e --into /srv/restored           # another folder, nothing live touched
 rowsafe files undo app
 ```
+
+`--into` restores the whole snapshot (or `--path`) into a new or empty folder and leaves the protected one as it is. It works on [a server running Rowsafe on its own](/docs/guides/no-account-server#files-and-docker-volumes) for now.
 
 </Accordion>
 </Accordions>
@@ -146,7 +154,10 @@ rowsafe files add --server web1 /srv/app/storage
 rowsafe files add --server web1 /var/lib/docker/volumes/app_media/_data   # a Docker volume
 rowsafe files --server web1                                               # status
 rowsafe files restore --server web1 --at "14:04"
+rowsafe files set --server web1 --keep-days 60
 ```
+
+On the server itself (`sudo rowsafe`), `--server` alone means this server, and it is the default when the server has no database: `sudo rowsafe files add --server docker:app_media`.
 
 </Accordion>
 <Accordion title="With the API or an AI agent">

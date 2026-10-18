@@ -172,6 +172,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Alerts
 
 Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to your phone) or a webhook.
@@ -291,6 +292,83 @@ What it keeps, next to its state in `/var/lib/rowsafe` (readable only by the age
 
 Without a saved connection string (a database the installer set up), `pulse` works from the agent's readings alone; `rowsafe add` the database to apply fixes.
 >>>>>>> origin/no-account-history
+=======
+## Docker
+
+PostgreSQL in the official `postgres` image works the same way, with Rowsafe as one more service in your compose file. Nothing is installed on the host. Save this as `compose.yml` (or add the lines marked `Rowsafe` to yours):
+
+```yaml
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgsocket:/var/run/postgresql   # Rowsafe
+      - rowsafe-spool:/rowsafe-spool   # Rowsafe
+
+  # Rowsafe
+  rowsafe:
+    image: ghcr.io/rowsafe/agent:pg17
+    hostname: db-1
+    user: "999:999"
+    restart: unless-stopped
+    depends_on: [postgres]
+    env_file: rowsafe.env
+    shm_size: 256m
+    volumes:
+      - pgdata:/var/lib/postgresql/data:ro
+      - pgsocket:/var/run/postgresql
+      - rowsafe-spool:/rowsafe-spool
+      - rowsafe-state:/var/lib/rowsafe
+
+volumes:
+  pgdata:
+  pgsocket:        # Rowsafe
+  rowsafe-spool:   # Rowsafe
+  rowsafe-state:   # Rowsafe
+```
+
+And `rowsafe.env` next to it (`chmod 600`, never commit it), with your bucket:
+
+```sh
+ROWSAFE_URL=unix:///var/lib/rowsafe/control.sock
+ROWSAFE_REPO_S3_ENDPOINT=s3.eu-central-1.amazonaws.com
+ROWSAFE_REPO_S3_REGION=eu-central-1
+ROWSAFE_REPO_S3_BUCKET=myapp-backups
+ROWSAFE_REPO_S3_KEY=...
+ROWSAFE_REPO_S3_KEY_SECRET=...
+ROWSAFE_REPO_CIPHER_PASS=...   # your encryption key: save it in your password manager first
+```
+
+`ROWSAFE_URL=unix://…` is what makes it run on its own: the control plane runs inside the `rowsafe` container and nothing talks to rowsafe.sh. Any S3-compatible bucket works (AWS S3, Cloudflare R2, Backblaze B2, MinIO…). Without the encryption key no backup can be read, by you or anyone: `openssl rand -base64 32` makes a good one.
+
+Then:
+
+```sh
+docker compose up -d
+docker compose exec rowsafe rowsafe add shop postgres://postgres:PASSWORD@postgres:5432/shop
+docker compose restart postgres    # when it suits you: a few seconds, apps reconnect
+docker compose exec rowsafe rowsafe status shop
+```
+
+`rowsafe add` checks that the connection string reaches the PostgreSQL that shares the socket volume, then shows what backups need and asks first. Rowsafe never restarts PostgreSQL by itself: you restart the container when it suits you, and Rowsafe takes the first full backup and the first Proof. Every command above works the same way, with `docker compose exec rowsafe rowsafe …` in place of `sudo rowsafe …`:
+
+```sh
+docker compose exec rowsafe rowsafe mark shop before-migration
+docker compose exec rowsafe rowsafe backups shop
+docker compose exec rowsafe rowsafe restore shop --to before-migration
+docker compose exec rowsafe rowsafe channels add --type slack --name ops --url https://hooks.slack.com/...
+```
+
+A restored copy runs inside the `rowsafe` container. To update Rowsafe, `docker compose pull rowsafe && docker compose up -d rowsafe` (PostgreSQL keeps running; the container never updates itself).
+
+- PostgreSQL 18 and later: mount the data volume at `/var/lib/postgresql` in both services and use `ghcr.io/rowsafe/agent:pg18`. Alpine images (`postgres:17-alpine`): use `agent:pg17-alpine` and `user: "70:70"`.
+- Use Docker on a Linux server for production: Docker Desktop (macOS, Windows) is fine to try Rowsafe.
+- `rowsafe login` doesn't connect a Docker setup to the dashboard yet: for the dashboard, set up the agent with an account ([Run the agent in Docker](/docs/guides/docker)).
+>>>>>>> origin/no-account-docker
 
 ## What runs by itself
 

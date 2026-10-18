@@ -141,6 +141,10 @@ Same filters, groups, live view, alerts and forwarding.
 - **Removed:** client ports and quoted text. Lua `redis.log()` and module lines keep only plain words. A crash report stays on the server; Rowsafe gets only that it crashed and why.
 - No Failed logins filter: Redis keeps those in `ACL LOG`, not the log.
 
+## On a server on its own
+
+On a server installed without the dashboard, the agent keeps the log on the server: `sudo rowsafe logs shop --errors`, and `sudo rowsafe logs forward` to send it to your tools. See [Rowsafe on your server](/docs/guides/no-account-server#logs).
+
 ## Limits
 
 - MongoDB before 4.4 (plain-text log) isn't read.

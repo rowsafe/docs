@@ -1,15 +1,15 @@
 ---
 title: "Rowsafe on your server"
-description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts and Pulse, with sudo rowsafe.
+description: Install Rowsafe on your database server and use it from there, with no account. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts, Pulse with history, upgrades and more, with sudo rowsafe.
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, alerts you when something needs you, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite and ClickHouse continuously (OpenSearch, Qdrant and Meilisearch with snapshots every few minutes) to your own bucket, encrypted on the server with a passphrase only you have. It saves Marks, tests a restore every week, restores to any second, alerts you when something needs you, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
-That's all: nothing is sent to Rowsafe, and no account is needed. The installer sets up your storage (your own bucket; picking Rowsafe Storage instead connects the server to the dashboard), finds PostgreSQL, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
+That's all: nothing is sent to Rowsafe, and no account is needed. The installer sets up your storage (your own bucket; picking Rowsafe Storage instead connects the server to the dashboard), finds your databases, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
 
 ## Add a database
 
@@ -21,7 +21,47 @@ sudo rowsafe add shop postgres://app:PASSWORD@localhost:5432/shop
 
 Rowsafe checks that it connects (read-only), saves the connection string (readable only by root), then shows what turning on backups changes and asks first. It changes PostgreSQL's settings with `ALTER SYSTEM` and a reload, and never restarts PostgreSQL by itself: when archiving needs a restart, it says so, and `sudo rowsafe restart shop` does it when you choose (it asks first). Rowsafe notices the restart, checks that changes reach your bucket, then takes the first full backup and the first Proof.
 
-A database the installer already set up is found again: `rowsafe add` with its connection string saves the name, and that name works for every command. `--yes` answers the question (for scripts); it never restarts PostgreSQL.
+A database the installer already set up is found again: `rowsafe add` with its connection string saves the name, and that name works for every command. `--yes` answers the question (for scripts); it never restarts anything.
+
+### MySQL and MariaDB
+
+```sh
+sudo rowsafe add crm mysql://root:PASSWORD@localhost:3306/crm
+```
+
+- Rowsafe backs up with its own account (`rowsafe@localhost`, with only the rights backups need; its password stays on the server). When there is none yet, `rowsafe add` asks, then creates it: root logs in through the server's socket (Debian and Ubuntu), or with the password in the connection string.
+- Backups need the binary log. Rowsafe writes its settings to its own option file (`/etc/mysql/conf.d/zz-rowsafe.cnf`). MySQL 8 has the binary log on already; when it is off (MariaDB's default), the server needs a restart, which `sudo rowsafe restart crm` does when you choose.
+- Backups use Percona XtraBackup (MySQL) or mariadb-backup (MariaDB): the installer installs it, and the plan says when it is missing.
+
+### MongoDB
+
+```sh
+sudo rowsafe add docs 'mongodb://admin:PASSWORD@localhost:27017/?authSource=admin'
+```
+
+Nothing changes in MongoDB and it never restarts: Rowsafe copies its oplog to your bucket about every minute and takes a full backup every day. It uses its own MongoDB user (`rowsafe`; `rowsafe add` asks, then creates it with the administrator login). The oplog needs a replica set: a standalone server becomes a replica set of one member, which changes nothing for your apps but needs one restart (the installer does it when you say yes, `--mongodb-replica-set`).
+
+### Redis and Valkey
+
+```sh
+sudo rowsafe add cache redis://:PASSWORD@localhost:6379
+```
+
+Nothing changes in Redis and it never restarts: Rowsafe follows it as a hidden replica that serves nothing, copies every change to your bucket about every minute, and takes a snapshot every day, with its own user (`rowsafe`). When Redis won't let it follow (replication refused, or `min-replicas-to-write`), backups are the daily snapshots only: restores go back to those, Marks can't be taken, and `sudo rowsafe status` says why.
+
+### SQLite
+
+A SQLite database is a file your app opens, so the installer adds it: it gives the agent read access to the file (an ACL) and turns on its backups.
+
+```sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --sqlite /var/www/app/storage/database.sqlite
+```
+
+On a terminal, the installer also offers the SQLite files running apps have open. Rowsafe copies each change from the `-wal` file within seconds and takes a whole copy every day, kept 7 days. A file not in WAL mode gets the daily copies only.
+
+### ClickHouse, OpenSearch, Qdrant and Meilisearch
+
+The installer finds them and adds them, with Rowsafe's own login or key, and nothing restarts. ClickHouse: each new part goes to your bucket as it appears, plus ClickHouse's own backup every hour (in full on Sundays). OpenSearch, Qdrant and Meilisearch keep no log of their changes, so backups are snapshots, taken often and cheaply: OpenSearch every 5 minutes, Meilisearch and Qdrant every 15. A restore goes back to a snapshot, not to any second, and a Mark is a snapshot taken when you ask.
 
 ## Use it
 
@@ -33,7 +73,7 @@ sudo rowsafe backups shop                # backups, newest first
 sudo rowsafe backup shop --type diff     # back up now
 sudo rowsafe proof shop                  # run the restore test now
 sudo rowsafe proofs shop                 # restore test results
-sudo rowsafe pulse shop                  # health score and findings
+sudo rowsafe pulse shop                  # health score and findings (see Pulse below)
 ```
 
 Every command takes `--json`. Only root (and the agent's own user) can use it.
@@ -47,10 +87,72 @@ sudo rowsafe restore shop --to "10m ago"     # or "14:04", "2026-10-17 14:04", o
 sudo rowsafe restores shop                   # the copy, the recovery window, recent restores
 sudo rowsafe rewind compare shop             # rows deleted, changed or added since, by primary key
 sudo rowsafe rewind rows shop public.orders  # bring the deleted rows back (a Mark first; you type the name)
+                                             # MySQL, MariaDB, MongoDB, ClickHouse: DATABASE:TABLE, e.g. crm:orders
+                                             # Redis, Valkey: DB:PATTERN, e.g. '0:user:*'; SQLite: main:TABLE
 sudo rowsafe rewind drop shop                # delete the copy (it goes by itself after 24 hours)
 ```
 
 The copy runs on the server, on a private socket only the agent's user can reach; `sudo rowsafe tasks shop --type rewind_copy --json` shows where. One copy at a time; `sudo rowsafe rewind extend shop --hours 48` keeps it longer (at most 7 days).
+
+### Rewind the whole database
+
+When the whole database has to go back:
+
+```sh
+sudo rowsafe rewind database shop --to "10m ago"   # or a time, or a Mark: --to before-migration
+sudo rowsafe rewind undo shop                      # put it back as it was before the rewind (7 days)
+sudo rowsafe rewind cleanup shop                   # delete the data kept aside, to free disk
+```
+
+You type the database's name first (`--yes` in scripts). Rowsafe saves a Mark, stops PostgreSQL, restores it to that point and starts it again: apps can't connect meanwhile. The data from before is kept aside on the server for 7 days. It needs the restart permission the installer asks for; without it, restore a copy and bring back rows instead. Restores, Proof and later rewinds keep working afterwards: Rowsafe takes a full backup right after and follows PostgreSQL's history.
+
+## Restore onto another server
+
+When the server is lost (or to move the database), restore it on a new server from its backups:
+
+1. **Install Rowsafe on the new server** with the **same bucket** and, at the passphrase question, **Use my own passphrase**: paste the old server's (`ROWSAFE_REPO_CIPHER_PASS` in its `/etc/rowsafe/agent.env`). Install the same PostgreSQL major version. Don't add a database there.
+2. **Restore it there:**
+
+```sh
+sudo rowsafe restore shop --from-bucket                 # the latest point the backups hold
+sudo rowsafe restore shop --from-bucket --to "14:04"    # or any second before
+```
+
+Rowsafe reads `shop`'s backups with the new server's own settings (the passphrase never leaves it), restores into the empty PostgreSQL there after you type the name (or a new cluster with `--new-cluster`), then protects it: a full backup and a Proof, in a new folder of the bucket. The old server's backups stay as they were.
+
+- **Test it first:** `sudo rowsafe proof shop --from-bucket` on another server set up the same way restores the newest backup into a scratch copy there, checks it, then deletes it. Nothing changes on either server.
+- **To move a database** with the old server running: stop your app's writes, `sudo rowsafe mark shop before-move` on the old server, restore on the new server, then point your app at it. `--as NAME` restores under another name; `--port N` picks the cluster when there are several.
+
+## Keep a second copy
+
+One bucket is one place that can go wrong: deleted by mistake, an account locked, leaked keys. A second copy keeps the backups and the change log in a second bucket too, ideally at another provider:
+
+```sh
+sudo rowsafe secondcopy add shop                         # asks for the bucket's URL and key, tests it first
+sudo rowsafe secondcopy shop                             # where it is, how far it is, its backups
+sudo rowsafe backup shop --second-copy                   # a full backup to it now
+sudo rowsafe proof shop --second-copy                    # a restore test from it now
+sudo rowsafe restore shop --to before-migration --second-copy   # if the first bucket is lost
+sudo rowsafe secondcopy remove                           # turn it off (its bucket stays as it is)
+```
+
+Its key and a **new passphrase** go in `/etc/rowsafe/agent.env` and nowhere else; the passphrase is shown once, keep it apart from the first one. The agent restarts to read them; PostgreSQL only reloads. The first full backup into the copy runs right away, then every Sunday at 03:30 UTC, and Proof alternates between the two buckets. If the second bucket is down, the first carries on and the copy catches up by itself; **Second copy not up to date** alerts after 30 minutes. Without a terminal: `--endpoint URL` and the key in `ROWSAFE_REPO2_S3_KEY` and `ROWSAFE_REPO2_S3_KEY_SECRET`.
+
+## Upgrade PostgreSQL
+
+Move to a new major version (16 to 17 or 18) with a test on a copy first and a way back:
+
+```sh
+sudo rowsafe upgrade shop                            # versions, and the majors your package sources offer
+sudo rowsafe upgrade shop --to 18 --rehearse-only    # test it on a copy of the latest backup
+sudo rowsafe upgrade shop --to 18                    # the upgrade: you type the name; a Mark first
+sudo rowsafe upgrade undo shop                       # back to 16, for 7 days
+sudo rowsafe upgrade cleanup shop                    # remove the kept 16 (it goes by itself after 7 days)
+```
+
+The rehearsal restores the latest backup into a scratch copy, upgrades it, checks every database opens and gives the expected downtime; a pass allows the upgrade for 14 days. The upgrade stops PostgreSQL, runs `pg_upgradecluster` (same port, same settings) and starts the new version; if anything fails before it accepts connections, the old version is put back. Safe mode (the default) keeps the old version, so undo takes seconds; `--mode fast` uses less disk and its undo restores from the backup at the Mark.
+
+The server's security updates and a reboot work the same way, with a Mark first: `sudo rowsafe security-updates shop` (services keep running) and `sudo rowsafe reboot shop` (you type the server's name). Root allows each once: `sudo rowsafe-allow restart updates security-updates reboot`. Debian and Ubuntu with PostgreSQL from packages. More in [Update and upgrade](/docs/guides/updates#major-upgrades).
 
 ## Alerts
 
@@ -68,30 +170,209 @@ sudo rowsafe alerts ack ID               # no more reminders for it
 
 You get a message when an alert starts and when it ends, plus a daily reminder for a critical one nobody acknowledged. Each says what to do, with the `sudo rowsafe` command. Alerts on the server:
 
-- **Backups:** no successful backup in 26 hours, no full backup in 8 days.
+- **Backups:** no successful backup in 26 hours, no full backup in 8 days; the second copy falling behind.
 - **Proof:** the restore test failed, or none passed in 8 days.
 - **Continuous backup:** copying changes to your bucket keeps failing.
-- **PostgreSQL:** Rowsafe can't reach it, or it is still waiting for a restart after setup (24 hours).
+- **The database:** Rowsafe can't reach it, or it is still waiting for a restart after setup (24 hours).
 - **Setup:** the check that backups reach your bucket failed.
-- **Disk:** less than 15% free.
+- **Disk:** less than 15% free, or full within 14 days at its growth of the last two weeks (critical within 3).
+- **Security:** anyone can log in without a password.
+- **Standbys and files:** a standby down or behind, folders not backed up.
 
 A webhook is signed like the dashboard's ([Webhooks](/docs/reference/webhooks)), and prints its signing secret once. URLs stay on the server, readable only by root. They must be `https://`, or `http://` to the server itself or a private network (for example ntfy on your LAN). `--min-severity info|warning|critical` picks what goes where (default `warning`).
 
-**A server can't tell you it is down.** Alerts run on the server, so while it (or the agent) is stopped, nothing is sent. When it comes back after more than 10 minutes, you get one message saying how long it was out. The dashboard watches from outside and alerts you while the server is down.
+**A server can't tell you it is down.** Alerts run on the server, so while it (or the agent) is stopped, nothing is sent. When it comes back after more than 10 minutes, you get one message saying how long it was out. The dashboard watches from outside, and so can your own Prometheus ([below](#prometheus-and-grafana)).
+
+### Your weekly Pulse
+
+Every Monday at 08:00 UTC, the alert channels get a summary of the week for each database: protected or not, backups and any that failed, the restore test, how far back you can restore, Marks, alerts and free disk. A webhook gets it as JSON too (event `weekly_report`).
+
+```sh
+sudo rowsafe report              # on or off, where it goes
+sudo rowsafe report --preview    # this week so far
+sudo rowsafe report --send-test  # send it now
+sudo rowsafe report --off        # stop it (--on to start again)
+```
+
+It is on once a channel exists; the first one comes the Monday after.
+
+## Pulse, with history
+
+```sh
+sudo rowsafe pulse shop      # health score and findings, with what the agent saw over time
+sudo rowsafe fix shop        # apply what it found (asks first)
+sudo rowsafe top shop        # the queries that took the most time, and which got slower
+sudo rowsafe insights shop   # largest tables, unused indexes, bloat
+sudo rowsafe pulse           # every database on the server
+```
+
+The agent keeps what it reads, on the server, so `pulse` also finds what one reading can't: the disk filling up (when it will be full), queries more than twice as slow as yesterday (and `rowsafe fix` refreshes their statistics when that's the cause), and whether backups are protected. `top --since 168h` compares any range up to 14 days with the one before it; it needs [pg_stat_statements](/docs/guides/tuning).
+
+It keeps a few MB at most, in `/var/lib/rowsafe`, readable only by the agent's user: hourly averages for 30 days and each hour's 50 busiest queries for 14 days, normalized by PostgreSQL (values become `$1`). Forecasts and slow-downs need about two days of readings first.
+
+## Logs
+
+The agent reads PostgreSQL's own log and keeps it on the server, with values removed like in the [dashboard](/docs/guides/logs#settings-what-leaves-your-server):
+
+```sh
+sudo rowsafe logs shop --errors --since 1h        # errors of the last hour
+sudo rowsafe logs shop --grep orders               # lines that mention orders
+sudo rowsafe logs shop --groups                    # repeated messages, most frequent first
+sudo rowsafe logs shop --follow                    # new lines as they come
+```
+
+It keeps at most 16 MB of lines for up to 30 days, in `/var/lib/rowsafe/local-logs`, readable only by the agent. Slow statements need PostgreSQL to log them (`log_min_duration_statement`, see [useful logging](/docs/guides/logs#turn-on-useful-logging)).
+
+### Forward them
+
+```sh
+sudo rowsafe logs forward --url https://logs.example.com/rowsafe --kinds errors   # a signed webhook
+sudo rowsafe logs forward --type loki --url https://loki.example.com --username 123456 --secret-env LOKI_TOKEN
+sudo rowsafe logs forward                  # where they go, delivered, the last error
+```
+
+Straight from the server to Datadog, Better Stack, Papertrail, Grafana Loki, Elasticsearch/OpenSearch, a signed webhook or syslog over TLS, in the same formats as the dashboard's [log forwarding](/docs/reference/log-forwarding). Nothing leaves the server unless you add a destination.
+
+## Security check
+
+Rowsafe checks who can reach each database and how they log in, like the [security check](/docs/guides/security) in the dashboard: `pg_hba.conf`, encryption, password hashing, privileges and the PostgreSQL version. Only each user's password type is read, never a password.
+
+```sh
+sudo rowsafe security shop                       # the grade, each finding in plain words, and its fix
+sudo rowsafe security fix shop security_open_rules --allow 10.0.1.0/24   # only your app servers may log in
+sudo rowsafe security fix shop                   # every fix, and whether it can run now
+```
+
+Each fix says what it changes and asks you to type the database's name first. New access rules are tested before they take effect and the old ones are kept (`undo_restrict_access` puts them back). What touches the server itself (the firewall, a restart) waits for root's yes on that server, asked at the terminal.
+
+## Preview a migration
+
+Run a migration on a full copy of the data first, restored from your backups next to production:
+
+```sh
+sudo rowsafe preview shop migration.sql
+```
+
+You see what it would lock and for how long, what it rewrites, how many rows it touches, and a verdict: safe, careful, dangerous or failed. It runs on your real rows, so it also catches what fails only on the data. The first preview restores the copy; the next ones within an hour reuse it. On this server, the [guard hook](/docs/guides/ai-agents) for Claude Code and Codex saves a Mark and runs the command's SQL on a full copy too, and `check_migration` in `sudo rowsafe mcp shop` does the same.
+
+## Safe copies for development
+
+A masked copy for developers and AI agents: every row, with personal data replaced by fake values.
+
+```sh
+sudo rowsafe masking shop                                 # which columns are masked, and how
+sudo rowsafe copies create shop --masked --port 55440     # restore, mask, open it on localhost
+```
+
+It prints the connection string once, listens on localhost only, and is deleted by itself after 24 hours (`--hours`, at most 7 days). From your computer: `ssh -L 55440:127.0.0.1:55440 SERVER`. More in [Safe copies](/docs/guides/safe-copies).
+
+## Files and Docker volumes
+
+Back up the folders that go with a database (uploads, photos), or a folder or Docker volume on its own, into the same bucket:
+
+```sh
+sudo rowsafe files add shop /var/www/uploads        # with the database: a Mark covers both
+sudo rowsafe files add --server docker:app_data     # a Docker volume on its own (or any folder)
+sudo rowsafe files snapshots shop                   # snapshots, newest first
+sudo rowsafe files restore shop --at "10m ago" --into /srv/restored
+```
+
+A snapshot every 15 minutes (`files set shop --every 30m`), and at every Mark. Restoring in place asks you to type the name; by default only missing files come back, and `--whole-folder` (with `files undo`) makes the folder exactly as it was. More in [Files](/docs/guides/files).
+
+## Standbys
+
+A standby on a second server, built from the backups, ready to take over: see [Standbys](/docs/guides/standby).
+
+## Prometheus and Grafana
+
+The server can serve what it knows as Prometheus metrics: whether each database is protected, the age of its newest backup and passing Proof, how far back you can restore, the alerts firing, and the readings the agent collects. Off until you add this to `/etc/rowsafe/agent.env`:
+
+```sh
+ROWSAFE_METRICS_LISTEN=127.0.0.1:9188
+```
+
+Any address other than loopback needs `ROWSAFE_METRICS_TOKEN` too (sent as a bearer token). Ready-made scrape job, alert rules and a Grafana dashboard are in [integrations/prometheus](https://github.com/rowsafe/rowsafe/tree/main/integrations/prometheus); its rules add the one alert a server can't send itself: that it is down.
+
+## From your computer, over SSH
+
+Use the server from your laptop, or let an AI agent on it save Marks, with nothing opened on the network: the `rowsafe` CLI goes through your own `ssh`.
+
+```sh
+rowsafe add shop ssh://root@db1.example.com    # or a Host alias from ~/.ssh/config
+rowsafe status shop
+rowsafe mark shop before-migration
+rowsafe restore shop --to "10m ago"
+claude mcp add rowsafe -- rowsafe mcp shop --allow-restore-points   # for Claude Code or Codex
+```
+
+Only the server's address is saved on your computer; the connection string stays on the server. Commands run through Rowsafe's bridge on the server (`/opt/rowsafe/rowsafe-agent control-bridge`), as root, or as a user who may run that one command with `sudo` without a password. With `rowsafe use shop` in a project, the guard hook saves a Mark on the server before a destructive command, over SSH too.
+
+## Docker
+
+PostgreSQL in the official `postgres` image works the same way, with Rowsafe as one more service in your compose file:
+
+```yaml
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - pgsocket:/var/run/postgresql   # Rowsafe
+      - rowsafe-spool:/rowsafe-spool   # Rowsafe
+
+  # Rowsafe
+  rowsafe:
+    image: ghcr.io/rowsafe/agent:pg17
+    hostname: db-1
+    user: "999:999"
+    restart: unless-stopped
+    depends_on: [postgres]
+    env_file: rowsafe.env
+    shm_size: 256m
+    volumes:
+      - pgdata:/var/lib/postgresql/data:ro
+      - pgsocket:/var/run/postgresql
+      - rowsafe-spool:/rowsafe-spool
+      - rowsafe-state:/var/lib/rowsafe
+
+volumes:
+  pgdata:
+  pgsocket:        # Rowsafe
+  rowsafe-spool:   # Rowsafe
+  rowsafe-state:   # Rowsafe
+```
+
+And `rowsafe.env` next to it (`chmod 600`, never commit it), with your bucket:
+
+```sh
+ROWSAFE_URL=unix:///var/lib/rowsafe/control.sock
+ROWSAFE_REPO_S3_ENDPOINT=s3.eu-central-1.amazonaws.com
+ROWSAFE_REPO_S3_REGION=eu-central-1
+ROWSAFE_REPO_S3_BUCKET=myapp-backups
+ROWSAFE_REPO_S3_KEY=...
+ROWSAFE_REPO_S3_KEY_SECRET=...
+ROWSAFE_REPO_CIPHER_PASS=...   # your encryption key: save it in your password manager first
+```
+
+Then `docker compose up -d`, `docker compose exec rowsafe rowsafe add shop postgres://postgres:PASSWORD@postgres:5432/shop`, and restart the `postgres` container once when it suits you. Every command on this page works with `docker compose exec rowsafe rowsafe …` in place of `sudo rowsafe …`. PostgreSQL 18: mount the data at `/var/lib/postgresql` and use `agent:pg18`; Alpine images: `agent:pg17-alpine` and `user: "70:70"`.
 
 ## What runs by itself
 
-- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
+- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log, MongoDB's oplog, Redis and Valkey's changes, SQLite's -wal file, ClickHouse's new parts), plus full backups: PostgreSQL every Sunday at 01:00 UTC with a differential one the other days; MongoDB, Redis, Valkey and SQLite every day; ClickHouse every hour. OpenSearch, Qdrant and Meilisearch: a snapshot every few minutes.
 - **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
+- **Files:** a snapshot of each protected folder every 15 minutes, and a weekly files Proof.
 - **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
 
 The only thing the server fetches from Rowsafe is that release information (from releases.rowsafe.sh). Nothing about your databases is sent.
 
 ## What the dashboard adds
 
-- Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
-- Alerts from outside (the server is down), email alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
-- MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
+- Every server in one place, teams, and alerts from outside when a server is down.
+- Email alerts and the weekly email, charts and uptime, index recommendations tested on a copy of your data, and the security check from the internet.
+- Fixes from anywhere, what each storage costs, and Rowsafe Storage.
 
 Commands that need the dashboard say so.
 
@@ -103,14 +384,14 @@ sudo rowsafe login
 
 After the usual login in the browser, it asks whether to connect this server to your account, then does it with nothing to reinstall:
 
-- The agent restarts and connects to the account. PostgreSQL doesn't restart: it keeps sending its changes to your bucket the whole time, so backups never stop.
+- The agent restarts and connects to the account. The database doesn't restart: it keeps sending its changes to your bucket the whole time, so backups never stop.
 - Each database moves to the account under the same name, with its backups (the same files, in the same bucket), Proofs and Marks.
-- Rowsafe checks that each database's backups are already set up as before: nothing changes on PostgreSQL. If anything doesn't work out, the server is put back as it was, still backing up, and the command says what happened.
+- If anything doesn't work out, the server is put back as it was, still backing up, and the command says what happened.
 
-It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`), or it goes by itself when it expires. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
+It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running. Copies restored on the server (and safe copies) aren't listed in the dashboard: delete them first, or they go by themselves when they expire. Protected folders, masking rules, log lines and log destinations stay on the server: set them again in the dashboard. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key. A Docker setup can't be connected this way yet: [Run the agent in Docker](/docs/guides/docker) with an account instead.
 
 Once connected, `sudo rowsafe logout` only signs the CLI out: the server stays connected. To run it on its own again, run the installer with `--no-account`. The account then sees the server offline: remove it in the dashboard.
 
 ## Check any database too
 
-`rowsafe pulse postgres://…` checks a database you can reach, even one you can't install anything on (RDS, Supabase, Neon): see [Pulse on any database](/docs/guides/no-account).
+`rowsafe pulse postgres://…` (or `mysql://`, `mongodb://`, `redis://`) checks a database you can reach, even one you can't install anything on (RDS, Supabase, Neon): see [Pulse on any database](/docs/guides/no-account).

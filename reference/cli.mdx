@@ -56,6 +56,7 @@ Flags go before or after the arguments, with one or two dashes (`-yes` or `--yes
 | Command | What it does |
 |---|---|
 | `rowsafe add NAME [CONN]` | Check that the database answers (read-only) and save its connection string on this computer, readable only by you. Without `CONN`: piped in, `--from-env VAR`, or the project's `DATABASE_URL` (asks first). On the database's own server where Rowsafe runs [on its own](/docs/guides/no-account-server) (`sudo`), it also offers to turn on backups, Marks, Proof and restores, and every command then takes the name. `--no-check`, `--yes`, `--json`. |
+| `rowsafe add NAME ssh://USER@HOST` | Save a database on a server where Rowsafe runs [on its own](/docs/guides/no-account-server#from-your-computer-over-ssh), reached over your own SSH: only the address is saved, the connection string stays on the server. Commands then take `NAME` and run on that server: `status`, `mark`, `backups`, `restore`, `rewind`, `proof`, `alerts`, `channels`, `mcp` through its agent, `pulse`, `fix` and the other direct ones with its `rowsafe`. `--ssh USER@HOST`, `--database DB` (its name on the server), `--no-check`, `--yes`, `--json`. |
 | `rowsafe use NAME` | Make `NAME` this project's database: writes the name, never the connection string, to `.rowsafe.json`. |
 | `rowsafe databases` | The saved databases: name, host, database, user. Also `rowsafe ls` when you aren't logged in. `--json`. |
 | `rowsafe forget NAME` | Delete a saved connection string. `--yes`. |
@@ -213,9 +214,12 @@ rowsafe cloud delete shop-db
 
 | Command | What it does |
 |---|---|
-| `rowsafe backup [NAME]` | Back up now. `--type full` (default), `diff` or `incr`. |
-| `rowsafe backups [NAME]` | Backups, newest first. |
-| `rowsafe proof [NAME]` | Run [Proof](/docs/concepts/restore-drills), the restore test, now. |
+| `rowsafe backup [NAME]` | Back up now. `--type full` (default), `diff` or `incr`. `--second-copy`: to the [second copy](/docs/guides/second-copy). |
+| `rowsafe backups [NAME]` | Backups, newest first. On a server on its own, `--second-copy` lists the second copy's. |
+| `rowsafe proof [NAME]` | Run [Proof](/docs/concepts/restore-drills), the restore test, now. `--second-copy` restores from the second copy. |
+| `rowsafe secondcopy [NAME]` | The [second copy](/docs/guides/second-copy): where it is, how far it is, its backups. `--json`. |
+| `sudo rowsafe secondcopy add [NAME] --endpoint HOST --bucket B` | On a [server on its own](/docs/guides/no-account-server#keep-a-second-copy): test a second bucket, save its key (`$ROWSAFE_REPO2_S3_KEY`, `$ROWSAFE_REPO2_S3_KEY_SECRET`, or asked) and a new passphrase in `/etc/rowsafe/agent.env`, and turn it on. `--endpoint` also takes the bucket's URL. `--region`, `--uri-style`, `--path-prefix`, `--ca-file`, `--yes`, `--no-wait`. |
+| `sudo rowsafe secondcopy remove` | Turn it off; the bucket's content stays. `--yes`. |
 | `rowsafe proofs [NAME]` | Every Proof run and its result. |
 | `rowsafe mark [NAME] [LABEL]` | Set a [Mark](/docs/concepts/restore-points) (a named restore point). `LABEL` defaults to `manual-<UTC time>`. `--json` prints the Mark (`status`, `restore_from_backup`, ...) for scripts and CI. |
 | `rowsafe marks [NAME]` | Marks, with the backup to restore from. |
@@ -233,14 +237,16 @@ Folders that go with a database, like uploads ([guide](/docs/guides/files)).
 | Command | What it does |
 |---|---|
 | `rowsafe files [NAME]` | Protected folders, status and last snapshot. `--json`. |
-| `rowsafe files add [NAME] PATH` | Back up the folder `PATH` on the database server with the database. `--exclude cache,*.tmp` leaves files out. |
+| `rowsafe files add [NAME] PATH` | Back up the folder `PATH` on the database server with the database (`docker:VOLUME` for a Docker volume). `--exclude cache,*.tmp` leaves files out. On the server, it offers to give the agent read access (`--yes`). |
 | `rowsafe files remove [NAME] PATH` | Stop backing it up (its snapshots age out). `--yes` skips the question. |
 | `rowsafe files backup [NAME]` | Snapshot the folders now. `--no-wait` returns at once. |
-| `rowsafe files restore [NAME] (--at TIME \| --mark LABEL)` | Bring files back; by default only missing ones. `--path REL` (repeatable) for listed paths, `--column DB:schema.table.column` for files a column points to, `--whole-folder` (kept for undo), `--overwrite` to also replace changed files, `--folder PATH` for one folder, `--preview` to only count. You type the database name unless `--yes`. |
+| `rowsafe files snapshots [NAME]` | Each folder's snapshots, newest first. `--folder PATH`, `--json`. |
+| `rowsafe files set [NAME] --every 15m` | How often to snapshot (5m to 24h). `--keep-days N` for a server's own folders (7 to 400). |
+| `rowsafe files restore [NAME] (--at TIME \| --mark LABEL \| --snapshot ID)` | Bring files back; by default only missing ones. `--path REL` (repeatable) for listed paths, `--column DB:schema.table.column` for files a column points to, `--whole-folder` (kept for undo), `--overwrite` to also replace changed files, `--folder PATH` for one folder, `--into DIR` to restore into another folder instead (a server on its own), `--preview` to only count. You type the database name unless `--yes` (not needed with `--into`). |
 | `rowsafe files undo [NAME]` | Undo the last whole-folder restore. |
 | `rowsafe files proof [NAME]` | Restore a few files and compare them with the live ones, now. |
 
-With CLI 0.10.23 or later, add `--server SERVER` (hostname or ID, see `rowsafe hosts list`) instead of `NAME` for [a server's own files](/docs/guides/files#a-servers-own-files): any folder, or a Docker volume as `/var/lib/docker/volumes/VOLUME/_data`. For example `rowsafe files add --server web1 /srv/app/storage` or `rowsafe files restore --server web1 --at "14:04"`. A restore or undo asks you to type the server's hostname; `--column` is for databases only.
+With CLI 0.10.23 or later, add `--server SERVER` (hostname or ID, see `rowsafe hosts list`) instead of `NAME` for [a server's own files](/docs/guides/files#a-servers-own-files): any folder, or a Docker volume as `/var/lib/docker/volumes/VOLUME/_data`. For example `rowsafe files add --server web1 /srv/app/storage` or `rowsafe files restore --server web1 --at "14:04"`. On the server itself, `--server` alone is this server (the default when it has no database). A restore or undo asks you to type the server's hostname; `--column` is for databases only.
 
 ## Rewind
 
@@ -248,7 +254,7 @@ Same as the dashboard's **Rewind** page ([guide](/docs/guides/restore)). Owners 
 
 | Command | What it does |
 |---|---|
-| `rowsafe restore [NAME] --to TIME\|MARK` | Restore a copy next to production as it was at `TIME` or a Mark (`rowsafe rewind copy` in one flag). `--hours N`, `--no-wait`. |
+| `rowsafe restore [NAME] --to TIME\|MARK` | Restore a copy next to production as it was at `TIME` or a Mark (`rowsafe rewind copy` in one flag). `--hours N`, `--no-wait`. On a server on its own, `--second-copy` restores from the second copy (when the first bucket is gone). |
 | `rowsafe restores [NAME]` | The copy, the recovery window and recent restores (as `rowsafe rewind`). `--json`. |
 | `rowsafe rewind [NAME]` | Recovery window, newest Marks, the copy, data kept aside by a rewind, and the next command to run. `--json`. |
 | `rowsafe rewind copy [NAME] (--at TIME \| --mark LABEL)` | Restore a copy next to production (never touches production). `--hours N` keeps it N hours (default 24, 1 to 168). `--no-wait` returns at once. |
@@ -256,7 +262,7 @@ Same as the dashboard's **Rewind** page ([guide](/docs/guides/restore)). Owners 
 | `rowsafe rewind rows [NAME] TABLE...` | Bring back rows missing in production from the copy, after a Mark. `--include-changed` also resets changed rows to the copy's values. `--db DB`. You type the database name; `--yes` skips. |
 | `rowsafe rewind extend [NAME]` | Keep the copy longer: `--hours N` from now (default 24, at most 168). |
 | `rowsafe rewind drop [NAME]` | Delete the copy. Asks first; `--yes` skips. |
-| `rowsafe rewind database [NAME] (--at TIME \| --mark LABEL)` | Rewind the whole live database. PostgreSQL stops during the restore; current data is kept aside 7 days. Only on servers that allow it. You type the database name; `--yes` skips. |
+| `rowsafe rewind database [NAME] --to TIME\|MARK` | Rewind the whole live database (or `--at TIME`, `--mark LABEL`). A Mark first; PostgreSQL stops during the restore; current data is kept aside 7 days. Only on servers that allow restarts, also [on its own](/docs/guides/no-account-server#rewind-the-whole-database). You type the database name; `--yes` skips. |
 | `rowsafe rewind undo [NAME]` | Undo the latest rewind (put the data from before it back). You type the database name; `--yes` skips. |
 | `rowsafe rewind cleanup [NAME]` | Delete data kept aside by a rewind, to free disk. The rewind can't be undone after. Asks first; `--yes` skips. |
 
@@ -300,6 +306,19 @@ A [standby](/docs/guides/standby) is a readable second server, kept in sync, tha
 | `rowsafe standby remove [NAME]` | Remove the standby; its cluster gets its own data back. |
 
 To compare fingerprints before pairing, run `sudo -u postgres rowsafe-agent key` on the server.
+
+On servers on their own (not connected to the dashboard; both set up with the same bucket and passphrase), each server runs its half ([guide](/docs/guides/standby#on-servers-on-their-own)):
+
+| Command | What it does |
+|---|---|
+| `sudo rowsafe standby link NAME --address IP` | On the primary: let the standby at `IP` stream. Prints the command for the standby's server. |
+| `sudo rowsafe standby create NAME [--primary IP[:PORT]]` | On the standby's server: its empty cluster restores the backups from the bucket and follows the primary. On a fenced old primary, rebuilds it as the new standby. `--port N` (which cluster), `--folder F` (when `link` says so), `--yes`, `--no-wait`. |
+| `sudo rowsafe standby fence NAME` | On the primary: stop it for good for a switchover. The bucket records where its last change is. |
+| `sudo rowsafe standby promote NAME` | On the standby's server: promote it, after replaying the fenced primary's last change. `--primary-down` when the primary is down instead. |
+| `sudo rowsafe standby unfence NAME` | On a fenced primary: start it again, if the standby wasn't promoted (checked in the bucket). |
+| `sudo rowsafe standby unlink\|remove\|forget NAME` | Stop the streaming (primary), remove the standby (its server), let a fenced copy go. |
+
+Every change asks you to type the name unless `--yes`. `standby failover` is refused: there is no automatic failover on servers on their own.
 
 ### Move to a new server
 
@@ -377,7 +396,7 @@ Only on servers where the installer allowed updates. Through MCP, only for [an a
 | `rowsafe pulse [NAME]` | [Pulse](/docs/guides/monitoring): health score (0-100) and findings with what to do. Without NAME: every database, worst first. Exits `3` if one scores below 70. `--json`. |
 | `rowsafe fix [NAME] [FINDING [FIX] \| NUMBER]` | Numbered fixes for what `pulse` found (clean up tables, refresh statistics, add, rebuild or remove an index, end a stuck session, remove an inactive slot, back up now...). In a terminal, asks which to apply. `rowsafe fix app 2` applies number 2; `rowsafe fix app FINDING FIX` names it by ID. Asks before running; fixes that end a session or remove something ask you to type the database name. `--yes` skips. Same as [Apply fix](/docs/guides/monitoring#apply-fix) in the dashboard. |
 | `rowsafe insights [NAME]` | Largest tables and indexes, unused and duplicate indexes, estimated bloat, dead rows and vacuum, transaction ID age. `--limit N`, `--json`. |
-| `rowsafe top [NAME]` | Queries that took the most time, and which got slower. `--since 24h` (e.g. `1h`, `168h`), `--sort total_time\|calls\|mean_time\|rows`, `--query ID` (one query over time), `--json`. Needs `pg_stat_statements`. |
+| `rowsafe top [NAME]` | Queries that took the most time, and which got slower. `--since 24h` (e.g. `1h`, `168h`), `--sort total_time\|calls\|mean_time\|rows`, `--query ID` (one query over time), `--json`. Needs `pg_stat_statements`. On a [server on its own](/docs/guides/no-account-server#pulse-with-history), from the agent's readings (up to 14 days). |
 | `rowsafe recommendations [NAME]` | [Recommendations](/docs/guides/recommendations) (schema, queries, capacity, indexes): why, and what each costs. Without NAME: each database's top one. `--group schema\|queries\|capacity\|indexes`, `--dismissed`, `--json`. `--dismiss ID [--reason not_relevant\|intended\|later\|wrong] [--note TEXT]` sets one aside; `--restore ID` brings it back. Apply the ones Rowsafe can do with `rowsafe fix`. |
 | `rowsafe recommendations find [NAME]` | Test index ideas on a copy now (it also runs nightly) and wait; proven indexes appear in the Indexes group. `--no-wait`. |
 | `rowsafe recommendations schedule [NAME] auto\|off\|CRON` | When to test index ideas: `auto` (nightly at the quietest hour), `off`, or 5-field cron in UTC. |
@@ -454,9 +473,9 @@ Nothing restarts: settings that need a restart wait for `rowsafe restart` (or th
 | `rowsafe mcp` | [MCP server](/docs/reference/mcp) on stdio, read-only. `--allow-restore-points` adds Marks. `--allow-writes` adds actions that don't touch production, plus changes to production made [as you](/docs/guides/agent-autonomy) (`request_change`, `create_cloud_server`, `cloud_firewall`, `apply_fix`, `create_app_database`). |
 | `rowsafe guard` | The Claude Code `PreToolUse` hook: sets a Mark before a destructive database command ([Guard](/docs/guides/ai-agents#the-guard-hook)). |
 | `rowsafe guard --check COMMAND` | Whether `COMMAND` looks destructive. |
-| `rowsafe preview [NAME] FILE` | [Preview a migration](/docs/guides/preview-migrations) on a fresh copy. `--db DB`, `--json` or `--format markdown`, `--fail-on careful\|dangerous`, `--no-wait`. `FILE` may be `-` (stdin). |
+| `rowsafe preview [NAME] FILE` | [Preview a migration](/docs/guides/preview-migrations) on a fresh copy. `--db DB`, `--json` or `--format markdown`, `--fail-on careful\|dangerous`, `--no-wait`. `FILE` may be `-` (stdin). On a [server on its own](/docs/guides/no-account-server#preview-a-migration), on a full copy of its backups too. |
 | `rowsafe previews [NAME] [ID]` | Recent previews, or one in full. |
-| `rowsafe copies [NAME]` | [Safe copies](/docs/guides/safe-copies). `copies create` (`--allow IP`, `--listen`, `--hours`, `--db`, `--json`), `copies extend ID`, `copies delete ID`, `copies password ID` (a new password, made on your machine). |
+| `rowsafe copies [NAME]` | [Safe copies](/docs/guides/safe-copies). `copies create` (`--allow IP`, `--listen`, `--hours`, `--db`, `--masked` (the default), `--json`; on a [server on its own](/docs/guides/no-account-server#safe-copies-for-development), `--port` and `--listen localhost`, its default), `copies extend ID`, `copies delete ID`, `copies password ID` (a new password, made on your machine). |
 | `rowsafe masking [NAME]` | Which columns safe copies mask. `masking set [DB:]TABLE.COLUMN STRATEGY`, `masking refresh`. |
 
 ## Usage counts

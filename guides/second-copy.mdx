@@ -44,6 +44,10 @@ Within a minute, PostgreSQL sends its change log to both storages (`archive_comm
 </Step>
 </Steps>
 
+<Callout>
+On a server without the dashboard, add it with `sudo rowsafe secondcopy add` instead: see [Rowsafe on your server](/docs/guides/no-account-server#keep-a-second-copy).
+</Callout>
+
 <Accordions>
 <Accordion title="Without a terminal">
 
@@ -86,6 +90,8 @@ sudo -u postgres pgbackrest --config=/etc/rowsafe/pgbackrest/NAME.copy2.conf --s
 ```
 
 Everything in [Restore a database](/docs/guides/restore) works with that `--config`. If the server is lost, you need the copy's bucket settings and passphrase: keep them with the first ones.
+
+On a server without the dashboard, `sudo rowsafe restore NAME --to TIME|MARK --second-copy` restores a copy from it next to production, even when the first bucket is gone.
 
 ## What your backups cost
 

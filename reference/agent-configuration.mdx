@@ -56,6 +56,15 @@ If some are missing, the agent keeps using the first bucket only and says what's
 | `ROWSAFE_POLL_INTERVAL` | `5s` | How often an idle agent asks for work. |
 | `ROWSAFE_HEARTBEAT_INTERVAL` | `30s` | How often it reports in. |
 
+## Metrics (a server on its own)
+
+Prometheus metrics for a server running Rowsafe on its own: see [Prometheus and Grafana](/docs/guides/no-account-server#prometheus-and-grafana).
+
+| Variable | Default | |
+|---|---|---|
+| `ROWSAFE_METRICS_LISTEN` | (off) | Address to serve `GET /metrics` on, e.g. `127.0.0.1:9188`. An address other than loopback needs `ROWSAFE_METRICS_TOKEN`. |
+| `ROWSAFE_METRICS_TOKEN` | | Bearer token every scrape must send; at least 16 characters. |
+
 ## PostgreSQL and the server
 
 | Variable | Default | |

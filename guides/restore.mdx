@@ -198,6 +198,8 @@ Point your apps at the new server. Then click **Retire** on the old database: Ro
 
 Works for every engine that can be [forked](/docs/guides/fork): PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite.
 
+On a [server on its own](/docs/guides/no-account-server#restore-onto-another-server), it's `sudo rowsafe restore shop --from-bucket` on the new server.
+
 <Callout type="warn" title="Save your passphrase somewhere safe">
   Rowsafe never sees it. A new server needs it to read your backups: keep it in your password manager, not only on the server.
 </Callout>

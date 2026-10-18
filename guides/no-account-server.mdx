@@ -187,6 +187,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Alerts
 
 Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to your phone) or a webhook.
@@ -483,6 +484,35 @@ It prints the connection string once (the password is made on the server and nev
 
 It's deleted by itself after 24 hours (`--hours`, at most 7 days). `sudo rowsafe copies shop` lists copies; `copies extend`, `copies delete` and `copies password` work as [with an account](/docs/guides/safe-copies). Masking follows the suggested rules (emails, names, phone numbers, addresses...); `sudo rowsafe masking set shop users.email keep` changes one column. `--no-masking` makes a copy with the real data (you type the database's name).
 >>>>>>> origin/no-account-copies
+=======
+## Logs
+
+The agent reads PostgreSQL's own log and keeps it on the server, with values removed like in the [dashboard](/docs/guides/logs#settings-what-leaves-your-server):
+
+```sh
+sudo rowsafe logs shop --errors --since 1h        # errors of the last hour
+sudo rowsafe logs shop --grep orders               # lines that mention orders
+sudo rowsafe logs shop --kind slow_query --since 24h
+sudo rowsafe logs shop --groups                    # repeated messages, most frequent first
+sudo rowsafe logs shop --follow                    # new lines as they come
+```
+
+Slow statements need PostgreSQL to log them: `log_min_duration_statement` (see [useful logging](/docs/guides/logs#turn-on-useful-logging)). The server keeps at most 16 MB of lines (tens of thousands) for up to 30 days, in `/var/lib/rowsafe/local-logs`, readable only by the agent. `sudo rowsafe logs set shop --send off` stops keeping them.
+
+### Forward them
+
+Send the lines to your own tools, straight from the server, in the same formats as the dashboard's [log forwarding](/docs/reference/log-forwarding):
+
+```sh
+sudo rowsafe logs forward --url https://logs.example.com/rowsafe --kinds errors   # a signed webhook
+sudo rowsafe logs forward --type loki --url https://loki.example.com --username 123456 --secret-env LOKI_TOKEN
+sudo rowsafe logs forward                  # where they go, delivered, the last error
+sudo rowsafe logs forward test webhook     # send a test line
+sudo rowsafe logs forward remove webhook
+```
+
+Datadog, Better Stack, Papertrail, Grafana Loki, Elasticsearch/OpenSearch, webhooks and syslog over TLS. New destinations get lines from now on. Failures are retried with growing waits, up to an hour; lines older than the 16 MB kept on the server are skipped. `http://` only reaches this machine or a private network. Nothing leaves the server unless you add a destination.
+>>>>>>> origin/no-account-logs
 
 ## What runs by itself
 
@@ -548,7 +578,11 @@ After the usual login in the browser, it asks whether to connect this server to 
 - Each database moves to the account under the same name, with its backups (the same files, in the same bucket), Proofs and Marks.
 - Rowsafe checks that each database's backups are already set up as before: nothing changes on PostgreSQL. If anything doesn't work out, the server is put back as it was, still backing up, and the command says what happened.
 
+<<<<<<< HEAD
 It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server (or a safe copy) isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`, `sudo rowsafe copies delete shop ID`), or it goes by itself when it expires. Masking rules stay on the server: set them again in the dashboard. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
+=======
+It stops before changing anything if the account already has a database with the same name, or while a backup, Proof or restore is running (try again once it's done). A copy restored on the server isn't listed in the dashboard: delete it first (`sudo rowsafe rewind drop shop`), or it goes by itself when it expires. Log lines kept on the server and its log destinations don't move: the dashboard's Logs start from then, and you add destinations again in **Settings → Log forwarding**. Without a terminal (scripts, AI agents), pass `--yes`, and `--key rsk_…` to log in with an API key.
+>>>>>>> origin/no-account-logs
 
 Once connected, `sudo rowsafe logout` only signs the CLI out: the server stays connected. To run it on its own again, run the installer with `--no-account`. The account then sees the server offline: remove it in the dashboard.
 

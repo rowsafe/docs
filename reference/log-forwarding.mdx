@@ -5,6 +5,8 @@ description: Forwarded log line fields, the log webhook, each destination's form
 
 Reference for [Logs](/docs/guides/logs). Lines are redacted on the database server before reaching Rowsafe (unless the database sends full query text).
 
+On a [server on its own](/docs/guides/no-account-server#forward-them), `sudo rowsafe logs forward` sends the same lines and formats from the server itself; `host` is the server's host name and `id` counts on that server.
+
 ## A log line
 
 Every destination gets these fields (as JSON attributes, labels or structured data):

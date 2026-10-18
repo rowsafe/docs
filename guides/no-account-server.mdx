@@ -218,6 +218,8 @@ sudo rowsafe restore shop --from-bucket --to "14:04"    # or any second before
 
 Rowsafe reads `shop`'s backups with the new server's own storage settings: the passphrase stays on that server and is never sent anywhere. It restores into the empty PostgreSQL there (after you type the name; its own empty data is kept aside), or a new cluster with `--new-cluster`. Then it protects it: a full backup and a Proof, in a new folder of the bucket. The old server's backups stay as they are. A wrong passphrase or bucket stops before anything changes, and says so.
 
+**Test it first:** `sudo rowsafe proof shop --from-bucket` on another server installed the same way restores `shop`'s newest backup into a scratch copy there, checks it starts and lists its databases, then deletes it. Nothing changes on either server. It proves the backups and the passphrase work without the old server. It can't compare with production there: that's the old server's own weekly Proof.
+
 **To move a database** with the old server still running: stop your app's writes, `sudo rowsafe mark shop before-move` on the old server (everything until then is in the bucket once the Mark is), restore on the new server, then point your app at it. `--as NAME` restores it under another name; `--port N` picks the empty cluster when there are several. The old server's Marks stay on it: restore to a time instead.
 
 >>>>>>> origin/no-account-restore-bucket

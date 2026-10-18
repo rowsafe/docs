@@ -178,6 +178,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Alerts
 
 Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to your phone) or a webhook.
@@ -411,6 +412,41 @@ sudo rowsafe restore shop --to before-migration --second-copy
 
 It reaches as far as the newest change that got to the second bucket (usually within a minute of the first). To change the key, run `sudo rowsafe secondcopy add` again with the same bucket: the passphrase stays. The second copy covers every database on the server.
 >>>>>>> origin/standalone-secondcopy
+=======
+## From your computer, over SSH
+
+Use the server from your laptop, or let an AI agent on it save Marks, with nothing opened on the network: the `rowsafe` CLI goes through your own `ssh` (your keys, `ssh-agent` and `~/.ssh/config`).
+
+```sh
+rowsafe add shop ssh://root@db1.example.com    # or --ssh root@db1.example.com, ssh://root@db1:2222, a Host alias
+rowsafe status shop
+rowsafe mark shop before-migration
+rowsafe restore shop --to "10m ago"
+rowsafe rewind compare shop
+rowsafe alerts shop
+```
+
+`rowsafe add` checks that Rowsafe on the server protects that database (read-only) and saves only the server's address on your computer: the connection string stays on the server. When the database has another name there, add `--database NAME`. Then `status`, `mark`, `marks`, `backups`, `backup`, `proof`, `proofs`, `restore`, `restores`, `rewind`, `tasks`, `alerts` and `channels` work as they do with `sudo` on the server. `pulse`, `fix`, `insights`, `top`, `activity`, `settings` and `tune` run on the server with its own `rowsafe`, on the database you saved there with `sudo rowsafe add`. With `rowsafe use shop` in a project, you can leave the name out.
+
+Each command opens one SSH connection and runs Rowsafe's bridge on the server (`/opt/rowsafe/rowsafe-agent control-bridge`), which talks to the agent on its private socket. It runs as root: log in as root, or as a user who may run the bridge with `sudo` without a password. Only that one command, on the server:
+
+```sh
+echo 'deploy ALL=(root) NOPASSWD: /opt/rowsafe/rowsafe-agent control-bridge' | sudo tee /etc/sudoers.d/rowsafe
+sudo chmod 0440 /etc/sudoers.d/rowsafe
+```
+
+Without a terminal (scripts, AI agents), `ssh` never asks anything: the key must work without a question (`ssh-agent`, or a key without a passphrase), and the server's host key must already be known (connect once with `ssh` yourself). On Windows, Rowsafe uses the OpenSSH client that comes with Windows (`ssh.exe`). Set `ROWSAFE_SSH` to use another ssh command, such as `ssh -F ~/.ssh/work-config`.
+
+The bridge needs an agent from this release or later: the agent updates itself, usually within a day. `rowsafe preview` reads the migration file on your computer, so it doesn't run over SSH yet.
+
+### For AI agents
+
+```sh
+claude mcp add rowsafe -- rowsafe mcp shop --allow-restore-points
+```
+
+The agent sees the server's databases, backups, Marks, Proofs, restores and alerts, and can save a Mark before a migration (`create_restore_point`). With `rowsafe use shop` in the project, the [guard hook](/docs/guides/ai-agents#the-guard-hook) saves a Mark on the server before a destructive command, over SSH too.
+>>>>>>> origin/ssh-servers
 
 ## What runs by itself
 

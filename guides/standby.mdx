@@ -7,6 +7,8 @@ A **standby** is a second server that stays in sync with your database. **Read**
 
 This page describes PostgreSQL. Other engines: [MySQL and MariaDB](#mysql-and-mariadb), [MongoDB](#mongodb), [ClickHouse](#clickhouse), [Redis and Valkey](#redis-and-valkey).
 
+Servers not connected to the dashboard can have a standby too, with one command on each server: see [On servers on their own](#on-servers-on-their-own).
+
 ## What you need
 
 - **Another server** with the Rowsafe agent installed natively (not Docker), and an **empty PostgreSQL cluster** of the **same major version** (`pg_createcluster 18 standby --port 5433 --start`).
@@ -179,6 +181,74 @@ Click **Standby**, **Remove** (or `rowsafe standby remove app`). The cluster get
 The CLI has it all: `rowsafe standby`, `add`, `promote`, `rebuild`, `unfence`, `failover` and `remove`. See [CLI reference](/docs/reference/cli#standby).
 
 AI agents can promote, remove and change failover [as the person who connected them](/docs/guides/agent-autonomy), if an owner or admin. Creating or rebuilding needs a person to compare the key, so it's refused for agents.
+
+## On servers on their own
+
+Two servers where Rowsafe runs on its own (not connected to the dashboard) can be a pair too, for PostgreSQL. Each server keeps its own half and they never talk through Rowsafe: they share only your bucket and its passphrase. You run one command on each server.
+
+### What you need
+
+- **The same bucket and passphrase on both servers.** Install Rowsafe on the second server with the bucket and passphrase of the first (the passphrase you saved when you installed it). Nothing secret is copied between the servers: the replication password is derived from the passphrase on each.
+- On the second server, an **empty PostgreSQL cluster** of the **same major version** that Rowsafe may stop and start (the installer's restart question, or `sudo rowsafe-allow restart PORT`).
+- For **streaming**, PostgreSQL on the primary listening on an address the standby can reach (`listen_addresses`). Otherwise the standby follows through the bucket, about a minute behind.
+
+### Set it up
+
+<Steps>
+<Step>
+On the primary, let the standby stream (optional):
+
+```sh
+sudo rowsafe standby link shop --address 10.0.0.6
+```
+
+It adds a replication role allowed from that address only, and prints the command for the other server.
+</Step>
+<Step>
+On the standby's server:
+
+```sh
+sudo rowsafe standby create shop --primary 10.0.0.5
+```
+
+You type the name to confirm. The empty cluster's data is set aside (put back if you remove the standby), the latest backup is restored, and it follows the primary: streaming when it can, through the bucket always.
+</Step>
+</Steps>
+
+`sudo rowsafe standby shop` on either server shows its half: on the primary, the stream and how far behind it is; on the standby, its mode, lag, last change replayed, and whether it can reach the primary.
+
+### Switch over (nothing lost)
+
+<Steps>
+<Step>
+On the primary: `sudo rowsafe standby fence shop`. PostgreSQL stops for good (read-only if started, kept stopped by Rowsafe), its last changes go to the bucket, and the bucket records where its last change is.
+</Step>
+<Step>
+On the standby: `sudo rowsafe standby promote shop`. It replays up to that last change, promotes, and backs up to the same bucket from then on. Point your apps at it.
+</Step>
+</Steps>
+
+Changed your mind after step 1? `sudo rowsafe standby unfence shop` on the primary starts it again, after checking in the bucket that the standby wasn't promoted.
+
+### When the primary is down
+
+On the standby: `sudo rowsafe standby promote shop --primary-down` and type `db-1 is down`. The bucket then records that this server is the primary. When the old primary comes back, its agent reads that and Rowsafe stops PostgreSQL there, even if it never really went down.
+
+<Callout type="warn" title="The limit">
+  Between the old primary coming back and its agent reading the bucket (about a minute), apps still pointed at it can write there. A server that can't reach the bucket is never stopped this way (its backup alerts fire). Those writes are kept on it, not on the new primary. So promote with `--primary-down` only when the primary is down or will stay stopped, and prefer a switchover.
+</Callout>
+
+There is **no automatic failover** on servers on their own: telling a dead primary from a cut network needs a witness outside both servers. Connect both servers to the dashboard for that.
+
+### Afterwards
+
+- **Make the old primary the new standby:** on it, `sudo rowsafe standby create shop --primary NEW-PRIMARY-ADDRESS` (its data is reused when it stopped cleanly; otherwise kept aside for 7 days), and on the new primary `sudo rowsafe standby link shop --address OLD-PRIMARY-ADDRESS`.
+- **Remove the standby:** `sudo rowsafe standby remove shop` on its server (the cluster gets its own data back), and `sudo rowsafe standby unlink shop` on the primary.
+- **Let a stopped old primary go:** `sudo rowsafe standby forget shop` on it.
+
+Alerts on each server's own channels: standby down or behind, **the standby can't reach the primary** (on the standby's server: the only outside view of the primary), promoted, and a fenced old primary found running.
+
+Limits: PostgreSQL only, one standby per database, and backups in a bucket (not SFTP). The new primary lists backups from its first one on; older ones stay in the bucket.
 
 ## MySQL and MariaDB
 

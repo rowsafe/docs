@@ -305,6 +305,19 @@ A [standby](/docs/guides/standby) is a readable second server, kept in sync, tha
 
 To compare fingerprints before pairing, run `sudo -u postgres rowsafe-agent key` on the server.
 
+On servers on their own (not connected to the dashboard; both set up with the same bucket and passphrase), each server runs its half ([guide](/docs/guides/standby#on-servers-on-their-own)):
+
+| Command | What it does |
+|---|---|
+| `sudo rowsafe standby link NAME --address IP` | On the primary: let the standby at `IP` stream. Prints the command for the standby's server. |
+| `sudo rowsafe standby create NAME [--primary IP[:PORT]]` | On the standby's server: its empty cluster restores the backups from the bucket and follows the primary. On a fenced old primary, rebuilds it as the new standby. `--port N` (which cluster), `--folder F` (when `link` says so), `--yes`, `--no-wait`. |
+| `sudo rowsafe standby fence NAME` | On the primary: stop it for good for a switchover. The bucket records where its last change is. |
+| `sudo rowsafe standby promote NAME` | On the standby's server: promote it, after replaying the fenced primary's last change. `--primary-down` when the primary is down instead. |
+| `sudo rowsafe standby unfence NAME` | On a fenced primary: start it again, if the standby wasn't promoted (checked in the bucket). |
+| `sudo rowsafe standby unlink\|remove\|forget NAME` | Stop the streaming (primary), remove the standby (its server), let a fenced copy go. |
+
+Every change asks you to type the name unless `--yes`. `standby failover` is refused: there is no automatic failover on servers on their own.
+
 ### Move to a new server
 
 [Moving a database](/docs/guides/move) is a standby on the new server, then a planned switchover.

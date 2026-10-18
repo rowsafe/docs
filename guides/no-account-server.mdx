@@ -188,6 +188,7 @@ The copy runs on the server, on a private socket only the agent's user can reach
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## Alerts
 
 Tell Rowsafe where to send alerts: Slack, Discord, [ntfy](https://ntfy.sh) (to your phone) or a webhook.
@@ -513,6 +514,25 @@ sudo rowsafe logs forward remove webhook
 
 Datadog, Better Stack, Papertrail, Grafana Loki, Elasticsearch/OpenSearch, webhooks and syslog over TLS. New destinations get lines from now on. Failures are retried with growing waits, up to an hour; lines older than the 16 MB kept on the server are skipped. `http://` only reaches this machine or a private network. Nothing leaves the server unless you add a destination.
 >>>>>>> origin/no-account-logs
+=======
+## Security check
+
+Rowsafe checks who can reach each database and how they log in, like the [security check](/docs/guides/security) in the dashboard: the access rules in `pg_hba.conf`, encryption, password hashing, privileges and the PostgreSQL version. The agent reads them every 15 minutes; only each user's password type is read, never a password.
+
+```sh
+sudo rowsafe security shop                       # the grade, each finding in plain words, and its fix
+sudo rowsafe security check shop                 # check again now
+sudo rowsafe security fix shop security_open_rules --allow 10.0.1.0/24   # only your app servers may log in
+sudo rowsafe security fix shop security_password_encryption              # new passwords hashed with SCRAM
+sudo rowsafe security fix shop                   # every fix, and whether it can run now
+```
+
+Each fix says what it changes and asks you to type the database's name first (`--yes` in scripts). New access rules are tested before they take effect and the old ones are kept: `sudo rowsafe security fix shop undo_restrict_access` puts them back. A finding that lets anyone log in without a password is also an alert.
+
+What touches the server itself waits for root's yes on that server: the firewall (only the database's port, never SSH) and the restart that `listen_local` needs. When root hasn't allowed it, Rowsafe asks at the terminal, and typing the permission's name (`firewall`) runs `rowsafe-allow` for it. `--yes` never answers that question, and `sudo rowsafe-allow --remove firewall` takes it back.
+
+The check from the internet (Rowsafe's servers trying your port like a stranger) needs the dashboard.
+>>>>>>> origin/no-account-security
 
 ## What runs by itself
 
@@ -548,10 +568,14 @@ Every series is named `rowsafe_*` with the labels `database` and `host`; times a
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 - Alerts from outside (the server is down), email alerts and the weekly email by email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 =======
 =======
 >>>>>>> origin/no-account-rewind-in-place
+=======
+- The security check from the internet.
+>>>>>>> origin/no-account-security
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - Minor PostgreSQL updates. Major upgrades, the server's security updates and reboots work on the server too ([above](#upgrade-postgresql)).
 >>>>>>> origin/no-account-upgrade

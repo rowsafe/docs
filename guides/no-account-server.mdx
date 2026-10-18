@@ -4,6 +4,7 @@ title: "Rowsafe on your server"
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts and Pulse, with sudo rowsafe.
 ---
 
@@ -21,14 +22,18 @@ description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB, MongoDB, Redis,
 =======
 description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite or ClickHouse server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
 >>>>>>> origin/no-account-clickhouse
+=======
+description: Install Rowsafe on your database server (PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite, ClickHouse, OpenSearch, Qdrant or Meilisearch) and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+>>>>>>> origin/no-account-search
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite and ClickHouse continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite and ClickHouse continuously (OpenSearch, Qdrant and Meilisearch with snapshots every few minutes) to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -43,6 +48,9 @@ From a terminal, the installer asks whether to connect the server to the dashboa
 =======
 From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey or ClickHouse, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
 >>>>>>> origin/no-account-clickhouse
+=======
+From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds your databases, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
+>>>>>>> origin/no-account-search
 
 ## Add a database
 
@@ -102,6 +110,12 @@ On a terminal, the installer also offers the SQLite files running apps have open
 ### ClickHouse
 
 The installer finds ClickHouse and adds it: it gives Rowsafe its own ClickHouse user (a file in `users.d` that ClickHouse loads by itself, or SQL with an administrator's login) and turns on its backups. Nothing restarts. Rowsafe copies each new part to your bucket as it appears, and takes ClickHouse's own backup every hour (in full on Sundays).
+
+### OpenSearch, Qdrant and Meilisearch
+
+The installer finds them and adds them: it gives Rowsafe its own login (OpenSearch) or key (Qdrant, Meilisearch, made with the master key once, which Rowsafe never keeps) and a folder for snapshots. Nothing restarts.
+
+These keep no log of their changes, so backups are snapshots, taken often and cheaply (only what changed): OpenSearch every 5 minutes, Meilisearch every 15, Qdrant every 15 from version 1.17 (every hour before). A restore goes back to a snapshot, not to any second, and a Mark is a snapshot taken when you ask.
 
 ### Added before
 
@@ -181,7 +195,7 @@ It is on once a channel exists; the first one comes the Monday after. Email need
 
 ## What runs by itself
 
-- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC; Redis and Valkey: every change, and a snapshot every day at 01:00 UTC; SQLite: every change from its -wal file, and a whole copy every day at 01:00 UTC; ClickHouse: each new part, and a backup every hour).
+- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC; Redis and Valkey: every change, and a snapshot every day at 01:00 UTC; SQLite: every change from its -wal file, and a whole copy every day at 01:00 UTC; ClickHouse: each new part, and a backup every hour; OpenSearch, Qdrant and Meilisearch: a snapshot every few minutes).
 - **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
 - **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
 
@@ -193,7 +207,6 @@ The only thing the server fetches from Rowsafe is that release information (from
 - Alerts from outside (the server is down), email alerts and the weekly email by email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
-- OpenSearch, Qdrant and Meilisearch. On the server alone, Rowsafe covers PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite and ClickHouse for now.
 
 Commands that need the dashboard say so.
 

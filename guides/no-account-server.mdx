@@ -3,6 +3,7 @@ title: "Rowsafe on your server"
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 description: Install Rowsafe on your PostgreSQL server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second, alerts and Pulse, with sudo rowsafe.
 ---
 
@@ -17,14 +18,18 @@ description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB, MongoDB, Redis 
 =======
 description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey or SQLite server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
 >>>>>>> origin/no-account-sqlite
+=======
+description: Install Rowsafe on your PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite or ClickHouse server and use it from there. Continuous backups to your own storage, Marks, a weekly restore test, restore to any second and Pulse, with sudo rowsafe.
+>>>>>>> origin/no-account-clickhouse
 ---
 
-Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey and SQLite continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
+Rowsafe can run entirely on your database server, with no dashboard. It backs up PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite and ClickHouse continuously to your own bucket (encrypted on the server with a passphrase only you have), saves Marks, tests a restore every week, restores copies to any second, and you use it with `sudo rowsafe …` on the server.
 
 ```sh
 curl -fsSL https://rowsafe.sh | sudo sh
 ```
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 That's all: nothing is sent to Rowsafe, and no account is needed. The installer sets up your storage (your own bucket; picking Rowsafe Storage instead connects the server to the dashboard), finds PostgreSQL, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
@@ -35,6 +40,9 @@ From a terminal, the installer asks whether to connect the server to the dashboa
 =======
 From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL, MariaDB, MongoDB, Redis or Valkey, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
 >>>>>>> origin/no-account-redis
+=======
+From a terminal, the installer asks whether to connect the server to the dashboard: answer **No**. It sets up your storage, finds PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey or ClickHouse, shows exactly what it will change and asks before changing anything. It also installs the `rowsafe` CLI.
+>>>>>>> origin/no-account-clickhouse
 
 ## Add a database
 
@@ -91,6 +99,10 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --no-account --sqlite /var/www/app
 
 On a terminal, the installer also offers the SQLite files running apps have open. Rowsafe copies each change from the file's `-wal` file to your bucket within seconds and takes a whole copy every day, kept 7 days. A file that doesn't use WAL mode gets the daily copies only: restores reach the newest one and Marks can't be taken until the app opens it in WAL mode.
 
+### ClickHouse
+
+The installer finds ClickHouse and adds it: it gives Rowsafe its own ClickHouse user (a file in `users.d` that ClickHouse loads by itself, or SQL with an administrator's login) and turns on its backups. Nothing restarts. Rowsafe copies each new part to your bucket as it appears, and takes ClickHouse's own backup every hour (in full on Sundays).
+
 ### Added before
 
 A database the installer already set up is found again: `rowsafe add` with its connection string saves the name, and that name works for every command. `--yes` answers the question (for scripts); it never restarts PostgreSQL.
@@ -121,7 +133,7 @@ sudo rowsafe rewind compare shop             # rows deleted, changed or added si
 sudo rowsafe rewind rows shop public.orders  # bring the deleted rows back (a Mark first; you type the name)
                                              # MySQL, MariaDB, MongoDB: DATABASE:TABLE, e.g. crm:orders
                                              # Redis, Valkey: DB:PATTERN, e.g. '0:user:*'
-                                             # SQLite: main:TABLE
+                                             # SQLite: main:TABLE; ClickHouse: DATABASE:TABLE
 sudo rowsafe rewind drop shop                # delete the copy (it goes by itself after 24 hours)
 ```
 
@@ -169,7 +181,7 @@ It is on once a channel exists; the first one comes the Monday after. Email need
 
 ## What runs by itself
 
-- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC; Redis and Valkey: every change, and a snapshot every day at 01:00 UTC; SQLite: every change from its -wal file, and a whole copy every day at 01:00 UTC).
+- **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log, MySQL's and MariaDB's binary log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days (MongoDB: its oplog, and a full backup every day at 01:00 UTC; Redis and Valkey: every change, and a snapshot every day at 01:00 UTC; SQLite: every change from its -wal file, and a whole copy every day at 01:00 UTC; ClickHouse: each new part, and a backup every hour).
 - **Proof:** every Sunday evening Rowsafe restores the latest backup into a scratch copy on the server and checks it. The first one runs right after the first backup.
 - **Updates:** the agent updates itself to the release Rowsafe published as stable, after checking its signature. Set `ROWSAFE_AUTO_UPDATE=false` in `/etc/rowsafe/agent.env` to turn that off.
 
@@ -181,7 +193,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 - Alerts from outside (the server is down), email alerts and the weekly email by email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 - Alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
-- ClickHouse, OpenSearch, Qdrant and Meilisearch. On the server alone, Rowsafe covers PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey and SQLite for now.
+- OpenSearch, Qdrant and Meilisearch. On the server alone, Rowsafe covers PostgreSQL, MySQL, MariaDB, MongoDB, Redis, Valkey, SQLite and ClickHouse for now.
 
 Commands that need the dashboard say so.
 

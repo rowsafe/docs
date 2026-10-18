@@ -79,6 +79,19 @@ A webhook is signed like the dashboard's ([Webhooks](/docs/reference/webhooks)),
 
 **A server can't tell you it is down.** Alerts run on the server, so while it (or the agent) is stopped, nothing is sent. When it comes back after more than 10 minutes, you get one message saying how long it was out. The dashboard watches from outside and alerts you while the server is down.
 
+## Your weekly Pulse
+
+Every Monday at 08:00 UTC, the alert channels above get a summary of the week for each database: protected or not, backups and any that failed, the restore test, how far back you can restore, Marks, alerts and free disk. A webhook gets it as JSON too (event `weekly_report`).
+
+```sh
+sudo rowsafe report              # on or off, where it goes
+sudo rowsafe report --preview    # this week so far
+sudo rowsafe report --send-test  # send it now
+sudo rowsafe report --off        # stop it (--on to start again)
+```
+
+It is on once a channel exists; the first one comes the Monday after. Email needs the dashboard.
+
 ## What runs by itself
 
 - **Continuous backups:** every change is copied to your bucket within about a minute (PostgreSQL's change log), plus a full backup every Sunday at 01:00 UTC and a differential one the other days.
@@ -90,7 +103,7 @@ The only thing the server fetches from Rowsafe is that release information (from
 ## What the dashboard adds
 
 - Rewinding the whole database in place, with Undo. On the server, restore a copy and bring back what you need, or restore by hand with pgBackRest: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server).
-- Alerts from outside (the server is down), email alerts and the weekly email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
+- Alerts from outside (the server is down), email alerts and the weekly email by email, history (slow-downs, disk forecasts), fixes from anywhere, teams, a second copy and Rowsafe Storage.
 - MySQL, MongoDB and the other engines. On the server alone, Rowsafe covers PostgreSQL for now.
 
 Commands that need the dashboard say so.

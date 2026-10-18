@@ -456,6 +456,25 @@ The agent sees the server's databases, backups, Marks, Proofs, restores and aler
 
 The only thing the server fetches from Rowsafe is that release information (from releases.rowsafe.sh). Nothing about your databases is sent.
 
+## Prometheus and Grafana
+
+If you run Prometheus, the server can serve what it knows as metrics: whether each database is protected, the age of its newest backup and passing Proof, continuous backup, how far back you can restore, backup sizes and durations, the alerts firing, the agent's version and whether an update is waiting, plus the database and server readings the agent collects (connections, cache hit, disk free, replication lag, CPU, memory...). It's off until you turn it on: add this line to `/etc/rowsafe/agent.env`, then run `sudo systemctl restart rowsafe-agent`.
+
+```sh
+ROWSAFE_METRICS_LISTEN=127.0.0.1:9188
+```
+
+Point Prometheus at `127.0.0.1:9188` (path `/metrics`). If Prometheus runs on another machine, listen on an address it can reach and set a token too: the agent refuses any address other than loopback without one, and every scrape must send it as a bearer token.
+
+```sh
+ROWSAFE_METRICS_LISTEN=10.0.0.5:9188
+ROWSAFE_METRICS_TOKEN=...   # at least 16 characters, e.g. from: openssl rand -hex 32
+```
+
+The metrics travel over plain HTTP: keep that address on a private network or a VPN, or put a TLS proxy in front. If a setting is wrong or the port is taken, the agent says why in its log (`journalctl -u rowsafe-agent`) and keeps backing up.
+
+Every series is named `rowsafe_*` with the labels `database` and `host`; times are Unix timestamps, so a backup's age is `time() - rowsafe_backup_last_success_timestamp_seconds`. Ready-made files are in [integrations/prometheus](https://github.com/rowsafe/rowsafe/tree/main/integrations/prometheus): the scrape job, alert rules and a Grafana dashboard (Dashboards → New → Import). The rules add the one alert the server can't send itself: that the server or the agent is down.
+
 ## What the dashboard adds
 
 <<<<<<< HEAD

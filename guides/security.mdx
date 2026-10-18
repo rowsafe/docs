@@ -51,6 +51,7 @@ Each change shows its result, like "Rules open to every address now let only 10.
 | Encryption | Whether TLS is on, and when the certificate expires |
 | Passwords | `password_encryption` (MD5 or scram-sha-256), which users still have MD5 passwords, and superusers logging in over the network |
 | Privileges | `CREATE` on schema `public` for everyone, and untrusted languages (such as `plpython3u`) someone marked trusted |
+| Row-level security | For apps on Supabase or PostgREST: tables your API's users can reach without row-level security, and policies that let every row through ([below](#row-level-security-supabase-postgrest)) |
 | PostgreSQL version | Whether it still gets security fixes, and when that ends |
 
 Only each user's password type is read, never the password or hash.
@@ -96,6 +97,32 @@ The password is shown once, with a copy button. Rowsafe never sees it. Apps usin
 - **Nothing restarts**, except **Listen on this server only** (**More options**), which sets `listen_addresses` to `localhost` and restarts, where [restarts are allowed](/docs/reference/agent-configuration#installer). Refused while apps connect over the network.
 - **New certificates are self-signed**, valid 3 years. `sslmode=require` works at once; `verify-full` needs a CA certificate you provide. Rowsafe never replaces a certificate it didn't make.
 - **Owners and admins only**, confirmed with the database name and [audited](/docs/guides/teams#audit-log). AI agents can apply fixes [as their person](/docs/guides/agent-autonomy); setting a password is for people only.
+
+## Row-level security (Supabase, PostgREST)
+
+If your app talks to the database through an API such as Supabase or PostgREST, **row-level security** decides which rows each user may read and change. Pulse checks it for you.
+
+It only looks when the database seems to use it: the roles `anon` or `authenticated` exist (or roles PostgREST's `authenticator` switches to), a table has row-level security on, or a policy exists. Plain apps see nothing new.
+
+| Finding | What it means | What Rowsafe does |
+|---|---|---|
+| Anyone can read or change tables without signing in | Row-level security is off on a table `anon` can use. With Supabase, the public (anon) key is in every visitor's browser, so anyone can read every row | **Turn on row-level security** |
+| Every signed-in user can read all rows | The same, for `authenticated` only | **Turn on row-level security** |
+| Policies let anyone change every row | A policy for `anon` or everyone (`UPDATE`, `DELETE` or `ALL`) whose rule is always true (`USING (true)`, `WITH CHECK (1 = 1)`) | Explains, with an example under **Do it yourself** |
+| Policies let signed-in users change other people's rows | The same, for signed-in users | The same |
+| Anyone can add rows | An `INSERT` policy for `anon` that is always true. Fine for a sign-up or contact form | The same |
+| Policies let everyone read every row | A `SELECT` policy that is always true. Fine for public data | The same |
+| Your API's users can't use a table | Row-level security is on with no policies. Right for tables only your server uses | Shows a policy to start from |
+| Row-level security reads whole tables | A policy filters a table of 10,000+ rows by a column no index starts with, so every API query scans it | **Index** the column, without blocking the app |
+| Public Storage buckets | Supabase Storage buckets anyone can download from | Says so; fine for avatars and images |
+
+<Callout type="warn">
+Turning on row-level security for a table **without policies** locks your app's visitors and signed-in users out of it until you add policies. Your server code (Supabase's service role) and the table's owner keep full access. Rowsafe says which tables have no policies and asks you to confirm. Tables that already have policies get their own button: turning it on there makes those policies apply.
+</Callout>
+
+Rowsafe doesn't write policies for you: only you know who should see what. A policy whose rule is always true may be exactly what you want (a public product list), so those are notes, not errors, unless anyone can change or delete rows.
+
+**Without the dashboard**, `rowsafe pulse postgres://…` runs the same check on any database you can reach, including hosted Supabase, and `rowsafe fix` turns row-level security on ([Pulse on any database](/docs/guides/no-account)). Use the direct connection string for fixes: through a pooler, `rowsafe fix` asks for it.
 
 ## On a server without the dashboard
 
@@ -157,3 +184,4 @@ SQLite is a file, so the question is **who on the server can reach it**. No inte
 - **Docker:** the agent can't change the container's files, and published ports bypass the firewall. Fix findings in your compose file.
 - `trust` rules stay `trust` after **Only allow your app servers**. Give those users passwords, then switch to `scram-sha-256` (the finding shows how).
 - Minor versions are covered by [updates](/docs/guides/updates), not here.
+- **Row-level security** is read from the catalogs only; what Rowsafe gets is table and policy names, flags, privileges and Supabase bucket names, never rows or a policy's text. "Always true" means a rule that is literally `true` or `1 = 1`; a rule that is effectively open in another way (`auth.uid() IS NOT NULL` on a table everyone shares) isn't caught. Views, functions (`SECURITY DEFINER`) and Supabase Edge Functions aren't checked. A missing `WITH CHECK` isn't flagged: PostgreSQL then applies the `USING` rule to new rows, and an `INSERT` policy without one lets nothing in. At most 20 databases per server, 100 tables and 100 policies each.

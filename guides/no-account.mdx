@@ -52,6 +52,7 @@ Nothing is sent to Rowsafe: the CLI reads the database and works out the score o
 - **Speed:** queries stuck waiting for a lock, reads that miss the memory cache, unused and duplicate indexes, tables that may be missing an index, and settings that don't suit the server.
 - **Replication:** abandoned replication slots holding the change log, and replicas falling behind.
 - **Disk space**, when the database runs on the same computer as the CLI and you connect as a superuser.
+- **Row-level security**, for apps on Supabase or PostgREST: tables your API's users can reach without it, policies that let every row through, and public Storage buckets. `rowsafe fix` turns it on (it asks first: tables without policies then refuse your app's users). See [Row-level security](/docs/guides/security#row-level-security-supabase-postgrest).
 
 Each finding says what's wrong in plain words and what to do. The score works like the dashboard's: see [Monitoring](/docs/guides/monitoring).
 

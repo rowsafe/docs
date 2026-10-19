@@ -177,7 +177,7 @@ PostgreSQL only for now. Other engines: make a login or API key with `rowsafe db
 | `rowsafe cloud allow [NAME] [me\|IP\|CIDR]...` | Let more addresses connect. Default: this computer (`me`). Asks before opening it to everyone. |
 | `rowsafe cloud firewall [NAME]` | Who can connect. Change it with `--set A,B` (the whole list), `--add A`, `--remove A` or `--clear` (nobody). Asks before cutting anyone off; `--yes`, `--json`. |
 | `rowsafe cloud passphrase [NAME]` | The backup passphrase, encrypted for this terminal only (Rowsafe can't read it). `--file PATH` writes a new file readable only by you. Rowsafe records that it was saved. |
-| `rowsafe cloud clone [SOURCE] NAME` | Copy a PostgreSQL database to a new hourly server: as it is now, `--at TIME` or `--mark LABEL`. Default: next to the source, same size (`--cloud`, `--region`, `--size` to choose). `--delete-after 24h` (1 hour to 30 days) has Rowsafe delete it; otherwise it stays until you delete it. Real data, not masked. |
+| `rowsafe cloud clone [SOURCE] NAME` | Copy a PostgreSQL, MySQL or MariaDB database to a new hourly server: as it is now, `--at TIME` or `--mark LABEL`. Default: next to the source, same size (`--cloud`, `--region`, `--size` to choose). `--delete-after 24h` (1 hour to 30 days) has Rowsafe delete it; otherwise it stays until you delete it. Real data, not masked. |
 | `rowsafe cloud retry [NAME]` | Set up again a server that failed. `--wait`. |
 | `rowsafe cloud delete [NAME]` | Delete the server and its database. You type the name (`--yes` in scripts). Refused until the backup passphrase is saved (clones aside). `--with-standby` deletes its standby too; `--wait`. |
 
@@ -190,7 +190,7 @@ PostgreSQL only for now. Other engines: make a login or API key with `rowsafe db
 | `--engine-version V` | PostgreSQL 15 to 18 (default 17), MySQL 8.4, MariaDB 11.8, Valkey 8, ClickHouse 26.3 or 26.8 (default 26.8), OpenSearch 3, Qdrant 1.19, Meilisearch 1.54. |
 | `--postgres 15\|16\|17\|18` | Same as `--engine postgresql --engine-version`. |
 | `--allow me\|IP\|CIDR` | Repeatable. `none`: nobody connects until `rowsafe cloud allow`. |
-| `--standby` | PostgreSQL only: a second server ready to take over. Doubles the price. |
+| `--standby` | PostgreSQL, MySQL and MariaDB: a second server ready to take over. Doubles the price. |
 | `--extensions vector,postgis,timescaledb` | PostgreSQL 15 to 18: pgvector, PostGIS, TimescaleDB (Apache-2.0 edition), on in the `postgres` database and every new one ([Extensions](/docs/guides/rowsafe-cloud#extensions)). |
 | `--wait`, `--yes`, `--json` | `clone` takes these and `--allow` too. |
 

@@ -198,7 +198,7 @@ To stop it, revoke the token in your cloud (each cloud's page says how), or remo
 
 ## Limits
 
-- **Databases:** the same versions and limits as [Rowsafe Cloud](/docs/guides/rowsafe-cloud#databases). A standby and Clone to a new server are PostgreSQL only. For MongoDB, Redis or SQLite, install Rowsafe on your own server ([Quickstart](/docs/quickstart)).
+- **Databases:** the same versions and limits as [Rowsafe Cloud](/docs/guides/rowsafe-cloud#databases). A standby and Clone to a new server are for PostgreSQL, MySQL and MariaDB. For MongoDB, Redis or SQLite, install Rowsafe on your own server ([Quickstart](/docs/quickstart)).
 - **Backups go to Rowsafe Storage** at first, because your bucket's keys must never pass through Rowsafe. To [move to your own bucket](/docs/guides/rowsafe-storage#move-to-your-own-bucket), you need SSH. A [second copy](/docs/guides/second-copy) in your bucket works too.
 - **A [standby](/docs/guides/standby) needs your own bucket**, not Rowsafe Storage, for now.
 - **What Rowsafe may do and SSH keys** are set at creation. Changing them later needs you to log in.

@@ -81,7 +81,8 @@ Network logins always use TLS (1.2 or newer on MySQL and MariaDB) and a password
 - **Qdrant** needs 2 GB of memory. Apps use an [API key](/docs/guides/qdrant#api-keys); admin keys always expire ([details](/docs/guides/qdrant#on-servers-rowsafe-creates)).
 - **Meilisearch** is the Community Edition (MIT); Enterprise features stay off. Apps use an [API key](/docs/guides/meilisearch#api-keys) ([details](/docs/guides/meilisearch#on-servers-rowsafe-creates)).
 - **Valkey** comes from Debian's own packages. The other databases come from their projects' own packages or releases, checked before install.
-- **PostgreSQL only, for now:** a [standby](#with-a-standby), [Clone to a new server](#copies-for-a-test-or-an-ai-agent), [private connections from AWS](#private-connection-from-your-aws-network), `rowsafe env` and `rowsafe connect`.
+- **PostgreSQL, MySQL and MariaDB only, for now:** a [standby](#with-a-standby) and [Clone to a new server](#copies-for-a-test-or-an-ai-agent).
+- **PostgreSQL only, for now:** [private connections from AWS](#private-connection-from-your-aws-network), `rowsafe env` and `rowsafe connect`.
 - **No MongoDB or Redis:** their licenses don't allow Rowsafe to host them. To protect them (or SQLite), install Rowsafe on your own server ([Quickstart](/docs/quickstart)).
 
 ## Extensions
@@ -360,7 +361,7 @@ A pair [in your own cloud account](/docs/guides/create-a-server) can't change si
 
 ## With a standby
 
-A standby is a **second server of the same size** with a live, read-only copy of the database. If the primary goes down, the standby takes over. PostgreSQL only.
+A standby is a **second server of the same size** with a live, read-only copy of the database. If the primary goes down, the standby takes over. PostgreSQL, MySQL and MariaDB.
 
 - **New server:** turn on **With a standby**. **Fail over automatically** is ticked.
 - **Existing server:** click **Add a standby**. Nothing on the primary restarts.
@@ -404,6 +405,8 @@ postgresql://USER@PRIMARY_ADDRESS:5432,STANDBY_ADDRESS:5432/DBNAME?target_sessio
 ```
 
 Java uses `targetServerType=primary`. Drivers that take one address (node-postgres) can use the [server's name](#connect-your-app).
+
+MySQL and MariaDB drivers take one address: use the [server's name](#connect-your-app), which follows the primary within about a minute. Reports can read from the standby.
 
 ### After a failover
 
@@ -530,7 +533,7 @@ Click **Turn off** and confirm. Billing stops, and the endpoints Rowsafe created
 
 ## Limits
 
-- **PostgreSQL only:** a standby, Clone to a new server and private connections.
+- **PostgreSQL, MySQL and MariaDB only:** a standby and Clone to a new server. **PostgreSQL only:** private connections.
 - **MySQL** runs on Intel and AMD only (not AWS). **ClickHouse** and **OpenSearch** need 4 GB of memory, **Qdrant** 2 GB.
 - **OpenSearch, Qdrant and Meilisearch** restore to a snapshot, not any second, and can't use Take it with you yet.
 - **TimescaleDB** is the Apache-2.0 edition, with no 15 to 16 upgrade through Rowsafe yet.

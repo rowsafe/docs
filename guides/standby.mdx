@@ -258,6 +258,7 @@ Limits: PostgreSQL only, one standby per database, and backups in a bucket (not 
 - **Fencing makes the old primary read-only** instead of stopping it, and ends its sessions.
 - **Removing** drops what Rowsafe loaded.
 - **Apps** use one server. After a promotion, point them at the new primary (or a DNS name, or ProxySQL).
+- **On servers Rowsafe creates** ([Rowsafe Cloud](/docs/guides/rowsafe-cloud#with-a-standby), [Create a server for me](/docs/guides/create-a-server)), MySQL 8.4 and MariaDB 11.8 come ready: tick **With a standby** or click **Add a standby**, and the server's name follows the primary.
 
 <Callout type="info" title="MySQL and MariaDB limits">
   On MariaDB, `SUPER` or `READ_ONLY ADMIN` logins can still write to a read-only server. Configuration files aren't copied. The primary needs its binary logs since the latest backup.

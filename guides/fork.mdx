@@ -72,9 +72,10 @@ Then the fork is an ordinary database in your list.
 
 ## Clone to a new server
 
-No server for the copy? On a PostgreSQL database's **Fork** tab, click **Clone**. Pick the moment, where it runs ([Rowsafe Cloud](/docs/guides/rowsafe-cloud), billed by the hour, or a [connected cloud account](/docs/guides/create-a-server)), region, size and **Delete after** (4 hours, 1 day, 7 days or never). Rowsafe creates the server and forks onto it.
+No server for the copy? On a PostgreSQL, MySQL or MariaDB database's **Fork** tab, click **Clone**. Pick the moment, where it runs ([Rowsafe Cloud](/docs/guides/rowsafe-cloud), billed by the hour, or a [connected cloud account](/docs/guides/create-a-server)), region, size and **Delete after** (4 hours, 1 day, 7 days or never). Rowsafe creates the server and forks onto it.
 
 - **Delete after** counts from when it's ready. An hour before, its creator gets an email. Then Rowsafe deletes the clone's server (never the source). Change it or delete it yourself any time.
+- MySQL clones get MySQL 8.4 and MariaDB clones 11.8, so older versions can't be cloned this way. MySQL needs an Intel or AMD size.
 - If something fails, Rowsafe deletes the server it made and offers **Try again**.
 - Owners, admins and read-write API keys can clone; each is in the [audit log](/docs/guides/teams#audit-log). AI agents can clone onto Rowsafe Cloud [as the person who connected them](/docs/guides/agent-autonomy), after telling you the price.
 

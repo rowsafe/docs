@@ -153,7 +153,7 @@ Yes, for 30 days: four passing Proof runs and one restore of your own, then reti
 </Accordion>
 <Accordion title="Does it do replicas and failover?">
 
-Yes. For PostgreSQL, a [standby](/docs/guides/standby) is kept in sync, readable, and promotable by hand or automatically (off by default). One per database, Linux with systemd, agent installed natively. Adopt the primary; a standby can't be adopted alone. Redis and Valkey standbys are real replicas ([Redis and Valkey](/docs/guides/standby#redis-and-valkey)).
+Yes, for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. A [standby](/docs/guides/standby) is kept in sync, readable, and promotable by hand or automatically (off by default). One per database, Linux with systemd, agent installed natively. On servers Rowsafe creates, it's one click for PostgreSQL, MySQL and MariaDB. Adopt the primary; a standby can't be adopted alone. Redis and Valkey standbys are real replicas ([Redis and Valkey](/docs/guides/standby#redis-and-valkey)).
 
 </Accordion>
 <Accordion title="Is it open source?">

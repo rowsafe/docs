@@ -71,7 +71,7 @@ rowsafe env --on shop-db              # the app's database and login, DATABASE_U
 
 Two Guard tools that never touch production, so agents get them without write access:
 
-- **`preview_migration`** runs a migration on a copy and answers *safe*, *careful*, *dangerous* or *fails*. See [Preview a migration](/docs/guides/preview-migrations).
+- **`preview_migration`** runs a migration on a copy and answers *safe*, *careful*, *dangerous* or *fails*. On PostgreSQL it also catches row-level security the migration loses, such as a new table your API can read without it. See [Preview a migration](/docs/guides/preview-migrations).
 - **`create_safe_copy`** gives the agent a masked copy to test against. See [Safe copies](/docs/guides/safe-copies).
 
 ## Set it up

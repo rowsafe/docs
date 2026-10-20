@@ -12,6 +12,20 @@ It works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse and SQLite (not yet
 - **A verdict:** *Safe*, *Careful*, *Dangerous*, or *Fails* (the migration errors on production's data).
 - **What to change**, in plain words: use `CREATE INDEX CONCURRENTLY`, add a constraint `NOT VALID` then `VALIDATE` it, add a column instead of changing its type, set `lock_timeout`, batch a large `UPDATE`.
 - **Each statement:** time, rows changed, locks and what they block, tables rewritten, indexes built, tables dropped.
+- **Row-level security** (PostgreSQL, [below](#row-level-security)): a new table your API can reach without it, row-level security turned off, a policy dropped, a policy that lets every row through.
+
+## Row-level security
+
+If your app talks to PostgreSQL through an API such as Supabase or PostgREST, AI-written migrations often create a table without row-level security, or turn it off to get past a permission error. The preview compares the copy's row-level security before and after the migration, and flags:
+
+| Finding | Verdict |
+|---|---|
+| A new table your API's roles (`anon`, `authenticated`, ...) can use without row-level security, in a database that already uses it | Careful |
+| `DISABLE ROW LEVEL SECURITY` on a table | Careful; **Dangerous** when `anon` can read it (anyone with your public key reads every row) |
+| A policy dropped (not recreated under the same name) | Careful |
+| A policy whose rule is always true (`USING (true)`) for your API's roles | Careful |
+
+Each comes with what to do, such as "Turn on row-level security and add a policy" in the same migration. Rowsafe reads only the catalog: table and policy names and flags, never rows or a policy's rule. These are the same rules as [Pulse's row-level security check](/docs/guides/security#row-level-security-supabase-postgrest). When the migration can't run (it's only read), the preview still catches `DISABLE ROW LEVEL SECURITY`, `DROP POLICY` and `USING (true)` from the SQL itself.
 
 ## Preview from the dashboard
 

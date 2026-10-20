@@ -267,7 +267,7 @@ By default the action only warns when the database can't be restored right now (
 
 ### Preview the migration first
 
-With `preview-sql`, the action first runs the migration files this push adds on a copy of the database next to production, never on production. The run summary shows the verdict and what it found, such as a table rewrite that would block writes.
+With `preview-sql`, the action first runs the migration files this push adds on a copy of the database next to production, never on production. The run summary shows the verdict and what it found, such as a table rewrite that would block writes or a new table without row-level security.
 
 | Verdict | What the action does |
 |---|---|

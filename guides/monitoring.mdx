@@ -300,6 +300,7 @@ Rules are checked every 30 seconds. An alert fires once its condition has held f
 | `pooler_down` | critical | | 2m | PgBouncer doesn't answer (only where [pooling](/docs/guides/connection-pooling) is on or monitored). |
 | `pooler_clients_waiting` | warning | 2 seconds | 5m | Clients waited longer than the threshold for a connection in PgBouncer. |
 | `second_copy_failing` | warning | 30 minutes | 5m | Changes haven't reached the [second copy](/docs/guides/second-copy) for longer than the threshold, or some were left out. PostgreSQL and the first storage aren't affected. |
+| `rls_drift` | warning | | | A security scan found a new [row-level security](/docs/guides/security#row-level-security-supabase-postgrest) gap: a table your API reaches without it, a table with no policies, a policy that lets every row through, or a public storage bucket. PostgreSQL only. |
 
 - **Critical:** recoverability or availability is degrading now. **Warning:** within a working day. **Info:** for the record.
 - Backup, archiving, Proof and reachability rules wait until backups are on, so a new database doesn't page you.

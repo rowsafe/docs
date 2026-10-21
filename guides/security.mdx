@@ -122,6 +122,8 @@ Turning on row-level security for a table **without policies** locks your app's 
 
 Rowsafe doesn't write policies for you: only you know who should see what. A policy whose rule is always true may be exactly what you want (a public product list), so those are notes, not errors, unless anyone can change or delete rows.
 
+**Alerts when it changes.** The agent checks every 15 minutes, reading only the catalog. When a check finds a gap that wasn't there before (a new table without row-level security, a policy that lets every row through, a bucket made public), you get one alert on your [channels](/docs/guides/monitoring#notification-channels), linked to the finding and its fix in Pulse. It resolves when the gap is gone and isn't repeated on every check. What a database already had when Rowsafe first checked it is in Pulse, not an alert. Turn it off with the `rls_drift` [alert rule](/docs/guides/monitoring#alert-rules), for the team or one database.
+
 **Without the dashboard**, `rowsafe pulse postgres://…` runs the same check on any database you can reach, including hosted Supabase, and `rowsafe fix` turns row-level security on ([Pulse on any database](/docs/guides/no-account)). Use the direct connection string for fixes: through a pooler, `rowsafe fix` asks for it.
 
 ## On a server without the dashboard

@@ -1,72 +1,68 @@
 ---
 title: What Rowsafe does for you
-description: What runs by itself once your database is set up, what you do when something goes wrong, and what Rowsafe never does.
+description: What runs by itself, what you do on a bad day, and what Rowsafe never does.
 ---
 
-Once your database is set up (see the [Quickstart](/docs/quickstart)), most of Rowsafe runs by itself. This page says what it does on its own, what you do on a bad day, and what it never does.
+Once your database is set up ([Quickstart](/docs/quickstart)), most of Rowsafe runs by itself. On a bad day, you click and Rowsafe does the work.
 
 ## Every day, by itself
 
-You don't have to do anything for these:
+- **Every change is saved** to your bucket, at most about a minute behind, so you can go back to any second. [Backups and recovery](/docs/concepts/backups-and-recovery). OpenSearch, Qdrant and Meilisearch get a snapshot every 5 or 15 minutes instead.
+- **Nightly backups** at 01:00 UTC: full on Sundays, only the changes other nights. Two full backups kept (about two weeks). Old ones are removed for you.
+- **[Proof](/docs/concepts/restore-drills) every Sunday evening**: restores your latest backup into a scratch copy, checks it, deletes it.
+- **[Pulse](/docs/guides/monitoring) every minute**: disk, connections, slow queries, cleanup, backups. A health score 0-100, findings in plain words, and **Apply fix** for most.
+- **Alerts** when something needs you, by email, Slack, Discord, Teams, PagerDuty, Opsgenie, Telegram, ntfy or webhook. Add a channel under **Settings** → **Alerts and notifications** ([channels](/docs/guides/monitoring#notification-channels)).
+- **[Your weekly Pulse](/docs/guides/monitoring#your-weekly-pulse)** email every Monday.
 
-- **Every change is saved.** Each change your database makes is copied to your storage bucket, at most about a minute behind. That is what lets you go back to any second. See [Backups and point-in-time recovery](/docs/concepts/backups-and-recovery) OpenSearch, Qdrant and Meilisearch keep no such record, so they get a snapshot every 5 or 15 minutes instead, and a restore goes back to one of them ([OpenSearch](/docs/guides/opensearch), [Qdrant](/docs/guides/qdrant), [Meilisearch](/docs/guides/meilisearch)).
-- **Backups every night.** A full backup on Sundays, and a smaller one (only what changed since) the other nights, at 01:00 UTC. Rowsafe keeps two full backups by default, so you can go back about two weeks. Old backups are removed for you.
-- **Proof every week.** On Sunday evening, Rowsafe restores your latest backup into a private scratch copy on your server, checks it, and deletes it. So you know a restore works before you need one. See [Proof](/docs/concepts/restore-drills).
-- **Pulse watches the database.** Every minute the agent checks the database and the server: disk, connections, slow queries, cleanup, backups. You get a health score from 0 to 100, findings in plain words, and an **Apply fix** button for most of them. See [Pulse](/docs/guides/monitoring).
-- **Alerts** when something needs you: backups failing, the agent offline, the disk filling up. Add an email, Slack, Discord or webhook channel under **Settings**, then **Alerts and notifications**. See [notification channels](/docs/guides/monitoring#notification-channels).
-- **"Your weekly Pulse"** arrives by email every Monday: each database's health, the week's backups and Proof results, and the top things to fix. See [Your weekly Pulse](/docs/guides/monitoring#your-weekly-pulse).
-
-Everything is encrypted on your server before it leaves it, with a passphrase only you have.
+Everything is encrypted on your server, with a passphrase only you have.
 
 ## When something goes wrong
 
-These are the moments Rowsafe is for. In each one, you click; Rowsafe does the work.
-
 ### You deleted rows by mistake
 
-Say someone ran `DELETE FROM customers` without a `WHERE` at 3 a.m. Production keeps running while you fix it:
+Someone ran `DELETE FROM customers` with no `WHERE`. Production keeps running while you fix it:
 
-1. Open the database, then **Rewind** → **Find the moment**. It shows the exact second of the big delete. Click **Rewind to just before this**. ([Find the moment](/docs/guides/find-the-moment))
-2. **Restore a copy** of the database as it was then, next to production. ([Restore a copy](/docs/guides/restore#restore-a-copy))
-3. **Compare with production**: Rowsafe counts, table by table, the rows that are missing now. ([Compare](/docs/guides/restore#compare-with-production))
-4. **Bring back** the missing rows. Rows written since stay as they are. ([Bring back rows](/docs/guides/restore#bring-back-rows))
+1. **Rewind** → **[Find the moment](/docs/guides/find-the-moment)**, then **Rewind to just before this**.
+2. **[Restore a copy](/docs/guides/restore#restore-a-copy)** as it was then, next to production.
+3. **[Compare with production](/docs/guides/restore#compare-with-production)** to count missing rows per table.
+4. **[Bring back](/docs/guides/restore#bring-back-rows)** the missing rows. Newer rows stay as they are.
 
-A bad `UPDATE` instead? The same steps, with **Also restore rows that were changed**.
+A bad `UPDATE`? Same steps, with **Also restore rows that were changed**.
 
 ### An AI agent's migration broke the database
 
-Say a coding agent ran a migration that dropped a column. With [Guard](/docs/guides/ai-agents) set up, the agent saved a **Mark** (a named restore point) right before the migration, and told you its name.
+With [Guard](/docs/guides/ai-agents), the agent set a **Mark** right before the migration and told you its name.
 
-- To see or recover the data, restore a copy at that Mark: on the **Marks** page, click **Restore a copy at this Mark**, then compare and bring back rows.
-- Bringing back rows puts back missing rows. It can't bring back a dropped column or table. For that, [rewind the whole database](/docs/guides/restore#rewind-the-whole-database) to the Mark. Everything written after the Mark is removed from the live database and kept aside for 7 days, so you can [undo](/docs/guides/restore#undo-a-rewind).
+- On **Marks**, click **Restore a copy at this Mark**, then compare and bring back rows.
+- A dropped column or table can't be brought back as rows. [Rewind the whole database](/docs/guides/restore#rewind-the-whole-database) to the Mark instead. What was written after is kept aside for 7 days, so you can [undo](/docs/guides/restore#undo-a-rewind).
 
-To catch this before it happens, [preview the migration](/docs/guides/preview-migrations) on a copy first.
+Next time, [preview the migration](/docs/guides/preview-migrations) on a copy first.
 
 ### The disk is filling up
 
-Pulse forecasts when the disk will be full and warns you up to 14 days ahead. When the cause is something Rowsafe can clean up (an inactive replication slot holding old files, unused indexes, tables that need cleanup), the finding has an **Apply fix** button. When your data simply grew, you need a bigger disk: the forecast tells you how soon. See [Disk forecast](/docs/guides/monitoring#disk-forecast).
+Pulse warns up to 14 days ahead. If Rowsafe can clean up the cause (an inactive replication slot, unused indexes, tables that need cleanup), the finding has **Apply fix**. If your data simply grew, you need a bigger disk. [Disk forecast](/docs/guides/monitoring#disk-forecast).
 
 ### Backups stop working
 
-For example, the keys to your bucket were changed. Rowsafe raises a critical alert within about 10 minutes, and the database stops counting as [protected](/docs/concepts/protection-status). The finding says what's wrong, and **Check again** tests it once you've fixed it.
+For example, your bucket keys changed. A critical alert fires within about 10 minutes and the database stops counting as [protected](/docs/concepts/protection-status). Fix the cause, then click **Check again**.
 
 ### The server dies
 
-- **With a [standby](/docs/guides/standby)** (a second server kept in sync): open **Standby**, then **Promote**. The standby becomes your database. You can also let Rowsafe fail over automatically; it is off by default.
-- **Without one:** your backups are safe in your bucket. You restore them onto a new server by hand, with pgBackRest, step by step: see [Restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server). Practise it once before you need it.
+- **With a [standby](/docs/guides/standby):** **Standby** → **Promote**. Automatic failover is available, off by default.
+- **Without one:** your backups are safe in your bucket. After 10 minutes of silence, click **Restore to another server** on the database: it restores onto another of your servers with the same storage and passphrase. [Server lost](/docs/guides/restore#server-lost-restore-to-another-server).
 
 ## What Rowsafe never does
 
-- **It never sees your data.** Backups are encrypted on your server. Your passphrase and bucket keys stay there. Rowsafe only stores names, sizes, settings and metrics. See the [security model](/docs/security).
-- **It never restarts or changes your database on its own.** Only when an owner or admin clicks and confirms (or their AI agent asks, as them), and only what the server's root allowed when the agent was installed. The two exceptions are ones you turn on yourself: [automatic minor updates](/docs/guides/updates#minor-updates) and [automatic failover](/docs/guides/standby#automatic-failover). [Rowsafe Cloud](/docs/guides/rowsafe-cloud) servers, which Rowsafe hosts, are kept patched: security updates install by themselves, and what needs a restart is applied in a weekly [maintenance window](/docs/guides/rowsafe-cloud#updates-and-maintenance), with an email the day before.
-- **AI agents never get more than their person's rights.** Through Guard, they can read what the dashboard shows, set Marks, run backups and checks, preview migrations on a copy and make masked [safe copies](/docs/guides/safe-copies). To restore, rewind, restart the database, apply a fix or promote a standby, an agent acts as the person who connected it: right away for an owner or admin, with the same checks and a Mark first. Otherwise Rowsafe refuses the change and says why: a member's agent, a server's key to compare, deleting data without a backup. Every agent change is in the audit log and in the owners' digest email. See [How AI agents act](/docs/guides/agent-autonomy).
-- **It never runs commands or SQL sent over the network.** The agent on your server runs only a fixed list of tasks.
+- **Never sees your data.** Backups are encrypted on your server; passphrase and keys stay there. Rowsafe stores only names, sizes, settings and metrics. [Security model](/docs/security).
+- **Never restarts or changes your database on its own.** Only when an owner or admin (or their AI agent, as them) clicks and confirms, and only what the server's root allowed. Exceptions you turn on yourself: [automatic minor updates](/docs/guides/updates#minor-updates) and [automatic failover](/docs/guides/standby#automatic-failover). [Rowsafe Cloud](/docs/guides/rowsafe-cloud) servers get security updates automatically, and restarts happen in a weekly [maintenance window](/docs/guides/rowsafe-cloud#updates-and-maintenance) with an email the day before.
+- **AI agents never get more than their person's rights.** An owner's or admin's agent acts right away, with a Mark first. Otherwise Rowsafe refuses and says why. Every agent change is audited. [How AI agents act](/docs/guides/agent-autonomy).
+- **Never runs commands or SQL sent over the network.** The agent runs only a fixed list of tasks.
 
 <Cards>
   <Card title="Your first restore" href="/docs/first-restore">
-    Practise a restore now, on a table you make for it, so you know the steps before a bad day.
+    Practise a restore now, before a bad day.
   </Card>
   <Card title="Glossary" href="/docs/glossary">
-    Every word on these pages, in plain words.
+    Every term, in plain words.
   </Card>
 </Cards>

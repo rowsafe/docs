@@ -1,6 +1,6 @@
 ---
 title: Plans and limits
-description: Every plan has every feature. Plans differ only in how much you can protect and keep. The complete list of limits per plan.
+description: Every plan has every feature; plans differ only in how much you protect and keep.
 ---
 
 | Plan | Price |
@@ -9,10 +9,10 @@ description: Every plan has every feature. Plans differ only in how much you can
 | Pro | $39 per month |
 | Business | $149 per month |
 
-**No plan gates a feature.** Rewind (point-in-time recovery, one-click restores and Marks), Proof (weekly restore tests), Pulse (monitoring, alerts, logs, tuning and recommendations), Guard (the MCP server, the Claude Code hook, migration previews and safe copies) and the audit log are in every plan. See [pricing](/pricing).
+**No plan gates a feature.** Rewind, Proof, Pulse, Guard and the audit log are in every plan. [Pricing](/pricing).
 
-- Prices are in USD per organization, billed monthly. Payments are handled by Polar, our merchant of record. Cancel any time.
-- **Storage** in your own bucket is billed by your bucket provider, not by Rowsafe.
+- USD per organization, billed monthly through Polar (merchant of record). Cancel any time.
+- Your own bucket is billed by its provider, not Rowsafe.
 
 ## Every limit
 
@@ -27,13 +27,13 @@ description: Every plan has every feature. Plans differ only in how much you can
 | [Ask Rowsafe](/docs/guides/ask#plans-and-your-own-ai-key) built-in questions per month | none: use your own AI provider key, or your own AI through MCP | 500 | 3,000 |
 | [Rowsafe Storage](/docs/guides/rowsafe-storage) | 10 GB | 250 GB | 2 TB |
 
-- A **database** is one PostgreSQL cluster (server instance), with all the databases inside it.
-- With your own AI provider key, Ask Rowsafe has no monthly question limit on any plan: your provider bills you.
-- Rowsafe Storage is optional: backups in a [bucket of your own](/docs/guides/storage) have no limit from Rowsafe.
+- A **database** is one server instance (for PostgreSQL, a cluster) with every database inside it.
+- With your own AI key, Ask Rowsafe has no monthly limit; your provider bills you.
+- Rowsafe Storage is optional. Your [own bucket](/docs/guides/storage) has no Rowsafe limit.
 
 ## Rewind limits
 
-Every plan can restore copies, compare them, bring back rows and rewind a whole database. One [bring back rows](/docs/guides/restore#bring-back-rows) run is limited:
+Every plan can restore copies, compare, bring back rows and rewind a whole database. One [bring back rows](/docs/guides/restore#bring-back-rows) run is limited:
 
 | Plan | Rows brought back in one run | Tables in one run |
 |---|---|---|
@@ -41,22 +41,18 @@ Every plan can restore copies, compare them, bring back rows and rewind a whole 
 | Pro | up to 10 million | up to 50 |
 | Business | up to 50 million | up to 50 |
 
-Over the limit, nothing is changed. Bring back fewer tables at a time. Today the agent on your server also stops at 10 million rows in one run, whatever the plan.
+Over the limit, nothing changes; bring back fewer tables at a time. For now the agent also stops at 10 million rows per run, whatever the plan.
 
 ## Usage
 
-```sh
-rowsafe org
-```
-
-shows your plan, limits and current usage. Owners manage billing in the dashboard under **Settings**, then **Billing**.
+**Settings** → **Billing** shows your plan and usage (owners manage billing there). Or run `rowsafe org`.
 
 ## Reaching a limit
 
-Adding a host or database over your plan's limit fails with:
+Adding a host or database over the limit fails with:
 
 ```text
 Your free plan allows 1 host. Upgrade to add more.
 ```
 
-Lowering your plan never deletes anything. It only stops you adding more until you are under the limit.
+Lowering your plan never deletes anything. It only stops you adding more.

@@ -1,15 +1,15 @@
 ---
 title: Run the agent in Docker
-description: Protect PostgreSQL running in the official postgres image, with the Rowsafe agent as a sidecar container. No changes to your image.
+description: Protect PostgreSQL in the official postgres image with a sidecar agent container.
 ---
 
-If PostgreSQL runs in the official `postgres:NN` image (Debian or Alpine), you don't install anything on the Docker host. The agent runs as a **sidecar container** in the same compose project. You add a few volume mounts and one service. Then you add the database from the dashboard or the CLI: plan, apply, and restart the container yourself. Rowsafe notices the restart. If you want Rowsafe to restart the container for you, and to rewind the whole database with one click, add one more small service: see [Let Rowsafe restart the container](#let-rowsafe-restart-the-container).
+For PostgreSQL in the official `postgres:NN` image (Debian or Alpine). The agent runs as a **sidecar container** in your compose project: add a few volumes and one service, nothing on the host. For one-click restart and whole-database rewind, add one more small service: [Let Rowsafe restart the container](#let-rowsafe-restart-the-container).
 
 <Callout title="Linux Docker hosts only for production">
-  Docker Desktop on macOS or Windows runs containers in a VM whose disk and `fsync` behaviour Rowsafe doesn't guarantee. Use it to try Rowsafe, not for data you need to recover. Kubernetes isn't covered.
+  Docker Desktop (macOS, Windows) runs in a VM whose disk and `fsync` behaviour Rowsafe doesn't guarantee. Use it to try Rowsafe only. Kubernetes isn't covered.
 </Callout>
 
-MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey have their own agent images: see [MySQL and MariaDB](/docs/guides/mysql#in-docker), [Protect MongoDB](/docs/guides/mongodb#docker), [Protect ClickHouse](/docs/guides/clickhouse#docker) and [Protect Redis or Valkey](/docs/guides/redis#docker). SQLite files in a Docker volume: see [Protect SQLite](/docs/guides/sqlite#docker). This page is about PostgreSQL.
+Other engines have their own images: [MySQL and MariaDB](/docs/guides/mysql#in-docker), [MongoDB](/docs/guides/mongodb#docker), [ClickHouse](/docs/guides/clickhouse#docker), [Redis or Valkey](/docs/guides/redis#docker), [SQLite](/docs/guides/sqlite#docker).
 
 ## How it works
 
@@ -27,20 +27,20 @@ MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey have their own agent image
  +-------------------------------+        +------------------------------------------+
 ```
 
-- The stock `postgres` image has no pgBackRest. So `archive_command` only **copies** each WAL file into a shared **spool** volume, with standard tools (`cp`, `sync`, `mv`), and never overwrites a different file.
-- The agent **pushes** spooled files to your bucket with pgBackRest, in order, and deletes each one only after it is stored.
-- Backups, checks, Marks, Proof (the weekly restore test) and Rewind copies run in the agent container. It reads the data volume **read-only**, at the same path (unless you let Rowsafe rewind the whole database, below).
-- Nothing runs inside the PostgreSQL container except `archive_command`. Rowsafe never restarts it, unless you [let it](#let-rowsafe-restart-the-container) and someone clicks Restart.
+- `archive_command` **copies** each WAL file into a shared **spool** volume with standard tools (`cp`, `sync`, `mv`). It never overwrites a different file.
+- The agent **pushes** spooled files to your bucket in order, and deletes each only once stored.
+- Backups, Marks, Proof and Rewind copies run in the agent container, which reads the data volume **read-only** at the same path (unless you allow whole-database rewind).
+- Only `archive_command` runs in the PostgreSQL container. Rowsafe never restarts it unless you [let it](#let-rowsafe-restart-the-container) and someone clicks Restart.
 
 <Callout type="warn" title="The spool must be on durable disk">
-  PostgreSQL treats a WAL file as archived once it is in the spool. Until the agent has pushed it, the spool holds the only copy. Use a named volume on local disk, never `tmpfs` or a network filesystem that ignores `fsync`. Don't delete spooled files by hand.
+  Until the agent pushes a WAL file, the spool holds its only copy. Use a named volume on local disk, never `tmpfs` or a network filesystem that ignores `fsync`. Don't delete spooled files by hand.
 </Callout>
 
 ## Set up
 
-You need a one-time enrollment token (`rowsafe hosts enroll-token`), a bucket and its keys, and an encryption passphrase **stored in your secret manager first**. See steps 2 and 3 of [Adopt an existing database](/docs/guides/adopt).
+You need an enrollment token (`rowsafe hosts enroll-token`), a bucket and its keys, and an encryption passphrase **saved in your secret manager first** (steps 2 and 3 of [Adopt an existing database](/docs/guides/adopt)).
 
-Put the agent's settings in `rowsafe-agent.env` next to your compose file. Make it readable only by you (`chmod 600`) and never commit it:
+Put the settings in `rowsafe-agent.env` next to your compose file. `chmod 600` it and never commit it:
 
 ```sh title="rowsafe-agent.env"
 ROWSAFE_ENROLL_TOKEN=rse_...        # first start only; delete it afterwards
@@ -52,7 +52,7 @@ ROWSAFE_REPO_CIPHER_PASS=...
 # ROWSAFE_PG_USER=app               # if POSTGRES_USER is not postgres
 ```
 
-Then add the agent to your compose file. Your `postgres` service keeps its image, environment, networks and ports.
+Add the agent to your compose file. Your `postgres` service keeps everything else.
 
 <Tabs items={["PostgreSQL 14 to 17", "PostgreSQL 18", "Alpine images"]}>
 <Tab value="PostgreSQL 14 to 17">
@@ -90,7 +90,7 @@ volumes:
 </Tab>
 <Tab value="PostgreSQL 18">
 
-The `postgres:18` images keep their data in `/var/lib/postgresql/18/docker` and expect the volume at `/var/lib/postgresql`. Mount it there in **both** services, and use the `-pg18` tag:
+`postgres:18` expects the volume at `/var/lib/postgresql` (data in `18/docker`). Mount it there in **both** services and use the `pg18` tag:
 
 ```yaml title="compose.yml"
 services:
@@ -125,7 +125,7 @@ volumes:
 </Tab>
 <Tab value="Alpine images">
 
-For `postgres:NN-alpine`, use the agent's `-alpine` tag and the Alpine `postgres` user, `70:70`. Mount the data volume as for your major version.
+For `postgres:NN-alpine`, use the `-alpine` tag and user `70:70`. Mount the data volume as for your major version.
 
 ```yaml
   rowsafe-agent:
@@ -136,7 +136,7 @@ For `postgres:NN-alpine`, use the agent's `-alpine` tag and the Alpine `postgres
 </Tab>
 </Tabs>
 
-The tag names your PostgreSQL major (`pg14` to `pg18`), which must match your server's, and always points to the newest Rowsafe release. To pin a release instead, use its exact tag, like `ghcr.io/rowsafe/agent:0.5.0-pg17` (see the [releases](https://github.com/rowsafe/rowsafe/releases)).
+The tag must match your PostgreSQL major (`pg14` to `pg18`) and tracks the newest Rowsafe release. To pin one, use an exact tag like `ghcr.io/rowsafe/agent:0.5.0-pg17` ([releases](https://github.com/rowsafe/rowsafe/releases)).
 
 Start it:
 
@@ -146,13 +146,13 @@ docker compose logs rowsafe-agent      # "enrolled"
 rowsafe hosts list                     # db-1
 ```
 
-Adding the two mounts recreates the `postgres` container: a few seconds of downtime, so do it in a maintenance window. With a bind mount instead of a named volume, mount the same host directory in both services at the same path.
-
-Keep the `rowsafe-state` volume: it holds the host's identity and the generated pgBackRest configuration. If you lose it, enroll again with a new token.
+- Adding the two mounts recreates the `postgres` container: a few seconds of downtime. Do it in a maintenance window.
+- With a bind mount, mount the same host directory at the same path in both services.
+- Keep the `rowsafe-state` volume: it holds the host's identity and configuration. Lose it and you enroll again with a new token.
 
 ## Adopt
 
-The one-command installer is for servers. In Docker, add the database in the dashboard (**Databases**, then **Add database**) or with the CLI:
+In the dashboard: **Databases**, then **Add database**. Or with the CLI:
 
 ```sh
 rowsafe adopt app --host db-1        # read-only plan
@@ -160,13 +160,13 @@ rowsafe apply app                    # config, spool directory, ALTER SYSTEM + r
 docker compose restart postgres      # you, in a maintenance window
 ```
 
-Rowsafe notices the restart by itself and proves that WAL reaches the bucket, through the spool. To check right away, click **Check now** on the database's page or run `rowsafe verify app`.
+Rowsafe notices the restart and proves WAL reaches the bucket. To check now, click **Check now** (or `rowsafe verify app`).
 
-The settings are written with `ALTER SYSTEM` into `postgresql.auto.conf` in the data volume, so they survive container restarts and re-creation.
+Settings go into `postgresql.auto.conf` in the data volume, so they survive container re-creation.
 
 ## Back up an uploads volume
 
-If your app keeps uploads in a Docker volume, back it up with the database so a restore brings back both. Mount it into the agent under `/rowsafe-files` (read-only is enough), recreate the agent container, and add `/rowsafe-files/uploads` in **Rewind**, then **Files**:
+Back up your app's uploads volume with the database. Mount it into the agent under `/rowsafe-files` (read-only is enough), recreate the agent, and add `/rowsafe-files/uploads` in **Rewind**, then **Files**:
 
 ```yaml title="compose.yml"
 services:
@@ -175,23 +175,23 @@ services:
       - uploads:/rowsafe-files/uploads:ro
 ```
 
-Restored files wait in the agent's state volume, in `/var/lib/rowsafe/files-restored/<id>`, unless the volume is mounted read-write and the agent's user may write there. See [Back up and restore files](/docs/guides/files).
+Restored files land in `/var/lib/rowsafe/files-restored/<id>` unless the volume is mounted read-write and writable by the agent. See [Back up and restore files](/docs/guides/files).
 
 ## Rewind in Docker
 
-- **Restore a copy, compare and bring back rows work** as on a server: see [Restore a database](/docs/guides/restore). The copy runs in the agent container, like Proof, and lives in the `rowsafe-state` volume, so that volume needs free disk of about 1.3 × the database size + 1 GB. Rows are brought back into production over the shared socket.
-- **Rewinding the whole database in place** needs the optional container control service with the data volume writable for the agent ([below](#let-rowsafe-restart-the-container)). Without it, the dashboard says why it isn't offered: restore a copy and bring back the rows you need instead, or [restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server) into a new volume.
+- **Restore a copy, compare and bring back rows** work as on a server ([Restore a database](/docs/guides/restore)). The copy lives in the `rowsafe-state` volume, which needs about 1.3 × the database size + 1 GB free.
+- **Rewinding the whole database** needs the container control service and a writable data volume ([below](#let-rowsafe-restart-the-container)). Without it, restore a copy and bring back rows, or [restore by hand](/docs/guides/restore#advanced-restore-by-hand-or-to-another-server) into a new volume.
 
 ## Let Rowsafe restart the container
 
-Optional. By default Rowsafe can't touch the PostgreSQL container: you restart it yourself when setup asks, and Rewind the whole database is not offered (restoring a copy and bringing back rows works either way). Add the `rowsafe-docker-control` service and, from the dashboard:
+Optional. Without it, you restart PostgreSQL yourself and whole-database rewind isn't offered. Add the `rowsafe-docker-control` service to get:
 
-- **Restart PostgreSQL** restarts the container, waits until it runs (healthy, if it has a health check) and PostgreSQL answers.
-- **Rewind the whole database** stops the container, puts the data back as it was at the moment you pick, and starts it again. The data from before is kept for 7 days, so **Undo** is one click too.
+- **Restart PostgreSQL**: restarts the container and waits until it's healthy and PostgreSQL answers.
+- **Rewind the whole database**: stops the container, puts the data back to the moment you pick, starts it again. The old data is kept 7 days for **Undo**.
 
-The agent never gets the Docker socket. The control service does, and it acts on exactly one container: your PostgreSQL service in the same compose project. See [Threat model](#threat-model) before you add it.
+The control service holds the Docker socket, never the agent, and acts on one container only: your PostgreSQL service. Read the [Threat model](#threat-model) first.
 
-The database's **Settings** page in the dashboard shows these lines with your service and volume names filled in, and updates by itself once the agent reports the service.
+The database's **Settings** page shows these lines with your service and volume names filled in.
 
 <Steps>
 <Step>
@@ -218,7 +218,7 @@ services:
 </Step>
 <Step>
 
-Give the agent the control volume and, for Rewind the whole database, write access to the data volume (remove `:ro`):
+Give the agent the control volume and, for whole-database rewind, write access to the data volume (remove `:ro`):
 
 ```yaml title="compose.yml"
   rowsafe-agent:
@@ -231,12 +231,12 @@ volumes:
   rowsafe-control:
 ```
 
-Keep `:ro` if you only want Restart: the dashboard then shows Rewind the whole database as not allowed and says why.
+Keep `:ro` if you only want Restart.
 
 </Step>
 <Step>
 
-Apply it. This recreates the agent container; PostgreSQL keeps running.
+Apply it. This recreates the agent; PostgreSQL keeps running.
 
 ```sh
 docker compose up -d
@@ -246,58 +246,58 @@ docker compose logs rowsafe-docker-control   # "controlling container" myapp-pos
 </Step>
 </Steps>
 
-To take the permission back, remove the service (and the `rowsafe-control` volume). Nothing else changes.
+To take it back, remove the service and the `rowsafe-control` volume.
 
 ### How a rewind works in Docker
 
-In Docker the data directory can't be renamed: up to PostgreSQL 17 it is the volume itself, and in the 18+ images its parent belongs to root. So the agent moves what is **inside** it, one rename per entry, within the same volume:
+The data directory can't be renamed in Docker, so the agent moves what's **inside** it, within the same volume:
 
-1. Rowsafe saves a Mark; the agent checks the backup repository, the free space in the volume and that the data directory is writable;
-2. asks the control service to stop the container (PostgreSQL shuts down cleanly);
-3. moves the data into `.rowsafe-rewind/<name>.before-rewind-<time>/` inside the data directory;
-4. restores the backup into `.rowsafe-rewind/restore-<id>/`, moves it into place and keeps your configuration (`postgresql.conf`, `pg_hba.conf`, archive settings);
-5. replays changes up to the moment you picked, in the agent container on a private socket, with no network access;
-6. asks the control service to start the container, and waits until PostgreSQL accepts connections.
+1. Rowsafe saves a Mark; the agent checks the repository, free space and write access.
+2. The control service stops the container (clean shutdown).
+3. The data moves into `.rowsafe-rewind/<name>.before-rewind-<time>/`.
+4. The backup is restored into `.rowsafe-rewind/restore-<id>/` and moved into place, keeping your configuration (`postgresql.conf`, `pg_hba.conf`, archive settings).
+5. Changes replay up to your moment, in the agent container, with no network.
+6. The control service starts the container; the agent waits for connections.
 
-If any step fails, the agent puts the original data back and starts the container again; if the agent itself stops half way, it does so when it starts. The data directory keeps its owner and permissions. While it is empty, the image's entrypoint can't create a new cluster there, because `.rowsafe-rewind` is in the way. Backups leave `.rowsafe-rewind` out.
+If a step fails, the original data goes back and the container starts again (also after an agent crash, on its next start). Owner and permissions are kept. `.rowsafe-rewind` stops the entrypoint from creating a new cluster meanwhile, and backups skip it.
 
-It needs free space in the data volume for a second copy of the database (its size plus 10%) until you delete the kept data (**Delete the old data now**) or it expires.
+It needs free space in the data volume for a second copy (size plus 10%) until you click **Delete the old data now** or it expires.
 
 ### Threat model
 
-Whoever can talk to the Docker socket controls the host: they can start a privileged container that mounts `/`. Mounting the socket read-only (`:ro`) changes nothing; requests still go through. That is why the agent never gets it, and why this is opt-in.
+Whoever can reach the Docker socket controls the host (a privileged container can mount `/`). Mounting it `:ro` changes nothing. That's why the agent never gets it, and why this is opt-in.
 
-**What the control service allows.** It exposes a Unix socket on the `rowsafe-control` volume, which only the agent mounts. A request has two fields, an action and an ID for the log (plus, for an agent update, the version and the signed images list); anything else is refused. The actions are `inspect`, `stop`, `start` and `restart`. The container is fixed by the service's own configuration: the compose service named in `ROWSAFE_CONTROL_SERVICE` in the control service's own compose project (or one container named in `ROWSAFE_CONTROL_CONTAINER`). It is resolved to a container ID at start and its labels are checked again before every action; it can never be the control service itself, and a service scaled to two containers is refused. The Docker API calls for it are listing containers by label, inspecting one, and stop, start and restart. It can't exec, attach, read logs or touch networks or volumes.
+**What the control service allows.** A Unix socket on the `rowsafe-control` volume, mounted only by the agent. Requests carry an action and a log ID (plus, for an agent update, the version and signed image list); anything else is refused. Actions: `inspect`, `stop`, `start`, `restart`. The target is fixed by its own config: the compose service in `ROWSAFE_CONTROL_SERVICE` in its own project (or one container in `ROWSAFE_CONTROL_CONTAINER`), resolved at start and its labels rechecked before every action. Never itself; a service scaled to two containers is refused. Docker API calls: list by label, inspect, stop, start, restart. No exec, attach, logs, networks or volumes.
 
-**Agent updates (only with `ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE=1`).** Two more actions, `update_agent` and `agent_ready`, and a few more Docker API calls, used by that path only: inspecting an image, pulling `ghcr.io/rowsafe/agent` (a constant in the code) at a digest from a list signed with Rowsafe's release key, creating the new agent container, renaming the old and new ones, and removing the replaced one. It acts only on the agent's compose service (`ROWSAFE_CONTROL_AGENT_SERVICE`, default `rowsafe-agent`), never on PostgreSQL's container or its own, and only on a container that already runs `ghcr.io/rowsafe/agent`. The control plane only relays the signed list: a compromised control plane can withhold an update, not choose the image. At most four updates an hour, one at a time. Without the setting, none of this runs.
+**Agent updates (only with `ROWSAFE_CONTROL_ALLOW_AGENT_UPDATE=1`).** Two more actions, `update_agent` and `agent_ready`, and the Docker calls they need: inspect an image, pull `ghcr.io/rowsafe/agent` (hard-coded) at a digest from a list signed with Rowsafe's release key, create, rename and remove agent containers. Only on the agent's compose service (`ROWSAFE_CONTROL_AGENT_SERVICE`, default `rowsafe-agent`) and only a container already running `ghcr.io/rowsafe/agent`. The control plane only relays the signed list, so a compromised control plane can withhold an update, not choose the image. At most four an hour, one at a time.
 
-**Who may ask.** Only processes running as uid 999 or 70 (the `postgres` user of the Debian and Alpine images; `ROWSAFE_CONTROL_ALLOW_UIDS` changes it, e.g. to 101 for the [ClickHouse agent image](/docs/guides/clickhouse#update-the-agent)), checked with the kernel's peer credentials, not anything the caller says. Requests must be small and arrive within 10 seconds.
+**Who may ask.** Only uid 999 or 70 (the `postgres` user of Debian and Alpine images; change with `ROWSAFE_CONTROL_ALLOW_UIDS`, e.g. 101 for the [ClickHouse agent image](/docs/guides/clickhouse#update-the-agent)), checked by kernel peer credentials. Requests must be small and arrive within 10 seconds.
 
-**Limits and log.** At most one restart a minute, and 20 stops and restarts an hour; starting is never limited, so a rollback can always start PostgreSQL again. Every request is logged with the caller's uid, the action, the container and the outcome: `docker compose logs rowsafe-docker-control`.
+**Limits and log.** At most one restart a minute and 20 stops and restarts an hour. Starting is never limited, so a rollback can always start PostgreSQL. Every request is logged (uid, action, container, outcome): `docker compose logs rowsafe-docker-control`.
 
-**Who triggers it.** Only an owner or admin: in the dashboard, with `rowsafe restart` and a read-write API key, or through their AI agent on MCP ([acting as them](/docs/guides/agent-autonomy); a member's agent is refused). Every request is in the audit log.
+**Who triggers it.** Only an owner or admin: in the dashboard, with `rowsafe restart` and a read-write API key, or through their AI agent ([acting as them](/docs/guides/agent-autonomy); a member's agent is refused). All in the audit log.
 
-**If the agent container is compromised,** the attacker can stop, start or restart your PostgreSQL container (a few rate-limited outages), which is less than what the agent's access to the database already allows. They can't reach any other container or the host.
+**If the agent container is compromised,** the attacker can stop or restart PostgreSQL (rate-limited), less than the agent's database access already allows. Nothing else on the host.
 
-**If the control service is compromised,** the attacker has the Docker socket, that is, root on the host. The service is built to make that hard: one static Go binary, about 2,300 lines with its comments (half of them the optional agent update), on an empty image (no shell, no package manager), no network at all (`network_mode: none`), no Linux capabilities, a read-only filesystem, `no-new-privileges`. The image is signed with cosign and has SLSA build provenance; see [Verifying releases](/docs/security/verifying-releases). It runs as root inside its container only to open the socket, which root owns.
+**If the control service is compromised,** the attacker is root on the host. It's built to make that hard: one static Go binary (about 2,300 lines, half for agent updates), an empty image, no network (`network_mode: none`), no capabilities, read-only filesystem, `no-new-privileges`. Signed with cosign, with SLSA provenance ([Verifying releases](/docs/security/verifying-releases)). It runs as root in its container only to open the socket.
 
-**Why not a Docker socket proxy?** Generic proxies such as `tecnativa/docker-socket-proxy` filter by API section ("containers", "POST"), not by container: allowing restarts would let the agent stop, start, create or remove any container on the host.
+**Why not a Docker socket proxy?** Generic proxies like `tecnativa/docker-socket-proxy` filter by API section, not container: allowing restarts would allow any container to be stopped, created or removed.
 
-If that trade isn't right for your host, don't add the service: restart the container yourself when Rowsafe asks, and restore copies instead of rewinding in place.
+If that trade isn't right for you, skip the service: restart the container yourself and restore copies instead of rewinding in place.
 
 ## Upgrade
 
-The agent can't replace its own container, so it never updates itself in Docker. To update it, download the newest image and recreate only the agent's container, ideally between backups. PostgreSQL keeps running:
+The agent never updates itself in Docker. Pull the newest image and recreate only the agent, ideally between backups. PostgreSQL keeps running:
 
 ```sh
 docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 ```
 
-Name the service: a plain `docker compose pull` also downloads a newer `postgres` image if there is one, and `docker compose up -d` then restarts PostgreSQL to use it. With an exact tag (`0.5.0-pg17`), change the version in the tag first. The dashboard's **Agent updates** card on the server's page says when a new version is out.
+Name the service: a plain `pull` and `up -d` can also upgrade and restart PostgreSQL. With an exact tag (`0.5.0-pg17`), change the version first. The **Agent updates** card on the server's page says when one is out.
 
 ### Update the agent from the dashboard
 
-Optional, with the [container control service](#let-rowsafe-restart-the-container). Add one line to its environment and pull its newest image:
+Optional, with the [container control service](#let-rowsafe-restart-the-container). Add one line and pull its newest image:
 
 ```yaml title="compose.yml"
   rowsafe-docker-control:
@@ -312,27 +312,31 @@ Optional, with the [container control service](#let-rowsafe-restart-the-containe
 docker compose pull rowsafe-docker-control && docker compose up -d rowsafe-docker-control
 ```
 
-The server's page then shows **Update now** when a new version is out. When an owner or admin clicks it and confirms, the control service:
+Then the server's page shows **Update now**. When an owner or admin clicks and confirms, the control service:
 
-1. checks the new release's list of agent images against Rowsafe's release signature, with the key built into the control service, and picks the digest for your image (`pg17`, `pg17-alpine`, `clickhouse26.8`...);
-2. downloads `ghcr.io/rowsafe/agent` at that digest (Docker checks the download against it);
-3. creates a new agent container with exactly the old one's settings (environment, volumes, network, labels, restart policy, user), only the image changed;
-4. stops the old container, starts the new one and waits until it is healthy and the new agent reports in (up to five minutes);
+1. checks the release's image list against Rowsafe's signature (key built in) and picks your image's digest (`pg17`, `pg17-alpine`, `clickhouse26.8`...);
+2. pulls `ghcr.io/rowsafe/agent` at that digest;
+3. creates a new agent container with the old one's exact settings, only the image changed;
+4. swaps them and waits up to five minutes for the new agent to be healthy and report in;
 5. removes the old container. Volumes are never removed.
 
-If the new container doesn't come up, the old one is started again and the dashboard says why. PostgreSQL keeps running throughout; WAL waits in the spool for the few seconds no agent runs. The request is in the audit log and in `docker compose logs rowsafe-docker-control`.
+If the new one doesn't come up, the old one starts again and the dashboard says why. PostgreSQL keeps running; WAL waits in the spool for those seconds. An interrupted backup or Proof run reports as failed and runs again on schedule. Logged in the audit log and `docker compose logs rowsafe-docker-control`.
 
-Limits: it only replaces a container running an image of `ghcr.io/rowsafe/agent` (not one you built yourself) of the agent's compose service, exactly one. The new container runs the image by digest; if your compose file pins an exact older tag, `docker compose up -d --force-recreate` later goes back to that tag, so use the floating `pg<major>` tag (`clickhouse26.8` for ClickHouse). Updates start with the release after 0.5.0, for agents and control services from that release on.
+Limits:
 
-If a backup or Proof run is interrupted, the new container reports it as failed and the schedule runs it again. WAL waiting in the spool is pushed by the new container.
+- It only replaces exactly one container of the agent's service, running `ghcr.io/rowsafe/agent` (not your own build).
+- The new container runs by digest. If your compose file pins an older exact tag, a later `docker compose up -d --force-recreate` goes back to it, so use the floating `pg<major>` tag (`clickhouse26.8` for ClickHouse).
+- Works from the release after 0.5.0, for agents and control services from then on.
 
-Rowsafe doesn't do PostgreSQL **major** upgrades. After one, switch to the agent tag for the new major and adopt the database again, so its repository starts a new history.
+Rowsafe doesn't do PostgreSQL **major** upgrades in Docker. After one, switch to the new major's agent tag and adopt the database again (a new history).
 
 ## Watch the spool
 
-The agent reports the spool with every heartbeat. In Docker, the WAL status that `rowsafe show app` prints describes your **bucket**, not the spool: "last archived" is the last file pushed to the bucket, and failed pushes count as archiving failures. If the oldest spooled file waits longer than 5 minutes (`ROWSAFE_SPOOL_STALL_AFTER`), that counts as a failure too: you get the `wal_archiving_failing` alert and the database stops counting as protected. The API (`GET /v1/databases/{ref}`) also has the spool's file count, size and last push error.
+The agent reports the spool with every heartbeat. In Docker, the WAL status in `rowsafe show app` describes your **bucket**: "last archived" is the last file pushed, and failed pushes count as archiving failures.
 
-The image's health check fails when a spool is stalled, so `docker ps` shows the container as `unhealthy`.
+- If the oldest spooled file waits over 5 minutes (`ROWSAFE_SPOOL_STALL_AFTER`), you get the `wal_archiving_failing` alert and the database stops counting as protected.
+- The health check fails too, so `docker ps` shows `unhealthy`.
+- The API (`GET /v1/databases/{ref}`) shows the spool's file count, size and last push error.
 
 ## Troubleshooting
 
@@ -356,7 +360,7 @@ The agent checks its environment at startup and names the fix:
 | `the agent container runs "...", not an image of ghcr.io/rowsafe/agent` | Rowsafe only replaces its own published image: update a custom image yourself. |
 | `found no container for the agent's compose service` | Set `ROWSAFE_CONTROL_AGENT_SERVICE` to your agent's service name. |
 
-If WAL piles up in the spool, `docker compose logs rowsafe-agent` shows the pgBackRest error. The spool drains by itself once the cause is fixed.
+If WAL piles up in the spool, `docker compose logs rowsafe-agent` shows the error. It drains by itself once fixed.
 
 <Accordions>
 <Accordion title="Other settings">
@@ -364,9 +368,9 @@ If WAL piles up in the spool, `docker compose logs rowsafe-agent` shows the pgBa
 - **`POSTGRES_USER` other than `postgres`:** set `ROWSAFE_PG_USER` to that role. The agent must connect as a superuser over the socket.
 - **Locales:** the agent image includes `C.UTF-8` and `en_US.UTF-8`. A database created with another locale can't be opened by Proof.
 - **Several PostgreSQL containers:** give each one its own agent (and its own control service, if you use one).
-- **Rewind the whole database in Docker, limits:** not with tablespaces or on a replica (as on a server); the agent image replays changes with PostgreSQL's standard extensions, so a `shared_preload_libraries` entry the agent image lacks makes the rewind fail and roll back (restore a copy instead); with `restart: always`, a Docker daemon restart in the middle may start the container early, which then fails to start (the data directory holds only `.rowsafe-rewind`) until the rewind finishes or rolls back.
-- **Throughput:** the pusher sends one WAL segment at a time, typically tens of MB/s. A database that writes WAL faster for long periods builds a backlog, and the stall alert tells you.
-- **Other images** work if they have `sh`, `test`, `cmp`, `cp`, `sync` and `mv`, a `postgres` user the agent can match, and a data directory mounted at the same path.
+- **Rewind the whole database in Docker, limits:** not with tablespaces or on a replica. The agent replays with standard extensions only, so a `shared_preload_libraries` entry it lacks makes the rewind fail and roll back (restore a copy instead). With `restart: always`, a Docker daemon restart mid-rewind may start the container early; it fails to start until the rewind finishes or rolls back.
+- **Throughput:** one WAL segment at a time, typically tens of MB/s. Faster sustained writes build a backlog; the stall alert tells you.
+- **Other images** work if they have `sh`, `test`, `cmp`, `cp`, `sync` and `mv`, a matching `postgres` user, and the data directory at the same path.
 - Image defaults: see [Agent configuration](/docs/reference/agent-configuration#docker).
 
 </Accordion>

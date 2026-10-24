@@ -1,15 +1,15 @@
 ---
 title: Webhooks
-description: The JSON payload Rowsafe sends to a webhook channel, its headers, retries, and how to verify the signature.
+description: The webhook payload, headers, retries and signature check.
 ---
 
-A **webhook** channel sends each alert as a signed JSON `POST` to your `https` URL. Create one:
+A webhook channel sends each alert as a signed JSON `POST` to your `https` URL:
 
 ```sh
 rowsafe channels add --type webhook --name pager --url https://hooks.example.com/rowsafe
 ```
 
-It prints the **signing secret** (`whsec_...`) once. Store it where your receiver can read it.
+It prints the signing secret (`whsec_...`) once. Store it for your receiver.
 
 ## Request
 
@@ -18,7 +18,7 @@ It prints the **signing secret** (`whsec_...`) once. Store it where your receive
 | Header | |
 |---|---|
 | `X-Rowsafe-Event` | `alert.firing`, `alert.resolved`, `alert.reminder` or `test` |
-| `X-Rowsafe-Delivery` | A unique delivery ID (`ntf_...`). The same ID is reused when a delivery is retried. |
+| `X-Rowsafe-Delivery` | Unique delivery ID (`ntf_...`), the same on retries. |
 | `X-Rowsafe-Signature` | `t=<unix seconds>,v1=<hex HMAC-SHA256>` |
 
 ## Payload
@@ -60,19 +60,19 @@ It prints the **signing secret** (`whsec_...`) once. Store it where your receive
 | `alert.value`, `threshold`, `unit` | For rules with a threshold. |
 | `alert.resolved_at`, `acknowledged_at`, `acknowledged_by` | Present once they apply. |
 
-Optional fields are left out when empty. Ignore fields you don't recognize.
+Empty optional fields are left out. Ignore fields you don't know.
 
 ## Delivery
 
-- Answer with any **2xx** within **10 seconds**. Anything else, including a redirect, counts as a failure.
-- Failed deliveries are retried up to 8 times, waiting 1, 2, 4, 8, 16, 32 and 64 minutes: about 2 hours in all.
-- Use `X-Rowsafe-Delivery` to ignore duplicates.
-- The URL must be public `https`, with no credentials in it. Rowsafe refuses private and internal addresses, also after DNS resolution.
-- `rowsafe channels test ID` sends a `test` event right away.
+- Answer **2xx** within **10 seconds**. Anything else, redirects included, is a failure.
+- Failures are retried up to 8 times, waiting 1, 2, 4, 8, 16, 32 and 64 minutes (about 2 hours).
+- Drop duplicates by `X-Rowsafe-Delivery`.
+- Public `https` only, no credentials in the URL. Private and internal addresses are refused, also after DNS resolution.
+- `rowsafe channels test ID` sends a `test` event now.
 
 ## Verify the signature
 
-The signature is an HMAC-SHA256, keyed with the signing secret (the whole `whsec_...` string), over the timestamp, a dot, and the **raw** request body. Reject requests whose timestamp is more than 5 minutes off, to stop replays. Compare in constant time.
+HMAC-SHA256 keyed with the whole `whsec_...` secret, over `<timestamp>.<raw body>`. Reject timestamps more than 5 minutes off (replays). Compare in constant time.
 
 <Tabs items={["Node.js", "Python", "Go"]}>
 <Tab value="Node.js">
@@ -134,8 +134,10 @@ func verify(secret, header string, body []byte) bool {
 </Tab>
 </Tabs>
 
-Use the body exactly as received. Parsing and re-serializing the JSON changes the bytes and breaks the signature.
+Use the body exactly as received: re-serialized JSON breaks the signature.
 
 ## Slack, Discord and email
 
-These channels get a readable message instead of JSON: the state and severity, the summary, the description, the target, the value and threshold, since when, the next step, and a link to the dashboard. Discord messages never mention anyone. Reminder emails tell you how to acknowledge the alert.
+These get a readable message instead of JSON: state, severity, summary, description, target, value and threshold, since when, next step, and a dashboard link. Discord messages never mention anyone. Reminder emails say how to acknowledge.
+
+Microsoft Teams, Telegram and ntfy get the same readable message. PagerDuty and Opsgenie get one incident per alert: a reminder adds to it, and it resolves (or closes) when the alert does. Each test is its own incident. [Channel types](/docs/guides/monitoring#notification-channels).

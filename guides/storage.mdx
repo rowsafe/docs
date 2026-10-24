@@ -1,24 +1,25 @@
 ---
 title: Set up backup storage
-description: Create a storage bucket and an access key for your backups, and find the bucket URL the installer asks for. Step by step for Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces and other S3-compatible storage.
+description: Create a bucket and access key for your backups, on R2, B2, S3, Wasabi, Spaces or any S3-compatible storage.
 ---
 
 <Callout title="Don't want to set up a bucket?">
-  Use [Rowsafe Storage](/docs/guides/rowsafe-storage): a bucket run by Rowsafe with nothing to set up, still encrypted on your server. Or create a bucket of your own as this page shows. It takes about 10 minutes, and Cloudflare R2's first 10 GB are free.
+  Use [Rowsafe Storage](/docs/guides/rowsafe-storage): nothing to set up, still encrypted on your server. Or follow this page: about 10 minutes, and Cloudflare R2's first 10 GB are free.
+  Prefer a server of your own, like a Hetzner Storage Box? See [Backups to your own server (SFTP)](/docs/guides/sftp) (PostgreSQL).
 </Callout>
 
-With your own bucket, Rowsafe keeps your backups in a storage bucket **that you own**. Rowsafe never stores your data itself, and it never sees the keys to your bucket: they stay on your database server.
+Your backups live in a bucket **you own**. Rowsafe never stores your data and never sees the bucket's keys: they stay on your server.
 
-You need three things:
+You need:
 
 1. **The bucket URL** of an empty, private bucket just for Rowsafe.
-2. **An access key** (an ID and a secret) that can read, write and delete files in that bucket.
-3. **An encryption passphrase.** The installer generates one for you.
+2. **An access key** (ID and secret) that can read, write and delete in it.
+3. **An encryption passphrase.** The installer makes one.
 
-The installer asks for the **bucket URL first**. It works out the provider, region and bucket name from it, then asks for the access key. It **tests the bucket before it finishes**, so you'll know right away if anything is wrong. You never paste keys into the Rowsafe dashboard.
+The installer asks for the **bucket URL first**, works out the provider, region and name from it, then asks for the key. It **tests the bucket** before it finishes. You never paste keys into the dashboard.
 
 <Callout title="Which provider should I pick?">
-  If you don't have a preference, use **Cloudflare R2**: the first 10 GB are free and downloads (restores) cost nothing. Any provider below works the same way with Rowsafe.
+  No preference? **Cloudflare R2**: the first 10 GB are free and downloads (restores) cost nothing. Every provider below works the same way.
 </Callout>
 
 ## Cloudflare R2
@@ -28,27 +29,27 @@ The installer asks for the **bucket URL first**. It works out the provider, regi
 
 ### Create a bucket
 
-In the [Cloudflare dashboard](https://dash.cloudflare.com), open **R2 Object Storage** and choose **Create bucket**. Give it a name such as `mycompany-rowsafe`. If your data must stay in the EU, set the location to **European Union (EU jurisdiction)**. Leave public access off.
+In the [Cloudflare dashboard](https://dash.cloudflare.com), open **R2 Object Storage**, then **Create bucket** (for example `mycompany-rowsafe`). For EU data, set the location to **European Union (EU jurisdiction)**. Leave public access off.
 
 </Step>
 <Step>
 
 ### Copy the bucket URL
 
-Open the bucket, then **Settings**. Copy the **S3 API** URL:
+In the bucket's **Settings**, copy the **S3 API** URL:
 
 ```text
 https://<account-id>.r2.cloudflarestorage.com/mycompany-rowsafe
 ```
 
-For a bucket in the EU jurisdiction, it has `.eu` in it: `https://<account-id>.eu.r2.cloudflarestorage.com/mycompany-rowsafe`.
+An EU bucket has `.eu` in it: `https://<account-id>.eu.r2.cloudflarestorage.com/mycompany-rowsafe`.
 
 </Step>
 <Step>
 
 ### Create an access key
 
-Back in R2, open **Manage API tokens** and choose **Create API token**. Pick **Object Read & Write**, and under "Specify bucket(s)" select only your new bucket. After you create it, keep the page open: it shows the **Access Key ID** and the **Secret Access Key**, only once.
+In R2, **Manage API tokens**, then **Create API token**. Pick **Object Read & Write**, limited to your new bucket. Copy the **Access Key ID** and **Secret Access Key**: they're shown once.
 
 </Step>
 </Steps>
@@ -60,14 +61,14 @@ Back in R2, open **Manage API tokens** and choose **Create API token**. Pick **O
 
 ### Create a bucket
 
-In your [Backblaze account](https://secure.backblaze.com/b2_buckets.htm), choose **Create a Bucket**. Make it **Private**.
+In your [Backblaze account](https://secure.backblaze.com/b2_buckets.htm), **Create a Bucket**. Make it **Private**.
 
 </Step>
 <Step>
 
 ### Copy the bucket URL
 
-The bucket's page shows its **Endpoint**, for example `s3.us-west-004.backblazeb2.com`. Your bucket URL is that endpoint followed by the bucket name:
+The bucket's **Endpoint** (like `s3.us-west-004.backblazeb2.com`), then the bucket name:
 
 ```text
 https://s3.us-west-004.backblazeb2.com/mycompany-rowsafe
@@ -78,7 +79,7 @@ https://s3.us-west-004.backblazeb2.com/mycompany-rowsafe
 
 ### Create an application key
 
-Open **Application Keys** and choose **Add a New Application Key**. Allow access to **your new bucket only**, with **Read and Write** access. Copy the **keyID** (the installer's access key ID) and the **applicationKey** (the secret). The application key is shown only once.
+**Application Keys**, then **Add a New Application Key**: **your new bucket only**, **Read and Write**. Copy the **keyID** (access key ID) and **applicationKey** (secret). It's shown once.
 
 </Step>
 </Steps>
@@ -90,14 +91,14 @@ Open **Application Keys** and choose **Add a New Application Key**. Allow access
 
 ### Create a bucket
 
-In the [S3 console](https://console.aws.amazon.com/s3/), choose **Create bucket**, pick a region close to your database server, and keep **Block all public access** turned on.
+In the [S3 console](https://console.aws.amazon.com/s3/), **Create bucket** in a region near your server. Keep **Block all public access** on.
 
 </Step>
 <Step>
 
 ### Copy the bucket URL
 
-Use either form, with your bucket's name and region:
+Either form works:
 
 ```text
 https://mycompany-rowsafe.s3.eu-central-1.amazonaws.com
@@ -109,7 +110,7 @@ https://s3.eu-central-1.amazonaws.com/mycompany-rowsafe
 
 ### Create an access key for Rowsafe only
 
-In IAM, create a user for Rowsafe (no console access) and attach a policy that allows only this bucket:
+In IAM, create a user for Rowsafe (no console access) with a policy for this bucket only:
 
 ```json
 {
@@ -121,7 +122,7 @@ In IAM, create a user for Rowsafe (no console access) and attach a policy that a
 }
 ```
 
-Then create an **access key** for that user and copy the access key ID and secret.
+Create an **access key** for that user and copy the ID and secret.
 
 </Step>
 </Steps>
@@ -133,14 +134,14 @@ Then create an **access key** for that user and copy the access key ID and secre
 
 ### Create a bucket
 
-In the [Wasabi console](https://console.wasabisys.com), choose **Create Bucket** and pick a region. Keep it private.
+In the [Wasabi console](https://console.wasabisys.com), **Create Bucket** in a region. Keep it private.
 
 </Step>
 <Step>
 
 ### Copy the bucket URL
 
-It is the region's endpoint followed by the bucket name, for example:
+The region's endpoint, then the bucket name:
 
 ```text
 https://s3.eu-central-1.wasabisys.com/mycompany-rowsafe
@@ -151,7 +152,7 @@ https://s3.eu-central-1.wasabisys.com/mycompany-rowsafe
 
 ### Create an access key
 
-Create a sub-user for Rowsafe with programmatic access, give it a policy limited to this bucket (read, write, delete), and create an **access key** for it. Copy the key and secret.
+Create a sub-user with programmatic access and a policy for this bucket only (read, write, delete). Create an **access key** and copy the key and secret.
 
 </Step>
 </Steps>
@@ -163,14 +164,14 @@ Create a sub-user for Rowsafe with programmatic access, give it a policy limited
 
 ### Create a Space
 
-In the [DigitalOcean control panel](https://cloud.digitalocean.com/spaces), choose **Create a Spaces Bucket**, pick a datacenter region (for example `fra1`) and keep file listing restricted.
+In the [DigitalOcean control panel](https://cloud.digitalocean.com/spaces), **Create a Spaces Bucket** in a region (like `fra1`). Keep file listing restricted.
 
 </Step>
 <Step>
 
 ### Copy the bucket URL
 
-Copy the Space's **Origin Endpoint** from its page:
+Copy the Space's **Origin Endpoint**:
 
 ```text
 https://mycompany-rowsafe.fra1.digitaloceanspaces.com
@@ -181,38 +182,37 @@ https://mycompany-rowsafe.fra1.digitaloceanspaces.com
 
 ### Create an access key
 
-Open **Spaces Object Storage > Access Keys** and create a key with read, write and delete access, limited to this bucket if you can. Copy the access key and secret.
+**Spaces Object Storage > Access Keys**: create a key with read, write and delete, limited to this bucket if you can. Copy the key and secret.
 
 </Step>
 </Steps>
 
 ## Other S3-compatible storage
 
-Rowsafe works with any storage that speaks the S3 protocol over HTTPS: MinIO, Ceph, Hetzner Object Storage, OVHcloud Object Storage, Scaleway and others. Create a private bucket and an access key limited to it.
+Any S3 storage over HTTPS works: MinIO, Ceph, Hetzner, OVHcloud, Scaleway and others. Create a private bucket and a key limited to it.
 
-When the installer asks for the bucket URL, paste the storage's endpoint followed by the bucket name, for example `https://s3.example.com/mycompany-rowsafe` or `https://s3.example.com:9000/mycompany-rowsafe`.
+The bucket URL is the endpoint, then the bucket name: `https://s3.example.com/mycompany-rowsafe` or `https://s3.example.com:9000/mycompany-rowsafe`.
 
 ## The encryption passphrase
 
-Backups are encrypted **on your server** before they're uploaded, so your storage provider only ever sees scrambled data. The installer generates a strong passphrase and shows it **once**.
+Backups are encrypted **on your server** before upload, so your provider only sees scrambled data. The installer makes a strong passphrase and shows it **once**.
 
 <Callout type="warn" title="Save the passphrase in your password manager">
-  Without it, your backups can't be restored. Rowsafe doesn't have a copy and can't recover it. The installer asks you to type its last 4 characters to confirm you've saved it.
+  Without it, your backups can't be restored. Rowsafe has no copy. The installer asks for its last 4 characters to confirm you saved it.
 </Callout>
 
 ## Without questions
 
-For automation (cloud-init, configuration management, CI), give the installer the storage settings in its environment instead: `ROWSAFE_REPO_S3_ENDPOINT`, `ROWSAFE_REPO_S3_BUCKET`, `ROWSAFE_REPO_S3_KEY`, `ROWSAFE_REPO_S3_KEY_SECRET` and `ROWSAFE_REPO_CIPHER_PASS`. It then asks nothing about storage. See [Adopt an existing database](/docs/guides/adopt) for an example, and [Agent configuration](/docs/reference/agent-configuration#bucket-repository) for every setting.
+For automation, set `ROWSAFE_REPO_S3_ENDPOINT`, `ROWSAFE_REPO_S3_BUCKET`, `ROWSAFE_REPO_S3_KEY`, `ROWSAFE_REPO_S3_KEY_SECRET` and `ROWSAFE_REPO_CIPHER_PASS` in the installer's environment. It then asks nothing about storage. Example: [Adopt an existing database](/docs/guides/adopt#automate-it). Every setting: [Agent configuration](/docs/reference/agent-configuration#bucket-repository).
 
 ## Good to know
 
-- **Use a dedicated, empty bucket** for Rowsafe. Don't share it with other files.
-- **Don't add lifecycle or auto-delete rules** to the bucket. Rowsafe removes old backups itself, and a lifecycle rule could delete files that newer backups still depend on.
-- **Keep the bucket private.** Rowsafe never needs public access.
-- **Test your settings again** at any time on the server:
+- **Use a dedicated, empty, private bucket.** Rowsafe never needs public access.
+- **No lifecycle or auto-delete rules.** Rowsafe removes old backups itself; a rule could delete files newer backups depend on.
+- **Test the settings again** on the server:
 
   ```sh
   curl -fsSL https://rowsafe.sh | sudo sh -s -- --check-storage
   ```
 
-- **Change storage later** with `--setup-storage`. The installer offers to keep your existing passphrase, which your earlier backups still need.
+- **Change storage later** with `--setup-storage`. Keep your existing passphrase when it offers: earlier backups need it.

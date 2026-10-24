@@ -1,18 +1,20 @@
 ---
 title: Quickstart
-description: Protect your first PostgreSQL database in about 10 minutes. Create a storage bucket, run one command on your server, and answer its questions.
+description: Protect your first PostgreSQL database in about 10 minutes.
 ---
 
-This guide protects one PostgreSQL server. You create a storage bucket, run one command on the server, and answer a few questions. Nothing changes until you say yes. You don't need to be a database expert: new words are in the [Glossary](/docs/glossary).
+Create a bucket, run one command on your server, answer a few questions. Nothing changes until you say yes. New words are in the [Glossary](/docs/glossary).
 
 **You need:**
 
-- A Linux server running PostgreSQL 13 to 18 on Debian 12/13 or Ubuntu 22.04/24.04, with `sudo`. (PostgreSQL in Docker? See [Run the agent in Docker](/docs/guides/docker). MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey, OpenSearch, Qdrant or Meilisearch? The same command protects them: see [MySQL and MariaDB](/docs/guides/mysql), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse), [Redis and Valkey](/docs/guides/redis), [OpenSearch](/docs/guides/opensearch), [Qdrant](/docs/guides/qdrant) or [Meilisearch](/docs/guides/meilisearch).)
-- A storage bucket for the backups: Cloudflare R2 (10 GB free), Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces or any S3-compatible storage.
-- A few seconds of downtime for one PostgreSQL restart, now or later, when it suits you.
+- A Linux server (Debian 12/13 or Ubuntu 22.04/24.04) running PostgreSQL 13 to 18, with `sudo`.
+- A storage bucket: Cloudflare R2 (10 GB free), Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces or any S3-compatible storage.
+- A few seconds of downtime for one PostgreSQL restart, now or later.
+
+Other setups use the same command: [Docker](/docs/guides/docker), [MySQL and MariaDB](/docs/guides/mysql), [MongoDB](/docs/guides/mongodb), [ClickHouse](/docs/guides/clickhouse), [Redis and Valkey](/docs/guides/redis), [OpenSearch](/docs/guides/opensearch), [Qdrant](/docs/guides/qdrant), [Meilisearch](/docs/guides/meilisearch).
 
 <Callout title="Production database?">
-  This is the short version. For a server that matters, follow [Adopt an existing database](/docs/guides/adopt): it adds the preflight checks, secret handling and rollback plan.
+  Follow [Adopt an existing database](/docs/guides/adopt) instead. It adds preflight checks and a rollback plan.
 </Callout>
 
 <Steps>
@@ -20,20 +22,20 @@ This guide protects one PostgreSQL server. You create a storage bucket, run one 
 
 ### Create an account
 
-[Sign up](https://app.rowsafe.sh/sign-up). The Free plan protects one server with up to three databases, with every feature.
+[Sign up](https://app.rowsafe.sh/sign-up). The Free plan covers one server with up to three databases, every feature included.
 
 </Step>
 <Step>
 
 ### Create a bucket and an access key
 
-Create a **private**, empty bucket, for example `app-rowsafe`, and an access key that can read, write and delete **only in that bucket**. Keep three things at hand:
+Create a **private**, empty bucket (for example `app-rowsafe`) and an access key limited to **that bucket only**. Keep at hand:
 
-- the **bucket URL**, for example Cloudflare R2's "S3 API" URL, `https://<account-id>.r2.cloudflarestorage.com/app-rowsafe`;
-- the **access key ID**;
-- the **secret**.
+- the **bucket URL**, for example `https://<account-id>.r2.cloudflarestorage.com/app-rowsafe`
+- the **access key ID**
+- the **secret**
 
-[Set up backup storage](/docs/guides/storage) shows where to find each of them, for every provider.
+Where to find them, per provider: [Set up backup storage](/docs/guides/storage).
 
 </Step>
 <Step>
@@ -41,53 +43,39 @@ Create a **private**, empty bucket, for example `app-rowsafe`, and an access key
 ### Run the installer on the database server
 
 ```sh
-curl -fsSL https://rowsafe.sh | sudo sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --account
 ```
 
-It installs the agent (after checking its signature) and prints a link. Open it: the page shows the server's name, address and a code. Check that the code matches your terminal, pick your organization and click **Approve**. The installer notices within seconds and goes on.
+It prints a link. Open it, check the code matches your terminal, pick your organization and click **Approve**. (Without `--account`, Rowsafe runs on the server on its own, with no dashboard: [Rowsafe on your server](/docs/guides/no-account-server). `sudo rowsafe login` connects it later.)
 
 <Callout title="From the dashboard">
-  **Servers**, then **Add a server**, shows the same command with a one-time enrollment token (`rse_...`) already in it. Run that one and there's nothing to approve.
+  **Servers** → **Add a server** gives the same command with a one-time token in it. Nothing to approve.
 </Callout>
 
-Then it asks a few questions in your terminal:
+Then answer its questions:
 
-1. **Your bucket.** Paste the bucket URL. Rowsafe works out the provider, region and bucket from it. Then paste the access key ID and the secret. It tests the bucket: it writes, reads back and deletes a small file. If something is wrong, it tells you what and lets you fix it.
-2. **The encryption passphrase.** It generates a strong one and shows it once. Save it, then type its last 4 characters to confirm.
-3. **Your database.** It finds PostgreSQL on the server and suggests a name. Press Enter to accept it:
-
-   ```text
-   Found PostgreSQL 18 on port 5432 (1.2 GB; databases: app)
-   Name it in Rowsafe [app]:
-   ```
-
-4. **The plan.** It shows what it will change, in plain words, and asks:
-
-   ```text
-   Nothing changes until you say yes. Turn on backups for app now? [Y/n]
-   ```
+1. **Your bucket.** Paste the bucket URL, access key ID and secret. It tests the bucket and tells you if something is wrong.
+2. **The encryption passphrase.** It generates one and shows it once. Save it, then type its last 4 characters.
+3. **Your database.** It finds PostgreSQL and suggests a name. Press Enter.
+4. **The plan.** It shows what it will change and asks `Turn on backups for app now? [Y/n]`.
 
 <Callout type="warn" title="Save the passphrase before you continue">
-  Put the passphrase in your password manager **before** the first backup. Without it, no backup can ever be restored, and nobody can recover it, Rowsafe included.
+  Put it in your password manager now. Without it, no backup can be restored, and nobody can recover it, Rowsafe included.
 </Callout>
 
-Your keys and passphrase stay on the server, in `/etc/rowsafe/agent.env`. Rowsafe never sees them.
+Keys and passphrase stay on the server, in `/etc/rowsafe/agent.env`. Rowsafe never sees them.
 
 </Step>
 <Step>
 
 ### Restart PostgreSQL, now or later
 
-Turning on backups needs one PostgreSQL restart. It takes a few seconds: open connections are dropped, and your apps reconnect. The installer asks:
-
-```text
-Restart PostgreSQL now? [y/N]
-```
+Backups need one PostgreSQL restart. It takes seconds; open connections drop and your apps reconnect.
 
 <Tabs items={["Restart now", "Restart later"]}>
 <Tab value="Restart now">
 
-Answer `y`. Rowsafe restarts PostgreSQL, checks that changes reach your bucket, and prints:
+Answer `y` to `Restart PostgreSQL now?`. You'll see:
 
 ```text
 ✓ app is protected. The first full backup is running.
@@ -96,96 +84,53 @@ Answer `y`. Rowsafe restarts PostgreSQL, checks that changes reach your bucket, 
 </Tab>
 <Tab value="Restart later">
 
-Press Enter. Restart PostgreSQL when it suits you, for example in a quiet hour:
+Press Enter. Restart when it suits you:
 
 ```sh
 sudo systemctl restart postgresql
 ```
 
-Rowsafe notices the restart by itself and finishes the setup. Nothing else to do.
+Rowsafe notices and finishes the setup by itself.
 
 </Tab>
 </Tabs>
 
-The installer also asks whether to allow restarting PostgreSQL from the Rowsafe dashboard. If you allow it, the database's page gets a **Restart PostgreSQL now** button. It restarts only when someone clicks it and confirms.
+It also asks two questions:
 
-It also asks whether to allow Rowsafe to install and manage PgBouncer, for [connection pooling](/docs/guides/connection-pooling). Nothing is installed until someone turns pooling on.
+- **Restart from the dashboard?** Adds a **Restart PostgreSQL now** button. It only restarts when someone clicks and confirms.
+- **Manage PgBouncer?** For [connection pooling](/docs/guides/connection-pooling). Nothing installs until someone turns pooling on.
 
 </Step>
 </Steps>
 
-That's it. The database now shows up in the dashboard under **Databases**.
+Done. The database shows up in the dashboard under **Databases**.
 
 ## What happens next
 
-Rowsafe now runs on its own:
+Rowsafe now runs by itself. The first full backup starts right away.
 
-- **The first full backup** starts right away.
-- **Rewind** is on: every change is saved to your bucket, at most about a minute behind. You can restore to any second from the first backup on, in one click: see [Restore a database](/docs/guides/restore).
-- **Proof**, the weekly restore test, restores a copy of your database and checks it. The first one runs on Sunday. To run it sooner, wait for the first backup to finish, then click **Run Proof now** on the database's page.
-- **Pulse** watches the database's health and alerts you about problems. Every Monday, "Your weekly Pulse" arrives by email.
-
-By default, in UTC:
-
-| When | What |
+| When (UTC) | What |
 |---|---|
-| Continuously | Every change is saved to your bucket, at most about a minute behind |
+| Continuously | **Rewind**: every change saved, at most about a minute behind |
 | Sundays 01:00 | Full backup |
 | Monday to Saturday 01:00 | Differential backup |
-| Sundays 21:15 | Proof (restore test) |
+| Sundays 21:15 | **Proof**: a restore test (or click **Run Proof now** after the first backup) |
+| Every minute | **Pulse**: health checks and alerts, plus an email every Monday |
 
-It keeps two full backups, so you can restore to any point in about the last two weeks. You can change the schedules and retention in the database's settings, or with [`rowsafe set`](/docs/reference/cli#database-settings).
-
-Once there is a recent backup and a passing Proof, the database counts as [protected](/docs/concepts/protection-status).
-
-**Set up alerts** so you hear about problems: in the dashboard under **Settings**, then **Alerts and notifications**. See [Monitoring and alerts](/docs/guides/monitoring) for email, Slack, Discord and webhooks.
+- Two full backups are kept: about two weeks to [restore to any second](/docs/guides/restore). Change it in the database's settings or with [`rowsafe set`](/docs/reference/cli#database-settings).
+- A recent backup plus a passing Proof means [protected](/docs/concepts/protection-status).
+- **Turn on alerts:** **Settings** → **Alerts and notifications** (email, Slack, Discord, Teams, PagerDuty, Opsgenie, Telegram, ntfy, webhooks: [Monitoring and alerts](/docs/guides/monitoring#notification-channels)).
 
 ## Install the CLI and log in
 
-You don't need the CLI to get started. It is useful for scripts, CI and AI agents. It is a single binary for macOS and Linux. Run this on your own computer:
-
-<Tabs items={["macOS (Apple silicon)", "macOS (Intel)", "Linux (x86-64)", "Linux (ARM64)"]}>
-<Tab value="macOS (Apple silicon)">
+Optional, for scripts, CI and AI agents. On your own computer (macOS or Linux, no `sudo`):
 
 ```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-darwin-arm64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-<Tab value="macOS (Intel)">
-
-```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-darwin-amd64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-<Tab value="Linux (x86-64)">
-
-```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-linux-amd64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-<Tab value="Linux (ARM64)">
-
-```sh
-curl -fsSLo rowsafe https://github.com/rowsafe/rowsafe/releases/latest/download/rowsafe-linux-arm64
-chmod +x rowsafe && sudo mv rowsafe /usr/local/bin/
-```
-
-</Tab>
-</Tabs>
-
-Then log in. This opens the dashboard in your browser, where you confirm a code:
-
-```sh
+curl -fsSL https://rowsafe.sh/cli | sh
 rowsafe login
 ```
 
-Over SSH, or with `--no-browser`, open the printed link on any device. Then, for example:
+Run the installer again to update. [More ways to install](/docs/reference/cli#install).
 
 ```sh
 rowsafe status app      # is it protected?
@@ -193,25 +138,25 @@ rowsafe proof app       # run Proof now
 rowsafe pulse app       # health score and findings
 ```
 
-`rowsafe hosts enroll-token` also prints the install command, if you prefer the terminal to the dashboard.
+Add another server over SSH, nothing to copy: `rowsafe hosts add root@203.0.113.10` ([how](/docs/guides/adopt#run-the-installer)).
 
 <Cards>
   <Card title="What Rowsafe does for you" href="/docs/what-rowsafe-does">
-    What now runs by itself, and what you do when something goes wrong.
+    What runs by itself, and what you do when something breaks.
   </Card>
   <Card title="Your first restore" href="/docs/first-restore">
-    Practise now: delete rows from a practice table on purpose, then bring them back.
+    Delete practice rows on purpose, then bring them back.
   </Card>
   <Card title="Restore a database" href="/docs/guides/restore">
-    Rewind to any second. Read it now, before you need it.
+    Rewind to any second. Read it before you need it.
   </Card>
   <Card title="Marks" href="/docs/concepts/restore-points">
-    Mark a moment before a migration: `rowsafe mark app before-migration`.
+    Mark a moment before a migration.
   </Card>
   <Card title="AI agents" href="/docs/guides/ai-agents">
     Guard: coding agents set a Mark before risky changes.
   </Card>
   <Card title="Troubleshooting" href="/docs/troubleshooting">
-    Common errors and how to fix them.
+    Common errors and fixes.
   </Card>
 </Cards>

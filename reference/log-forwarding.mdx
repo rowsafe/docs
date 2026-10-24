@@ -1,13 +1,15 @@
 ---
 title: Logs API and log forwarding
-description: The fields of a forwarded PostgreSQL log line, the signed log webhook, what each destination receives, and the Logs API endpoints.
+description: Forwarded log line fields, the log webhook, each destination's format, and the Logs API.
 ---
 
-This is the reference for [Logs](/docs/guides/logs). Every line was redacted on the database server before it reached Rowsafe (unless the database sends full query text).
+Reference for [Logs](/docs/guides/logs). Lines are redacted on the database server before reaching Rowsafe (unless the database sends full query text).
+
+On a [server on its own](/docs/guides/no-account-server#forward-them), `sudo rowsafe logs forward` sends the same lines and formats from the server itself; `host` is the server's host name and `id` counts on that server.
 
 ## A log line
 
-Every destination receives the same fields (as JSON attributes, labels or structured data):
+Every destination gets these fields (as JSON attributes, labels or structured data):
 
 | Field | Meaning |
 |---|---|
@@ -20,13 +22,13 @@ Every destination receives the same fields (as JSON attributes, labels or struct
 | `sqlstate` | PostgreSQL's error code, e.g. `23505` |
 | `message`, `detail`, `hint`, `context` | With values removed |
 | `statement` | The statement behind it, normalized (`$1`, `$2`, ...) |
-| `user`, `database`, `application`, `client`, `pid` | Who and where: the PostgreSQL user and database, `application_name`, the client address, the process ID |
+| `user`, `database`, `application`, `client`, `pid` | PostgreSQL user and database, `application_name`, client address, process ID |
 | `duration_ms` | Slow statements and lock waits |
 | `redacted` | `true` when values were removed from the line |
 
 ## Webhook
 
-Rowsafe POSTs JSON batches of up to 500 lines, as soon as they arrive (every few seconds while there are new ones):
+JSON batches of up to 500 lines, sent as they arrive (every few seconds while there are new ones):
 
 ```json
 {
@@ -58,9 +60,10 @@ Rowsafe POSTs JSON batches of up to 500 lines, as soon as they arrive (every few
 }
 ```
 
-Headers: `X-Rowsafe-Event: logs`, `X-Rowsafe-Delivery: <delivery_id>` and `X-Rowsafe-Signature: t=<unix seconds>,v1=<hex>`, an HMAC-SHA256 of `<t>.<body>` with the destination's signing secret, shown once when you add it. Check it exactly like an [alert webhook's](/docs/reference/webhooks#verify-the-signature).
+- **Headers**: `X-Rowsafe-Event: logs`, `X-Rowsafe-Delivery: <delivery_id>`, `X-Rowsafe-Signature: t=<unix seconds>,v1=<hex>` (HMAC-SHA256 of `<t>.<body>` with the destination's signing secret, shown once when you add it). Verify it like an [alert webhook](/docs/reference/webhooks#verify-the-signature).
 
-Answer with any 2xx within 15 seconds. Anything else (or a redirect, which isn't followed) counts as a failure: Rowsafe retries the same lines after 30 seconds, then waits twice as long each time, up to an hour, and the destination shows the error. A batch can arrive twice after a timeout; use each line's `id` to drop duplicates.
+- **Answer 2xx within 15 seconds.** Anything else, redirects included (not followed), is a failure: the same lines are retried after 30 seconds, then twice as long each time, up to an hour, and the destination shows the error.
+- A batch can arrive twice after a timeout: drop duplicates by each line's `id`.
 
 ## What each destination receives
 
@@ -70,11 +73,11 @@ Answer with any 2xx within 15 seconds. Anything else (or a redirect, which isn't
 - **Elasticsearch and OpenSearch**: `POST <url>/_bulk` (`create` actions, so data streams work) with `Authorization: ApiKey <key>`, or basic auth with a user name. Documents have the fields above plus `@timestamp` and `log.level`. Refused documents count as a failure.
 - **Papertrail and syslog**: RFC 5424 over TLS with octet-counting framing (RFC 5425), facility `local0`, app name `postgresql`, the process ID as `PROCID`, the kind as `MSGID`, and structured data `[rowsafe@32473 database="..." kind="..." sqlstate="..."]`. The server's certificate must be valid for its host name.
 
-Destinations must resolve to public addresses; Rowsafe refuses private, loopback and cloud metadata addresses, also after DNS resolution.
+Destinations must be public: private, loopback and cloud metadata addresses are refused, also after DNS resolution.
 
 ## API
 
-With an API key (read-only keys may read), or the CLI's login:
+With an API key (read-only keys can read) or the CLI's login:
 
 | Endpoint | |
 |---|---|
@@ -86,4 +89,4 @@ With an API key (read-only keys may read), or the CLI's login:
 | `PATCH`, `DELETE /v1/log-destinations/{id}` | Change (`name`, `enabled`, `config`, `filter`, `secret`), remove |
 | `POST /v1/log-destinations/{id}/test` | Send one test line: `{"ok": true}` or `{"ok": false, "error": "..."}` |
 
-`config` holds the destination's settings: `site` (Datadog), `url`, `host` and `port` (syslog, Papertrail), `username` and `index`. `filter` is `{"kinds": ["errors", "auth_failure"], "database_ids": []}`; empty lists mean everything.
+`config`: `site` (Datadog), `url`, `host` and `port` (syslog, Papertrail), `username`, `index`. `filter`: `{"kinds": ["errors", "auth_failure"], "database_ids": []}`; an empty list means all.

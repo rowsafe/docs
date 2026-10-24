@@ -2,8 +2,10 @@
   "title": "Guides",
   "pages": [
     "---Set up---",
+    "no-account-server",
     "storage",
     "rowsafe-storage",
+    "sftp",
     "second-copy",
     "adopt",
     "create-a-server",
@@ -32,6 +34,7 @@
     "safe-copies",
     "---Pulse: health and speed---",
     "monitoring",
+    "no-account",
     "logs",
     "tuning",
     "security",

@@ -1,29 +1,29 @@
 ---
 title: "Ask Rowsafe"
-description: Ask questions about your databases in plain words, like "Why is my database slow today?", and get answers from Rowsafe's own data, with the fix as a button. What the AI sees, how to turn it on, your own AI key, and using your own AI assistant instead.
+description: Ask about your databases in plain words and get answers from Rowsafe's data, with the fix as a button.
 ---
 
-**Ask Rowsafe** answers questions about your databases: "Why is app-prod slow today?", "Is it safe to deploy this migration now?", "What should I fix first?", "Could I restore billing right now, and to when?". It looks at the same data you see in the dashboard (Pulse health and findings, query trends, sessions, metrics, alerts, Rewind backups, Proofs and Marks), answers in a few sentences with numbers, and links to the data it used.
+**Ask Rowsafe** answers questions like "Why is app-prod slow today?" or "Could I restore billing right now, and to when?". It reads what the dashboard shows, answers briefly with numbers, and links its sources.
 
-When a fix Rowsafe offers is the right next step, the answer comes with the fix as a button. Nothing runs until you click it and confirm, exactly as on the health page. Ask Rowsafe can't change anything by itself.
+If a fix is the next step, the answer offers it as a button. Nothing runs until you click and confirm.
 
 ## Turn it on
 
-Ask Rowsafe is off until an admin or owner turns it on for the organization.
+An owner or admin turns it on once.
 
 <Steps>
 <Step>
-Open **Settings → Ask Rowsafe**. The page lists what is sent to the AI provider, what never is, and who handles a question.
+Open **Settings → Ask Rowsafe** to see what's sent and who handles it.
 </Step>
 <Step>
-Tick **I understand what is sent** and click **Turn on Ask Rowsafe**. The change is in the audit log (`ask.enabled`).
+Tick **I understand what is sent** and click **Turn on Ask Rowsafe** (audited as `ask.enabled`).
 </Step>
 <Step>
-Press <kbd>⌘</kbd> <kbd>J</kbd> (<kbd>Ctrl</kbd> <kbd>J</kbd> on Windows and Linux) anywhere in the dashboard, or click **Ask** in the top bar. On a database's pages, questions are about that database.
+Press <kbd>⌘</kbd> <kbd>J</kbd> (<kbd>Ctrl</kbd> <kbd>J</kbd> on Windows and Linux) or click **Ask**. On a database's pages, questions are about that database.
 </Step>
 </Steps>
 
-Everyone in the organization can ask once it's on. **Explain** buttons on health findings, firing alerts and query details open the panel with a question about that item. Turn on **Think deeper** for a stronger (slower) model on hard questions.
+Then everyone can ask. **Explain** on findings, alerts and queries asks about that item. **Think deeper** uses a stronger, slower model.
 
 ## What the AI sees, and what it never sees
 
@@ -36,15 +36,15 @@ Everyone in the organization can ask once it's on. **Explain** buttons on health
 | Names of databases, tables, indexes and columns | |
 | Backup, Proof and Mark history | |
 
-The model gets this data through read-only lookups that run inside Rowsafe with your organization's permissions: it sees only your organization, and only what the dashboard shows. Rowsafe removes literals from SQL text (running queries included), and scrubs anything that looks like a credential before a lookup's result reaches the model.
+The model uses read-only lookups limited to your organization. SQL values and anything that looks like a credential are removed first.
 
-**Who handles a question**, with Rowsafe's built-in AI:
+Who handles a question with the built-in AI:
 
-1. **Rowsafe** runs the lookups and keeps the conversation for 30 days after its last message.
-2. **[OpenRouter](https://openrouter.ai/docs/guides/privacy/data-collection)** routes the request to a model provider. It doesn't store prompts or answers by default.
-3. **The model's provider**: Rowsafe asks OpenRouter to use only providers that don't store or train on your data (`data_collection: deny`, see [provider routing](https://openrouter.ai/docs/guides/routing/provider-selection)).
+1. **Rowsafe** runs the lookups and keeps the conversation 30 days after its last message.
+2. **[OpenRouter](https://openrouter.ai/docs/guides/privacy/data-collection)** routes it, without storing it by default.
+3. **The model's provider**: only ones that don't store or train on your data (`data_collection: deny`, [details](https://openrouter.ai/docs/guides/routing/provider-selection)).
 
-With your own key, the chain is Rowsafe and the provider you chose; your provider account's own data settings apply. Answers can be wrong: check the linked data before you act on one.
+With your own key, it's Rowsafe and your provider, under your account's settings. Answers can be wrong: check the linked data first.
 
 ## Plans and your own AI key
 
@@ -54,20 +54,20 @@ With your own key, the chain is Rowsafe and the provider you chose; your provide
 | Your own AI provider key | yes, unlimited | yes, unlimited | yes, unlimited |
 | Your own AI assistant (MCP) | yes | yes | yes |
 
-Questions reset on the 1st of each month (UTC). A question that fails before it's answered doesn't count. **Settings → Ask Rowsafe** shows how many are left.
+Questions reset on the 1st (UTC); failed ones don't count.
 
-To use **your own key** (OpenRouter, Anthropic or OpenAI), click **Use your own AI provider key** in Settings → Ask Rowsafe, paste the key and click **Check and save key**. Rowsafe checks it with the provider, stores it encrypted and never shows it again; you see only its first and last characters. Your provider bills you and Rowsafe doesn't limit the questions. Set a spending limit in your provider's console. **More options** lets you pick the models.
+**Your own key** (OpenRouter, Anthropic or OpenAI): click **Use your own AI provider key**, paste it, and click **Check and save key**. It's stored encrypted and never shown again in full. Your provider bills you, with no Rowsafe limit; set a spending limit there. **More options** picks the models.
 
 ## Use your own AI assistant instead
 
-Already use Claude, ChatGPT, Cursor, Codex or VS Code? Connect it to Rowsafe's MCP server and ask it directly: free on every plan, with the same read-only view (with a read-only key it can't change anything; with write access it [acts as the person who connected it](/docs/guides/agent-autonomy)). The **Use your own AI** tab of the panel (the plug icon) shows the setup for each assistant, with a suggested prompt to copy. Today this uses a read-only API key; see the [MCP reference](/docs/reference/mcp).
+Connect Claude, ChatGPT, Cursor, Codex or VS Code to Rowsafe's MCP server, free on every plan. The **Use your own AI** tab (plug icon) shows each setup with a prompt to copy. It uses a read-only API key today; with write access an assistant [acts as the person who connected it](/docs/guides/agent-autonomy). See the [MCP reference](/docs/reference/mcp).
 
 ## Conversations and feedback
 
-The panel keeps your conversations: **History** reopens them, the trash icon deletes one. Admins can delete every conversation in Settings → Ask Rowsafe. Conversations are deleted automatically 30 days after their last message. Thumbs up or down on an answer helps us improve Ask Rowsafe; it records the rating, not your data.
+**History** reopens conversations; the trash icon deletes one. Admins can delete all of them in **Settings → Ask Rowsafe**. They're deleted 30 days after the last message. Thumbs up or down records only the rating.
 
 ## Limits
 
-- Ask Rowsafe answers from what Rowsafe collects. It can't see your application code, your data, or servers without the agent.
-- Each question may look up at most 10 things (16 with Think deeper); very broad questions get a shorter answer. Ask about one database for the best results.
-- It reads the dashboard's data as of now: monitoring is at most a minute old, table statistics about 30 minutes.
+- It knows only what Rowsafe collects: not your code, your data, or servers without the agent.
+- At most 10 lookups per question (16 with Think deeper). Ask about one database for best results.
+- Monitoring is at most a minute old, table statistics about 30 minutes.

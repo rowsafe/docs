@@ -6,170 +6,159 @@ description: Short answers to common questions about Rowsafe.
 <Accordions type="multiple">
 <Accordion title="Do I need to know PostgreSQL?">
 
-No. You answer a few questions when you install Rowsafe, and then it runs by itself: backups, the weekly Proof and monitoring. When something needs you, Rowsafe says what's wrong in plain words, and most problems have an **Apply fix** button. Getting data back is buttons too: see [Your first restore](/docs/first-restore) for a practice run. New words are explained in the [Glossary](/docs/glossary).
+No. Answer a few questions at install; then backups, Proof and monitoring run by itself. Problems come in plain words, most with an **Apply fix** button. Restores are buttons too: try [Your first restore](/docs/first-restore). Terms: [Glossary](/docs/glossary).
 
 </Accordion>
 <Accordion title="What are Rewind, Proof, Pulse and Guard?">
 
-The four parts of Rowsafe:
-
-- **Rewind**: every change saved, so you can restore to any second, or to a **Mark** (a named restore point) you set before a risky change. See [Restore a database](/docs/guides/restore).
-- **Proof**: every week Rowsafe restores a copy of your database and checks it. See [Proof](/docs/concepts/restore-drills).
-- **Pulse**: the health score, alerts, insights, slow queries and the weekly email. See [Pulse](/docs/guides/monitoring).
-- **Guard**: the safety net for AI agents. See [Guard](/docs/guides/ai-agents).
+- **Rewind**: restore to any second, or to a **Mark** (a named restore point). [Restore a database](/docs/guides/restore).
+- **Proof**: a weekly automatic restore test. [Proof](/docs/concepts/restore-drills).
+- **Pulse**: health score, alerts, slow queries, weekly email. [Pulse](/docs/guides/monitoring).
+- **Guard**: the safety net for AI agents. [Guard](/docs/guides/ai-agents).
 
 </Accordion>
 <Accordion title="What happens if I delete rows by mistake?">
 
-You get them back, and production keeps running. In the dashboard, open the database, then **Rewind**. [Find the moment](/docs/guides/find-the-moment) shows the exact second of the delete. **Restore a copy** of the database as it was just before, compare it with production, and **bring back** the missing rows. Rows written since stay as they are. See [Restore a database](/docs/guides/restore), and practise once with [Your first restore](/docs/first-restore).
-
-Every change is saved within about a minute, so you can go back to any second of about the last two weeks (by default).
+You get them back while production keeps running: **Rewind** → [Find the moment](/docs/guides/find-the-moment), **Restore a copy** from just before, compare, **bring back** the missing rows. Newer rows stay. Default reach: about two weeks back, to the second. [Restore a database](/docs/guides/restore).
 
 </Accordion>
 <Accordion title="What if I use an AI coding agent?">
 
-Set up [Guard](/docs/guides/ai-agents). Before a migration or a risky command, the agent checks that the database can be restored and saves a **Mark**, a named moment you can rewind to. The Claude Code plugin also sets a Mark by itself before destructive commands. Agents can also [preview a migration](/docs/guides/preview-migrations) on a copy, and test against a masked [safe copy](/docs/guides/safe-copies) instead of production.
+Set up [Guard](/docs/guides/ai-agents). The agent checks the database can be restored and sets a **Mark** before risky changes. It can also [preview a migration](/docs/guides/preview-migrations) or test on a masked [safe copy](/docs/guides/safe-copies).
 
-An agent connected to Rowsafe acts as the person who connected it, with that person's rights in the dashboard, like a personal access token. When you ask it to apply a fix, restart or rewind, an owner's or admin's agent does it right away, with the same checks and a Mark first; it checks with you before anything disruptive, destructive or paid. Rowsafe refuses some changes and says why, such as a member's, or a destructive one with no backup yet. To keep an agent from changing anything, connect it without **Act for you** or give it a read-only key. If something breaks, you decide what to do. See [How AI agents act](/docs/guides/agent-autonomy).
+It acts as the person who connected it, with their rights, like a personal access token. An owner's or admin's agent acts right away, with a Mark first; others are refused with a reason. For a look-only agent, connect it without **Act for you** or use a read-only key. [How AI agents act](/docs/guides/agent-autonomy).
 
 </Accordion>
 <Accordion title="Can Rowsafe read my data?">
 
-No. Backups are encrypted on your server before they are uploaded to your bucket, and the passphrase (and your bucket keys) never leave your server. Rowsafe stores metadata only: names, sizes, settings, task logs and metrics. See the [security model](/docs/security).
+No. Backups are encrypted on your server; the passphrase and bucket keys never leave it. Rowsafe stores only names, sizes, settings, task logs and metrics. [Security model](/docs/security).
 
 </Accordion>
 <Accordion title="Does it slow down my database?">
 
-Barely, and it is built to stay out of the way:
+Barely:
 
-- **Monitoring** opens one short session every minute, over the local socket, and runs a few cheap queries. Each has a 2-second timeout, so a busy server gets a gap in the graphs, never a pile of monitoring queries. See [what the agent collects](/docs/guides/monitoring#what-the-agent-collects).
-- **Saving every change** copies files PostgreSQL has already written.
-- **Backups** run at low CPU and IO priority. **Proof**, Rewind copies and safe copies run at low CPU and IO priority too.
-- **The agent** gets at most half the default CPU and IO weight, and if the server runs out of memory, the kernel stops it before PostgreSQL.
+- **Monitoring**: one short local session a minute, cheap queries with a 2-second timeout. [What the agent collects](/docs/guides/monitoring#what-the-agent-collects).
+- **Saving changes** copies files PostgreSQL already wrote.
+- **Backups, Proof and copies** run at low CPU and IO priority.
+- **The agent** gets at most half the default CPU and IO weight, and is stopped before PostgreSQL if memory runs out.
 
-Proof and copies need free disk: about 1.3 × the database size plus 1 GB.
+Proof and copies need free disk: about 1.3 × the database size + 1 GB.
 
 </Accordion>
 <Accordion title="Does Rowsafe ever restart my database?">
 
-Never on its own. Settings that need a restart (`archive_mode`, and `wal_level` if it is `minimal`) are written with `ALTER SYSTEM`. The installer asks whether to restart now: usually a few seconds, and open connections are dropped. Say no, and restart when it suits you: Rowsafe notices by itself.
+Never on its own. Setup needs one restart (a few seconds); do it at install or later, and Rowsafe notices.
 
-If you allowed it during install, admins can also restart PostgreSQL later from the dashboard, always with a confirmation. The same permission lets them [rewind the whole database](/docs/guides/restore#rewind-the-whole-database), which stops PostgreSQL while Rowsafe restores it. An AI agent does either only as the owner or admin who connected it ([How AI agents act](/docs/guides/agent-autonomy)).
+If you allowed it at install, admins (or their AI agents) can restart or [rewind the whole database](/docs/guides/restore#rewind-the-whole-database) from the dashboard, always with a confirmation.
 
-Two things restart or stop PostgreSQL without a click, and only if you turn them on yourself: [automatic minor updates](/docs/guides/updates#minor-updates) (Sundays at 03:00 in your time zone) and [automatic failover](/docs/guides/standby#automatic-failover) to a standby. Both are off by default.
+Only two things act without a click, both off until you turn them on: [automatic minor updates](/docs/guides/updates#minor-updates) (Sundays 03:00 your time) and [automatic failover](/docs/guides/standby#automatic-failover).
 
 </Accordion>
 <Accordion title="Which databases are supported?">
 
-- **PostgreSQL 13 to 18**, fully supported: on Debian 12/13 and Ubuntu 22.04/24.04 servers (amd64 or arm64), and in Docker with the official `postgres` images 14 to 18.
-- **MySQL 8.0 and 8.4, and MariaDB 10.6, 10.11 and 11.4**, supported: on the same servers and in Docker, with every Rowsafe feature. See [Protect MySQL or MariaDB](/docs/guides/mysql) and its limits.
-- **MongoDB 6.0, 7.0 and 8.0**, supported: replica sets (one member is enough) on the same servers and in Docker with the official `mongo` images; not sharded clusters. Every feature except connection pooling, which MongoDB's drivers do themselves. See [Protect MongoDB](/docs/guides/mongodb) and its limits.
-- **ClickHouse 24.8 and newer**, supported: single servers on the same systems and in Docker with the official `clickhouse/clickhouse-server` images (25.8 to 26.8). Every feature, restore to any second included (every part ClickHouse writes is copied as it appears). See [Protect ClickHouse](/docs/guides/clickhouse) and its limits.
-- **Redis 7.0 and newer, and Valkey 7.2 and newer**, supported: standalone servers (with or without replicas) on Debian 12/13, Ubuntu 24.04 (on 22.04, with Redis's own packages) and in Docker with the official `redis` and `valkey/valkey` images; not Redis Cluster or servers managed by Sentinel. Backups, restore to any second, Marks, Proof, Rewind, Pulse with its fixes, security checks, Tuning, updates and upgrades, logs, users and recommendations, restart, files, the second copy, standby servers, clones, moving in, Find the moment and safe copies; no connection pooling (Redis doesn't need it) or migration previews (Redis has no schema). See [Protect Redis or Valkey](/docs/guides/redis) and its limits.
-- **SQLite 3**, supported: the database files your apps open, on the local disk of the same servers, and in Docker volumes (the agent as a sidecar). Backups, restore to any second (in WAL mode), Marks, Proof, Rewind, Pulse with its fixes, files, the second copy, Find the moment, safe copies, migration previews, security checks, recommendations, index advice and clones; no restart, standby, pooling, server updates, Databases & users, logs or tuning (SQLite has no server), and moving in from Turso or Cloudflare D1 isn't available yet. See [Protect SQLite](/docs/guides/sqlite) and its limits.
-- **OpenSearch 2 and 3**, supported: one node, on the same servers (not in Docker yet). Backups are OpenSearch's own snapshots, every 5 minutes, each copying only what's new, so restores go back to a snapshot or a Mark, not to any second. Marks, Proof, Rewind (documents brought back, or the whole server with Undo), Pulse with its fixes, security checks, users and roles, restart; no updates, standby, pooling, tuning or logs. See [Protect OpenSearch](/docs/guides/opensearch) and its limits.
-- **Qdrant 1.13 and newer**, supported: one node, on the same servers and in Docker with the official `qdrant/qdrant` image. Backups are snapshots every 15 minutes (hourly before Qdrant 1.17), only of the collections that changed, so restores go back to a snapshot or a Mark, not to any second. Marks, Proof, Rewind (a copy, or the whole server with Undo), Pulse with its fixes, security checks, API keys, updates within 1.19, restart; no standby, pooling, tuning or logs. See [Protect Qdrant](/docs/guides/qdrant) and its limits.
-- **Meilisearch 1.12 and newer (Community Edition)**, supported: one instance installed on the same servers (not in Docker yet). Backups are Meilisearch's own snapshots, every 15 minutes when something changed, so restores go back to a snapshot or a Mark, not to any second. Marks, Proof, Rewind (documents brought back, or every index with Undo), Pulse with its fixes, security checks, API keys, restart; no updates, standby, pooling, tuning or logs. See [Protect Meilisearch](/docs/guides/meilisearch) and its limits.
+Servers: Debian 12/13 and Ubuntu 22.04/24.04 (PostgreSQL on amd64 or arm64). Each guide lists its limits.
+
+| Engine | Versions | Docker | Main limits |
+|---|---|---|---|
+| [PostgreSQL](/docs/quickstart) | 13 to 18 | Official images 14 to 18 | |
+| [MySQL, MariaDB](/docs/guides/mysql) | MySQL 8.0, 8.4; MariaDB 10.6, 10.11, 11.4 | Yes | |
+| [MongoDB](/docs/guides/mongodb) | 6.0, 7.0, 8.0 | Yes | Replica sets only (one member is enough), no sharded clusters; no pooling |
+| [ClickHouse](/docs/guides/clickhouse) | 24.8+ | Official images 25.8 to 26.8 | Single servers |
+| [Redis, Valkey](/docs/guides/redis) | Redis 7.0+, Valkey 7.2+ | Yes | Standalone (with or without replicas), no Cluster or Sentinel; Ubuntu 22.04 needs Redis's own packages; no pooling or migration previews |
+| [SQLite](/docs/guides/sqlite) | 3 | Volumes (agent as sidecar) | Local disk; any second only in WAL mode; no restart, standby, pooling, server updates, users, logs or tuning; no move-in from Turso or D1 yet |
+| [OpenSearch](/docs/guides/opensearch) | 2, 3 | Not yet | One node; snapshots every 5 minutes, not any second; no updates, standby, pooling, tuning or logs |
+| [Qdrant](/docs/guides/qdrant) | 1.13+ | Yes | One node; snapshots every 15 minutes (hourly before 1.17), not any second; updates within 1.19; no standby, pooling, tuning or logs |
+| [Meilisearch](/docs/guides/meilisearch) | 1.12+ (Community) | Not yet | One instance; snapshots every 15 minutes when changed, not any second; no updates, standby, pooling, tuning or logs |
 
 </Accordion>
 <Accordion title="How does Rowsafe back up Redis or Valkey?">
 
-The agent connects to Redis the way a replica does. Redis sends it a full snapshot (Redis forks to make it, as it does for its own snapshots and for any new replica), then every change as it happens. The agent stamps each change with the second it arrived and uploads the changes about every minute, encrypted on your server. So you can restore to about a second, or exactly to a Mark. Redis lists the agent among its replicas as `rowsafe-agent`; it never serves anything.
-
-If the server refuses that link (replication not allowed for Rowsafe's user, or `min-replicas-to-write` in use), backups are scheduled snapshots only, and the dashboard says so. See [How Redis and Valkey backups work](/docs/concepts/redis).
+The agent connects like a replica: Redis sends a full snapshot, then every change. Changes upload about every minute, encrypted, so you can restore to about a second or exactly to a Mark. If replication isn't allowed for Rowsafe's user (or `min-replicas-to-write` is set), you get scheduled snapshots only, and the dashboard says so. [How Redis and Valkey backups work](/docs/concepts/redis).
 
 </Accordion>
 <Accordion title="Does Rowsafe slow down my SQLite app?">
 
-Barely. The agent opens the file with SQLite's own locking, as one more connection, and only takes SQLite's write lock for a few milliseconds at a time. Backups use SQLite's online backup API, made for copying a database while it is in use. In WAL mode, your app's writes never wait for Rowsafe's reads; in rollback-journal mode, a write can wait a moment while Rowsafe reads, as it would behind any other reader. Only two things you ask for make writes wait: rewinding the whole file (a few seconds) and **Give free space back** (`VACUUM`; the confirmation says about how long). See [Safe next to your app](/docs/guides/sqlite#safe-next-to-your-app).
+Barely. It uses SQLite's own locking and online backup API, holding the write lock for milliseconds. In WAL mode your writes never wait for its reads. Only rewinding the whole file (seconds) and **Give free space back** make writes wait. [Safe next to your app](/docs/guides/sqlite#safe-next-to-your-app).
 
 </Accordion>
 <Accordion title="Does Rowsafe change my SQLite file?">
 
-Not on its own. Backups only read it. Rowsafe checkpoints the `-wal` file once it has copied the changes in it, which is what SQLite does on its own anyway, so the `-wal` file doesn't keep growing. Everything else happens only when someone clicks and confirms: bring back rows, rewind the whole file, and the fixes Pulse offers.
-
-At install, root gives the agent access to the file, its `-wal` and `-shm` files and their folder (with an ACL, or a group), and prints what it changed. The file's owner never changes, and everyone else's access stays as it was.
+Not on its own. Backups only read it, then checkpoint the `-wal` file as SQLite would anyway. Everything else waits for a click and confirmation. At install, root grants the agent access (ACL or group) and prints what changed; the file's owner never changes.
 
 </Accordion>
 <Accordion title="Does my SQLite database need WAL mode?">
 
-For restores to any second and Marks, yes. WAL mode (`journal_mode=WAL`) is the default in Rails 8 and common elsewhere. Without it, Rowsafe takes a full backup every day and you can restore to those backups. Pulse offers **Turn on continuous backups**, which switches the file to WAL mode: your app keeps working, and `-wal` and `-shm` files appear next to the database. See [How SQLite backups work](/docs/concepts/sqlite#every-change-in-wal-mode).
+For restore to any second and Marks, yes. Without it, you get a daily full backup. Pulse offers **Turn on continuous backups** to switch; your app keeps working. [How SQLite backups work](/docs/concepts/sqlite#every-change-in-wal-mode).
 
 </Accordion>
 <Accordion title="My SQLite file is in a Docker volume. Does that work?">
 
-Yes. The installer on the host finds SQLite files that apps in containers have open. Or run the agent as a sidecar in your compose project, with the app's volume mounted read-write and the agent running as the same user as your app. See [Protect SQLite](/docs/guides/sqlite#docker).
+Yes. The installer on the host finds files containers have open, or run the agent as a sidecar. [Protect SQLite](/docs/guides/sqlite#docker).
 
 </Accordion>
 <Accordion title="Can Rowsafe protect a SQLite file on a network drive?">
 
-No. Rowsafe refuses SQLite files on NFS, SMB/CIFS, sshfs and similar network filesystems: their file locks aren't reliable, so neither SQLite nor Rowsafe can safely share the file with your app there. Keep the file on the server's local disk.
+No. NFS, SMB/CIFS, sshfs and similar have unreliable locks. Keep the file on local disk.
 
 </Accordion>
 <Accordion title="What counts as a database?">
 
-One PostgreSQL cluster: one server instance, on one host and port. Every database inside it is backed up and checked together.
-
-For SQLite, one database file. A server with several SQLite files has several databases in Rowsafe.
+One server instance on one host and port (for PostgreSQL, a cluster), with every database inside it. For SQLite, one file.
 
 </Accordion>
 <Accordion title="Which storage can I use?">
 
-Any S3-compatible bucket you own: Cloudflare R2, Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, or self-hosted storage such as MinIO. The installer walks you through it; see [Set up backup storage](/docs/guides/storage). Your own bucket is billed by your provider, not by Rowsafe. With Cloudflare R2, the first 10 GB are free.
+Any S3-compatible bucket you own: Cloudflare R2 (first 10 GB free), Backblaze B2, Amazon S3, Wasabi, DigitalOcean Spaces, MinIO. Your provider bills you, not Rowsafe. [Set up backup storage](/docs/guides/storage).
 
-Or use [Rowsafe Storage](/docs/guides/rowsafe-storage), a bucket run by Rowsafe with nothing to set up (10 GB on Free, 250 GB on Pro, 2 TB on Business). Your backups are still encrypted on your server, so Rowsafe can't read them.
+Or [Rowsafe Storage](/docs/guides/rowsafe-storage): nothing to set up, 10 GB on Free, 250 GB on Pro, 2 TB on Business. Still encrypted on your server.
 
 </Accordion>
 <Accordion title="How much data can I lose?">
 
-At most about a minute of changes, usually less. PostgreSQL archives each WAL segment as it fills, and at least every minute (`archive_timeout = 60`). A nightly `pg_dump` can lose up to 24 hours.
-
-Databases set up before this was the default archive at least every 5 minutes. **Health** shows "Backups can be up to 5 minutes behind" for them, and **Apply fix** changes it without a restart.
+At most about a minute of changes (`archive_timeout = 60`). A nightly `pg_dump` can lose 24 hours. Older setups archive every 5 minutes; **Apply fix** changes that without a restart.
 
 </Accordion>
 <Accordion title="How far back can I restore?">
 
-From the start of your oldest kept full backup to the last archived change. By default Rowsafe keeps 2 weekly full backups: about two weeks. Change it in the database's settings in the dashboard, or with `rowsafe set NAME --retention-full N`.
+About two weeks by default (2 full backups kept). Change it in the database's settings or with `rowsafe set NAME --retention-full N`.
 
 </Accordion>
 <Accordion title="Does Rowsafe restore for me?">
 
-Yes, in one click, on the database's own server. On the **Rewind** tab, pick a second or a Mark and:
+Yes, in one click on the **Rewind** tab: **restore a copy** and bring back rows while production runs, or **rewind the whole database** (undo for 7 days). [Restore a database](/docs/guides/restore).
 
-- **restore a copy** next to production, compare it with production, and **bring back** the rows you lost. Production keeps running;
-- or **rewind the whole database** to that moment, for the worst case. You can undo it for 7 days.
-
-See [Restore a database](/docs/guides/restore). Rewinding the whole database in Docker needs the optional [container control service](/docs/guides/docker#let-rowsafe-restart-the-container), and tables need a primary key to bring rows back. When the server itself is lost, you restore by hand onto a new one with pgBackRest, as the same guide describes. Proof, the weekly restore test, runs the same kind of restore, so you know it works and how long it takes.
+Limits: bringing back rows needs a primary key; a whole rewind in Docker needs the [container control service](/docs/guides/docker#let-rowsafe-restart-the-container); a lost server is restored by hand with pgBackRest.
 
 </Accordion>
 <Accordion title="What if I lose the encryption passphrase?">
 
-Then nobody can restore those backups, Rowsafe included. Store the passphrase in your secret manager, and in a second place, before the first backup exists.
+Nobody can restore those backups, Rowsafe included. Store it in your secret manager and a second place before the first backup.
 
 </Accordion>
 <Accordion title="What happens if Rowsafe is down?">
 
-PostgreSQL keeps archiving its changes to your bucket by itself, so point-in-time recovery keeps working. Scheduled backups, Proof and alerts resume when the service is back.
+PostgreSQL keeps archiving to your bucket, so restore to any second still works. Backups, Proof and alerts resume when it's back.
 
 </Accordion>
 <Accordion title="What happens if the agent stops?">
 
-The same: PostgreSQL keeps archiving. Backups, Proof and metrics pause, you get the `agent_offline` alert after 5 minutes, and the database stops counting as protected after 10.
+PostgreSQL keeps archiving. Backups, Proof and metrics pause. `agent_offline` alerts after 5 minutes; not protected after 10.
 
 </Accordion>
 <Accordion title="Can I keep my existing backups?">
 
-Yes, and you should, for a while. Run your old job next to Rowsafe for 30 days: four passing Proof runs and one restore you did yourself, then retire it.
+Yes, for 30 days: four passing Proof runs and one restore of your own, then retire the old job.
 
 </Accordion>
 <Accordion title="Does it do replicas and failover?">
 
-Yes, for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. A [standby](/docs/guides/standby) is a second server that Rowsafe keeps in sync, starting from your backups. On servers Rowsafe creates, a standby is one click for PostgreSQL, MySQL and MariaDB. You can read from it, and promote it when the primary dies, by hand or automatically (off by default). One standby per database, on Linux servers with systemd; the standby's agent is installed natively, not in Docker. To back up, adopt the primary: a standby can't be adopted on its own. Redis and Valkey standbys are real replicas Rowsafe sets up ([Redis and Valkey](/docs/guides/standby#redis-and-valkey)).
+Yes, for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis and Valkey. A [standby](/docs/guides/standby) is kept in sync, readable, and promotable by hand or automatically (off by default). One per database, Linux with systemd, agent installed natively. On servers Rowsafe creates, it's one click for PostgreSQL, MySQL and MariaDB. Adopt the primary; a standby can't be adopted alone. Redis and Valkey standbys are real replicas ([Redis and Valkey](/docs/guides/standby#redis-and-valkey)).
 
 </Accordion>
 <Accordion title="Is it open source?">
 
-Everything that runs on your servers is: the agent, the CLI (including the MCP server and the Claude Code plugin) and the installer, under Apache-2.0 on [GitHub](https://github.com/rowsafe/rowsafe). These docs are [open source](https://github.com/rowsafe/docs) too, under CC BY 4.0. The hosted service and dashboard are proprietary.
+What runs on your servers is: agent, CLI (with MCP server and Claude Code plugin) and installer, Apache-2.0 on [GitHub](https://github.com/rowsafe/rowsafe). These [docs](https://github.com/rowsafe/docs) are CC BY 4.0. The hosted service and dashboard are proprietary.
 
 </Accordion>
 </Accordions>

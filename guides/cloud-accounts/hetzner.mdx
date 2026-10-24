@@ -1,9 +1,9 @@
 ---
 title: Connect Hetzner
-description: Create a Hetzner Cloud API token for one project so Rowsafe can create database servers there for you. What the token lets Rowsafe do, and how to revoke it.
+description: Give Rowsafe a Hetzner Cloud API token for one project so it can create database servers there.
 ---
 
-To [create servers for you](/docs/guides/create-a-server) in Hetzner Cloud, Rowsafe needs an **API token for one Hetzner Cloud project**. You create it in Hetzner and paste it into the dashboard once. It takes about two minutes.
+To [create servers for you](/docs/guides/create-a-server) in Hetzner Cloud, Rowsafe needs an **API token for one project**. It takes about two minutes.
 
 ## Create the token
 
@@ -12,48 +12,48 @@ To [create servers for you](/docs/guides/create-a-server) in Hetzner Cloud, Rows
 
 ### Open a project just for Rowsafe
 
-Sign in to [Hetzner Cloud](https://console.hetzner.cloud) and open the project for your database, or create a new project for it. A token reaches everything in its project, so a project of its own keeps your other servers out of reach.
+Sign in to [Hetzner Cloud](https://console.hetzner.cloud) and create a project for your databases. A token reaches everything in its project, so a project of its own keeps your other servers out of reach.
 
 </Step>
 <Step>
 
 ### Generate the token
 
-In the project, open **Security**, then **API tokens**, and click **Generate API token**. Name it `Rowsafe`, choose **Read & Write**, and click **Generate API token**.
+In the project, open **Security**, then **API tokens**, and click **Generate API token**. Name it `Rowsafe`, choose **Read & Write**, and generate it. Copy it now: Hetzner shows it only once.
 
 </Step>
 <Step>
 
 ### Paste it into Rowsafe
 
-Copy the token right away: Hetzner shows it only once. In the Rowsafe dashboard, open **Settings → Cloud accounts** (or **Create a server for me**), click **Connect a cloud account**, choose **Hetzner Cloud**, paste the token into **API token**, give the account a name your team will recognize (like "Production"), and click **Connect**.
+In the dashboard, open **Settings → Cloud accounts** (or **Create a server for me**) and click **Connect a cloud account**. Choose **Hetzner Cloud**, paste the token into **API token**, name the account and click **Connect**.
 
 </Step>
 </Steps>
 
-Rowsafe checks the token before it saves it: that it works and can create servers and firewalls, without creating anything that costs money. A token with **Read** only is refused, with what to do.
+Rowsafe checks the token first, without creating anything that costs money. A **Read**-only token is refused.
 
 ## What access this gives Rowsafe
 
-**Read & Write on one Hetzner Cloud project.** Hetzner tokens can't be limited further than that: the token could change anything in its project. That's why Rowsafe asks for a project of its own.
+**Read & Write on one project.** Hetzner can't limit a token further, which is why the project should be Rowsafe's alone.
 
-Rowsafe itself only touches what it creates for your servers, all labelled `rowsafe=1`:
+Rowsafe only touches what it creates, all labelled `rowsafe=1`:
 
-- **servers** (Debian 12), created, resized and deleted only when someone in your organization clicks and confirms;
-- **firewalls**, one per server, that let in only the addresses you chose;
-- **SSH keys**, only the public keys you give it when you create a server. Rowsafe never adds its own.
+- **servers** (Debian 12), only when someone clicks and confirms;
+- **firewalls**, one per server, letting in only your addresses;
+- **SSH keys**, only the ones you give it. Never its own.
 
-The token is stored encrypted, never shown again, and used only for those servers. See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
+See [what Rowsafe does with your cloud account](/docs/guides/create-a-server#what-rowsafe-does-with-your-cloud-account).
 
 ## Revoke it
 
-- **In Hetzner:** open the project, **Security**, **API tokens**, and delete the `Rowsafe` token. It stops working at once.
-- **In Rowsafe:** **Settings → Cloud accounts**, **Remove**. Rowsafe forgets the token; nothing in your Hetzner project changes. You can remove an account once its servers are deleted.
+- **In Hetzner:** project, **Security**, **API tokens**: delete the `Rowsafe` token. It stops working at once.
+- **In Rowsafe:** **Settings → Cloud accounts**, **Remove** (once its servers are deleted). Nothing in Hetzner changes.
 
-After you revoke the token, your servers keep running and stay protected, but Rowsafe can no longer resize them, change their firewall or delete them. Do that in the Hetzner console.
+Your servers keep running and stay protected. Resize, firewall changes and deletes then happen in the Hetzner console.
 
 ## Good to know
 
-- Prices in the dashboard are Hetzner's own, shown as "from" (its cheapest location, before VAT). Your Hetzner bill is what counts.
-- Hetzner limits how many servers a project can have. If you reach the limit, Rowsafe says so: ask Hetzner to raise it, or delete a server you don't use.
-- To check the token, Rowsafe creates an empty firewall (`rowsafe-token-check-…`, free) and deletes it right away.
+- Prices are Hetzner's own, shown "from" (cheapest location, before VAT). Your Hetzner bill is what counts.
+- If you reach Hetzner's server limit, Rowsafe says so: ask Hetzner to raise it, or delete a server.
+- To check the token, Rowsafe creates an empty, free firewall (`rowsafe-token-check-…`) and deletes it right away.

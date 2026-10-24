@@ -1,49 +1,45 @@
 ---
 title: Protect SQLite
-description: Backups to your own bucket, restore to any second, Marks, weekly Proof, Rewind and Pulse for the SQLite database files your apps use, on your own server or in Docker.
+description: Backups, restore to any second, Proof, Rewind and Pulse for your apps' SQLite files.
 ---
 
-A SQLite database is a file your app opens itself: Rails 8, Django, Laravel, PocketBase, and many Go and Node apps keep their data that way, often in a Docker volume. There is no database server. Rowsafe treats each file as one database, and several on one server are normal.
-
-Rowsafe protects those files with the safety net it gives PostgreSQL: backups go to **your** bucket, encrypted on your server with a passphrase only you hold; with WAL mode on, every change is copied within a few seconds, so you can restore to **any second**; a weekly **Proof** restores a copy and checks it; **Rewind** brings deleted rows back or puts the whole file back; **Marks** save the exact moment before a risky change; **Pulse** watches the file and fixes what it can. Some features need a database server, so SQLite doesn't have them: see [Limits](#limits).
-
-How it works underneath, in more detail: [How SQLite backups work](/docs/concepts/sqlite).
+A SQLite database is a file your app opens itself (Rails 8, Django, Laravel, PocketBase, many Go and Node apps). Rowsafe treats each file as one database and protects it like PostgreSQL: encrypted backups in your bucket, restore to any second (in WAL mode), Marks, a weekly Proof, Rewind and Pulse. Features that need a database server don't apply: see [Limits](#limits). Under the hood: [How SQLite backups work](/docs/concepts/sqlite).
 
 ## Before you start
 
-- Your app's SQLite file is on the server's **local disk** (or in a Docker volume on it). Network drives (NFS, SMB/CIFS, sshfs and similar) are refused: SQLite's locking isn't reliable there.
-- For restores to **any second**, the database uses **WAL mode** (`journal_mode=WAL`). It's the default in Rails 8. Without it, Rowsafe still backs the file up every day, and Pulse offers to [turn WAL on](#turn-on-continuous-backups) with one click.
-- You have a bucket and an encryption passphrase, as for PostgreSQL. See [Adopt an existing database](/docs/guides/adopt) for the one-command install.
+- The file is on **local disk** (or a Docker volume on it). Network drives (NFS, SMB/CIFS, sshfs...) are refused: SQLite's locking isn't reliable there.
+- For restores to **any second**, **WAL mode** (`journal_mode=WAL`, the Rails 8 default). Without it you get daily backups, and Pulse offers to [turn WAL on](#turn-on-continuous-backups).
+- A bucket and an encryption passphrase. See [Adopt an existing database](/docs/guides/adopt).
 
 ## Turn on backups
 
-Run the install command on the server and approve the server in your browser when it prints the link:
+Run this on the server, then approve the server in your browser when it prints the link:
 
 ```bash
-curl -fsSL https://rowsafe.sh | sudo sh
+curl -fsSL https://rowsafe.sh | sudo sh -s -- --account
 ```
 
-Or use the command from **Servers**, then **Add a server**, in the dashboard, which holds a one-time enrollment token:
+Or copy the command from **Servers**, then **Add a server** (it holds a one-time token):
 
 ```bash
 curl -fsSL https://rowsafe.sh | sudo sh -s rse_...
 ```
 
-The installer finds your SQLite files. Nothing restarts, and your app keeps running:
+The installer finds your SQLite files. Nothing restarts.
 
 <Steps>
 <Step>
-**The files.** It lists the SQLite files that running apps have open, on the server and inside Docker containers, and asks which ones to protect, and what to call each one in Rowsafe. To add a file it can't see (your app is stopped, for example), name it: `--sqlite /srv/app/db/production.sqlite3`. Repeat `--sqlite` for several files.
+**The files.** It lists SQLite files open by running apps (also in Docker containers) and asks which to protect and what to call them. For a file it can't see (app stopped), add `--sqlite /srv/app/db/production.sqlite3`. Repeat for several.
 </Step>
 <Step>
-**Access to the file.** The agent runs as its own system user, `rowsafe`. Root gives it read and write access to the database file, its `-wal` and `-shm` files, and their folder. It uses a POSIX ACL (installing the `acl` package if needed), plus a default ACL on the folder so the `-wal` and `-shm` files your app creates later are covered too. On a filesystem without ACLs, it adds `rowsafe` to the file's group when that group is the app user's own and can already write the file. The installer prints exactly what it changed. It never changes the file's owner, and everyone else's access stays as it was.
+**Access to the file.** The agent runs as user `rowsafe`. Root gives it read and write access to the file, its `-wal` and `-shm` files and their folder, with a POSIX ACL (installing `acl` if needed) and a default ACL so later `-wal`/`-shm` files are covered. Without ACL support, it adds `rowsafe` to the file's group when that group is the app user's own and can already write. The installer prints what it changed. Owner and everyone else's access stay as they were.
 </Step>
 <Step>
-**The plan.** Like for PostgreSQL, you see what Rowsafe will do and say yes. Nothing in the file changes. Rowsafe checks that a backup reaches your bucket and opens with your key, takes the first full copy and, in WAL mode, starts copying every change.
+**The plan.** You review it and say yes. The file doesn't change. Rowsafe checks a backup reaches your bucket and opens with your key, takes the first full copy and, in WAL mode, starts copying every change.
 </Step>
 </Steps>
 
-Without a terminal, use `--protect NAME --sqlite PATH`, with the storage settings in the installer's environment, as in [Automate it](/docs/guides/adopt#automate-it):
+Unattended: `--protect NAME --sqlite PATH`, with storage settings in the environment ([Automate it](/docs/guides/adopt#automate-it)):
 
 ```bash
 curl -fsSL https://rowsafe.sh | sudo sh -s -- --protect app --sqlite /srv/app/db/production.sqlite3
@@ -51,86 +47,82 @@ curl -fsSL https://rowsafe.sh | sudo sh -s -- --protect app --sqlite /srv/app/db
 
 ## Safe next to your app
 
-Rowsafe opens the file the way your app does, with SQLite's own locking: the same file locks and the same shared-memory file (`-shm`). So it is safe next to your app's connections.
+Rowsafe opens the file like your app does, with SQLite's own locking, so it's safe next to your app.
 
-- **It never locks your app out.** Copies use SQLite's online backup API. In WAL mode, your app's writes never wait for Rowsafe's reads. In the older rollback-journal mode, a write can wait a moment while Rowsafe reads, as it would behind any other reader.
-- **Your app comes first.** On a server, the agent's service gets a lower CPU and IO weight than your app. It only takes SQLite's write lock for a few milliseconds at a time, to keep its read of the `-wal` file current.
-- **It retries.** When the file is busy, the agent waits and tries again. Pulse counts those moments: many of them mean your app keeps long transactions open.
+- **It never locks your app out.** Copies use SQLite's online backup API. In WAL mode, writes never wait for Rowsafe. In rollback-journal mode, a write can wait a moment, as behind any reader.
+- **Your app comes first.** The agent gets lower CPU and IO weight, and holds the write lock only a few milliseconds at a time.
+- **It retries** when the file is busy. Pulse counts those moments: many mean your app keeps long transactions open.
 
 ## What Rowsafe does
 
 | | How |
 |---|---|
-| Full backup | A consistent copy of the file through SQLite's online backup API, while your app keeps writing. Compressed and encrypted on your server, then sent to your bucket. Every day by default, the newest 7 kept. Each copy's pages are checked (`quick_check`) and its tables' row counts recorded. The copy is made in a temporary file on the server first: it needs about the file's size free, and Rowsafe says so plainly when there isn't room. |
-| Every change | In WAL mode, every committed transaction is copied to your bucket within a few seconds, encrypted on your server. |
-| Restore | To any second, or a Mark (WAL mode). Rowsafe takes the newest backup before that moment and replays every transaction committed by then. In rollback-journal mode, to one of the daily backups. |
-| [Marks](/docs/concepts/restore-points) | A named point in the stream of changes, from the dashboard, `rowsafe mark app before-migration` or an AI agent through [Guard](/docs/guides/ai-agents). Restoring to a Mark stops exactly there. Needs WAL mode. |
-| [Proof](/docs/concepts/restore-drills) | Weekly: restore the newest backup and every change since into a scratch file, run `PRAGMA integrity_check` and `foreign_key_check`, and compare each table's row count with what was recorded. Then delete it. |
-| [Rewind](/docs/guides/restore) | Restore a copy of the file as it was at any second or a Mark, on the same server, next to the live file. Compare it with the live file, table by table, and bring missing rows back. |
-| Rewind the whole database | Puts the whole file back to any second or a Mark, in place, while your app keeps running. The file as it was is kept for 7 days, so you can **Undo**. |
-| [Pulse](/docs/guides/monitoring) | The file's size, the `-wal` file's size, free pages, the journal mode, how far continuous backups are behind, the last integrity check, the times Rowsafe found the file busy or locked, and tables whose query statistics are out of date. Most findings have a [fix](#pulse-and-one-click-fixes). |
-| [Files](/docs/guides/files) | Back up your app's folders (uploads, attachments), restored to the same moment as a backup. |
-| [Second copy](/docs/guides/second-copy) | Backups and every change also go to a second bucket, encrypted with that bucket's own passphrase. |
-| [Find the moment](/docs/guides/find-the-moment#sqlite) | When rows were deleted or changed, or a table dropped: the changes replayed on a private copy on your server and each table's rows compared, with the point just before each change to rewind to. Needs WAL mode. |
-| [Security](/docs/guides/security#sqlite) | Who on the server can reach the file: open to every user, inside a folder a web server serves, a folder anyone can write, readable copies left next to it. **Close to other users** with one click. |
-| [Recommendations](/docs/guides/recommendations#sqlite) | From the schema (SQLite keeps no query statistics): foreign keys without an index (tested on a copy, then **Create index**), tables without a primary key, `AUTOINCREMENT`, missing statistics. |
-| [Migration preview](/docs/guides/preview-migrations) | Your migration run on a restored copy: time, rows, rebuilt tables, indexes, how long your app's writes would wait. Also for AI agents through Guard. |
-| [Safe copies](/docs/guides/safe-copies#sqlite) | A masked copy or a structure-only copy, as a new file on the server only the agent's user can read. |
-| [Clone](/docs/guides/fork#sqlite) | The file as it was at any second or a Mark, as a new file in a folder root allowed, on this server or another, protected as a new database. |
-
-Everything in your bucket is encrypted before it leaves the server. Rowsafe's servers never see your data or your passphrase.
+| Full backup | A consistent copy through SQLite's online backup API while your app writes, compressed and encrypted on your server. Daily by default, newest 7 kept. Pages checked (`quick_check`), row counts recorded. Needs about the file's size free for a temporary file; Rowsafe says so if there isn't room. |
+| Every change | In WAL mode, every committed transaction reaches your bucket within a few seconds, encrypted. |
+| Restore | To any second or a Mark (WAL mode): the newest backup plus every transaction committed by then. In rollback-journal mode, to a daily backup. |
+| [Marks](/docs/concepts/restore-points) | A named point, from the dashboard, `rowsafe mark app before-migration` or an AI agent through [Guard](/docs/guides/ai-agents). Exact. Needs WAL mode. |
+| [Proof](/docs/concepts/restore-drills) | Weekly: restore into a scratch file, run `PRAGMA integrity_check` and `foreign_key_check`, compare row counts, delete it. |
+| [Rewind](/docs/guides/restore) | A copy at any second or Mark next to the live file. Compare table by table and bring missing rows back. |
+| Rewind the whole database | Puts the whole file back in place while your app runs. **Undo** for 7 days. |
+| [Pulse](/docs/guides/monitoring) | File and `-wal` size, free pages, journal mode, backup lag, last integrity check, busy/locked moments, stale statistics. Most findings have a [fix](#pulse-and-one-click-fixes). |
+| [Files](/docs/guides/files) | Your app's folders (uploads), restored to the same moment. |
+| [Second copy](/docs/guides/second-copy) | Backups and changes also go to a second bucket with its own passphrase. |
+| [Find the moment](/docs/guides/find-the-moment#sqlite) | When rows were deleted or changed, or a table dropped, with the point just before to rewind to. Worked out on a private copy on your server. Needs WAL mode. |
+| [Security](/docs/guides/security#sqlite) | Files open to every user, in a web-served or world-writable folder, or with readable copies nearby. **Close to other users** in one click. |
+| [Recommendations](/docs/guides/recommendations#sqlite) | From the schema: foreign keys without an index (tested on a copy, then **Create index**), tables without a primary key, `AUTOINCREMENT`, missing statistics. |
+| [Migration preview](/docs/guides/preview-migrations) | Your migration on a restored copy: time, rows, rebuilt tables, indexes, how long writes would wait. Also for AI agents. |
+| [Safe copies](/docs/guides/safe-copies#sqlite) | A masked or structure-only copy, as a file only the agent's user can read. |
+| [Clone](/docs/guides/fork#sqlite) | The file at any second or Mark, as a new file in a folder root allowed, here or on another server, protected as a new database. |
 
 ## Restore
 
-Restores happen on the database's server, from the **Rewind** tab, as for any database ([Restore a database](/docs/guides/restore)). Pick a second or a Mark, then:
+From the **Rewind** tab ([Restore a database](/docs/guides/restore)), pick a second or a Mark, then:
 
-- **Restore a copy.** Rowsafe restores the file as it was then into a separate file on the same server. Your app keeps using the live file.
-- **Compare.** For each table, the copy and the live file side by side: rows only in the copy (deleted since), rows only in the live file (added since), and rows that changed. Rows are matched by primary key. Tables without one are matched by row number (`rowid`), which a `VACUUM` can change, and the page says so. Virtual tables (full-text search tables, for example) aren't compared.
-- **Bring back rows.** Puts the missing rows back into the live file, in one transaction. It never overwrites a row that exists.
-- **Rewind the whole database.** For the worst case. Rowsafe writes the restored copy into the live file through SQLite's online backup API while your app keeps running: its open connections see the new content. Writes wait for the few seconds it takes. The file as it was is kept on the server for 7 days: **Undo rewind** puts it back.
+- **Restore a copy** into a separate file on the same server. Your app keeps using the live file.
+- **Compare** table by table: deleted, added and changed rows, matched by primary key (or `rowid`, which `VACUUM` can change; the page says so). Virtual tables (full-text search...) aren't compared.
+- **Bring back rows** into the live file in one transaction. Existing rows are never overwritten.
+- **Rewind the whole database**, for the worst case: the copy is written into the live file while your app runs, and open connections see the new content. Writes wait a few seconds. **Undo rewind** for 7 days.
 
-Only owners and admins can restore, and AI agents can't: no tool lets them.
-
-A restored copy needs about the file's size free on the same disk, and so does the file kept for Undo.
+Only owners and admins can restore (or their AI agents, [acting as them](/docs/guides/agent-autonomy)). A copy needs about the file's size free on the same disk, and so does the file kept for Undo.
 
 ### Restore without Rowsafe
 
-Your backups don't depend on Rowsafe's servers. On any machine with the agent binary, your bucket's settings and your passphrase in the environment (`ROWSAFE_REPO_*`, as in `/etc/rowsafe/agent.env`), restore a database into a new file, to the newest point, a moment or a Mark:
+Your backups don't need Rowsafe's servers. With the agent binary and your bucket settings and passphrase in the environment (`ROWSAFE_REPO_*`, as in `/etc/rowsafe/agent.env`), restore to a new file, at the newest point, a moment or a Mark:
 
 ```bash
 rowsafe-agent sqlite restore --stanza app --to /tmp/restored.sqlite3 --at 2026-10-04T09:30:00Z
 ```
 
-`--stanza` is the database's folder in your bucket (its **Settings** page shows it). It never touches the live file, and checks the restored one with `PRAGMA integrity_check`.
+`--stanza` is the database's bucket folder (on its **Settings** page). It never touches the live file and runs `PRAGMA integrity_check` on the result.
 
 ## Pulse and one-click fixes
 
-Pulse reads the file about every minute (query statistics about every 30 minutes) and gives each finding a button. Each one asks you to confirm when it could disturb your app.
+Pulse reads the file about every minute (statistics every 30 minutes). Each finding has a button, with a confirmation when it could disturb your app.
 
 | Problem | Button | What Rowsafe does |
 |---|---|---|
-| The `-wal` file keeps growing | **Shrink the -wal file** | Copies the changes waiting in the `-wal` file into the database file, once they are safely in your bucket, and shrinks the `-wal` file when no reader still needs it. Then takes a fresh full copy, so the stream of changes stays unbroken. A transaction or reader your app keeps open stops this; the finding says so. |
-| Many unused (free) pages | **Give free space back** | Rebuilds the file (`VACUUM`) to give the free pages back to the disk. Your app's writes wait while it runs: the confirmation says about how long. It needs about the file's size free on the disk. For a file that uses `auto_vacuum=incremental`, Rowsafe gives the pages back without a rebuild instead (`PRAGMA incremental_vacuum`). |
-| Query statistics are missing or out of date | **Refresh statistics** | Runs `PRAGMA optimize`, which refreshes the statistics SQLite uses to plan queries for the tables that need it. |
+| The `-wal` file keeps growing | **Shrink the -wal file** | Once changes are in your bucket, moves them into the database file and shrinks `-wal`, then takes a fresh full copy. A long-open transaction or reader blocks it; the finding says so. |
+| Many unused (free) pages | **Give free space back** | Rebuilds the file (`VACUUM`). Writes wait while it runs (the confirmation says how long), and it needs about the file's size free. With `auto_vacuum=incremental`, uses `PRAGMA incremental_vacuum` instead, no rebuild. |
+| Query statistics are missing or out of date | **Refresh statistics** | Runs `PRAGMA optimize`. |
 | Continuous backups are off (rollback-journal mode) | **Turn on continuous backups** | Switches the database to WAL mode. See [below](#turn-on-continuous-backups). |
 
-A failed integrity check raises an alert that points you to Rewind, so you can restore the file as it was before the damage.
+A failed integrity check raises an alert pointing to Rewind, to restore the file from before the damage.
 
 ### Turn on continuous backups
 
-Restores to any second and Marks need WAL mode. **Turn on continuous backups** switches the database to it (`PRAGMA journal_mode=WAL`):
+**Turn on continuous backups** switches the file to WAL mode (`PRAGMA journal_mode=WAL`), needed for restores to any second and Marks:
 
-- your app keeps working, and nothing restarts;
-- `-wal` and `-shm` files appear next to the database file;
-- the change is permanent, unless your app switches the file back itself.
+- your app keeps working; nothing restarts;
+- `-wal` and `-shm` files appear next to it;
+- it stays on unless your app switches it back.
 
-Rowsafe refuses it on a network drive.
+Refused on a network drive.
 
 ## Docker
 
-If your app runs in Docker, the installer on the host finds its SQLite files too. To keep Rowsafe inside your compose project instead, run the agent as a **sidecar**: mount the app's volume into it **read-write**, and run the agent as the **same user** as your app (`user:`), so the file's permissions don't change.
+The installer on the host finds SQLite files in containers too. To keep Rowsafe inside your compose project instead, run the agent as a **sidecar**: mount the app's volume **read-write** and run as the **same user** as your app.
 
-You need a one-time enrollment token (`rowsafe hosts enroll-token`), a bucket and its keys, and an encryption passphrase **stored in your secret manager first**. Put the agent's settings in `rowsafe-agent.env` next to your compose file, make it readable only by you (`chmod 600`) and never commit it:
+You need an enrollment token (`rowsafe hosts enroll-token`), a bucket and its keys, and a passphrase **saved in your secret manager first**. Put them in `rowsafe-agent.env`, `chmod 600` it and never commit it:
 
 ```sh title="rowsafe-agent.env"
 ROWSAFE_ENROLL_TOKEN=rse_...        # first start only; delete it afterwards
@@ -141,7 +133,7 @@ ROWSAFE_REPO_S3_KEY_SECRET=...
 ROWSAFE_REPO_CIPHER_PASS=...
 ```
 
-Then add the agent to your compose file. Your app's service stays as it is:
+Add the agent to your compose file:
 
 ```yaml title="compose.yml"
 services:
@@ -168,7 +160,7 @@ volumes:
   rowsafe-state:
 ```
 
-The paths in `ROWSAFE_SQLITE_PATHS` are where the files are **inside the agent's container**. Keep the volume on the Docker host's local disk, never `tmpfs` or a network drive. Then start it and add the database, in the dashboard (**Databases**, then **Add database**) or with the CLI:
+`ROWSAFE_SQLITE_PATHS` are paths **inside the agent's container**. Keep the volume on local disk, never `tmpfs` or a network drive. Start it and add the database (**Databases**, then **Add database**, or the CLI):
 
 ```bash
 docker compose up -d rowsafe-agent
@@ -176,9 +168,9 @@ rowsafe adopt app --host db-1 --engine sqlite --path /data/production.sqlite3
 rowsafe apply app
 ```
 
-Keep the `rowsafe-state` volume: it holds the host's identity. If you lose it, enroll again with a new token.
+Keep the `rowsafe-state` volume: it holds the host's identity. Lose it and you enroll again.
 
-To update the agent, download the newest image and recreate only the agent's container. Your app keeps running:
+To update, pull the newest image and recreate only the agent (your app keeps running):
 
 ```bash
 docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
@@ -190,29 +182,29 @@ docker compose pull rowsafe-agent && docker compose up -d rowsafe-agent
 
 | Feature | Why |
 |---|---|
-| Restart | SQLite runs inside your app, so there's no database server to restart. |
-| [Standby](/docs/guides/standby) | SQLite runs inside your app, so there's no database server to replicate to a standby. |
-| [Connection pooling](/docs/guides/connection-pooling) | SQLite runs inside your app, so there are no network connections to pool. |
-| [Updates](/docs/guides/updates) | SQLite is built into your app, so it is updated with your app, not on the server. |
-| Major upgrades | SQLite is built into your app, so it is upgraded with your app, not on the server. |
-| [Databases & users](/docs/guides/databases-and-users) | A SQLite database is one file with no users or accounts of its own to manage. |
-| [Logs](/docs/guides/logs) | SQLite runs inside your app and keeps no log of its own; your app's logs have its errors. |
+| Restart | No database server to restart. |
+| [Standby](/docs/guides/standby) | No database server to replicate. |
+| [Connection pooling](/docs/guides/connection-pooling) | No network connections to pool. |
+| [Updates](/docs/guides/updates) | SQLite is updated with your app. |
+| Major upgrades | SQLite is upgraded with your app. |
+| [Databases & users](/docs/guides/databases-and-users) | One file, no users of its own. |
+| [Logs](/docs/guides/logs) | No log of its own; your app's logs have its errors. |
 
 **Not available for SQLite:**
 
-- [Tuning](/docs/guides/tuning) doesn't apply: there is no server to tune, and your app sets SQLite's options when it opens the file.
+- [Tuning](/docs/guides/tuning): your app sets SQLite's options when it opens the file.
 - [Moving in](/docs/guides/move-in) from Turso or Cloudflare D1 isn't available yet.
 
 Also good to know:
 
-- **Restores to any second and Marks need WAL mode.** In rollback-journal mode, a file can only be restored to one of its backups (daily by default).
-- **Network drives are refused** (NFS, SMB/CIFS, sshfs and similar): SQLite's locking isn't reliable there.
-- **Let Rowsafe checkpoint.** If your app runs `PRAGMA wal_checkpoint(TRUNCATE)` or `RESTART` itself, Rowsafe steps aside after about two seconds, so your app isn't kept waiting, and then takes a fresh full copy to keep the stream of changes unbroken. That works, but it costs a full copy each time. Rowsafe checkpoints the file itself once changes are copied, so the `-wal` file doesn't grow.
-- **A fresh full copy starts by itself** when the stream of changes breaks: the file is replaced, its page size changes, or your app reset its `-wal` file while the agent was stopped. Backups and changes from before the break stay restorable up to it; restores after it start from the fresh copy.
-- **Restores are to the second.** Rowsafe time-stamps each change when it sees it, within about a second of the commit.
-- **Virtual tables aren't compared** in Rewind, and tables without a primary key are matched by row number, which `VACUUM` can change.
-- **Find the moment, previews, safe copies and clones work on restored copies** on the same server: each needs about the file's size free under `/var/lib/rowsafe` (clones: in their folder).
-- **No query statistics:** SQLite keeps none, so there are no slow queries or unused-index checks; recommendations come from the schema.
-- **Safe copies have no password:** they are files only the agent's user and root can read, and you copy one to your computer with your own access to the server.
-- **Clones aren't masked yet**, and go only into folders root allowed at install (`--sqlite-clone-dir`). They never overwrite a file.
-- **Security fixes need root's permission** for the app's files (`--allow-sqlite-modes`), and only ever remove other users' access.
+- **Restores to any second and Marks need WAL mode.** Otherwise, only to a backup (daily by default).
+- **Network drives are refused** (NFS, SMB/CIFS, sshfs...).
+- **Let Rowsafe checkpoint.** If your app runs `PRAGMA wal_checkpoint(TRUNCATE)` or `RESTART`, Rowsafe steps aside after about two seconds, then takes a fresh full copy each time. Rowsafe checkpoints itself once changes are copied, so `-wal` doesn't grow.
+- **A fresh full copy starts by itself** when the stream of changes breaks (file replaced, page size changed, or `-wal` reset while the agent was stopped). Everything before the break stays restorable up to it.
+- **Restores are to the second**: each change is stamped within about a second of its commit.
+- **Virtual tables aren't compared** in Rewind; tables without a primary key are matched by row number, which `VACUUM` can change.
+- **Find the moment, previews, safe copies and clones** work on restored copies, each needing about the file's size free under `/var/lib/rowsafe` (clones: in their folder).
+- **No query statistics**, so no slow queries or unused-index checks; recommendations come from the schema.
+- **Safe copies have no password:** they're files only the agent's user and root can read. Copy one to your computer with your own server access.
+- **Clones aren't masked yet**, go only into folders root allowed (`--sqlite-clone-dir`), and never overwrite a file.
+- **Security fixes need root's permission** (`--allow-sqlite-modes`) and only ever remove other users' access.

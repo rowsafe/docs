@@ -1,81 +1,85 @@
 ---
 title: Proof
-description: Every week Rowsafe restores a copy of your database and checks it, so you know restores work before you need one.
+description: A weekly automatic restore test, so you know restores work before you need one.
 ---
 
-A backup you have never restored is a hope. **Proof** is Rowsafe's weekly restore test: every week Rowsafe restores your latest backup, replays the archived changes, starts the copy and checks it. Then it deletes the copy. So you know restores work before you need one.
+A backup you've never restored is a hope. **Proof** restores your latest backup every week, checks it, then deletes it.
 
-Proof runs every Sunday at 21:15 UTC by default. To run it now, click **Run Proof now** on the database's page, or:
-
-```sh
-rowsafe proof app
-```
+It runs Sundays at 21:15 UTC by default. To run it now, click **Run Proof now** on the database's page (or `rowsafe proof app`).
 
 ## What Proof does
 
 <Steps>
 <Step>
 
-**Checks the disk.** Proof needs free space for a full copy: about **1.3 × the database size + 1 GiB**. With less, it refuses to start and fails with `not enough disk for a drill`.
+**Checks the disk.** It needs about **1.3 × the database size + 1 GiB** free, or it fails with `not enough disk for a drill`.
 
 </Step>
 <Step>
 
-**Restores** the latest backup plus every archived change into a scratch directory on the same server (`/var/lib/rowsafe/drills/<task-id>`). It runs at low CPU and IO priority.
+**Restores** the latest backup and every archived change into `/var/lib/rowsafe/drills/<task-id>` on the same server, at low CPU and IO priority.
 
 </Step>
 <Step>
 
-**Starts the copy in isolation.** It listens on a private Unix socket only, with no network port. Archiving, replication, background workers and autovacuum are off, and transactions are read-only by default.
+**Starts the copy in isolation**: a private Unix socket, no network port. Archiving, replication, background workers and autovacuum are off; transactions are read-only by default.
 
 </Step>
 <Step>
 
-**Compares it with production.** Every database must be present, and one that has tables in production must have tables in the copy. A different table count only warns, because the schema may have changed since the last archived change.
+**Compares it with production.** Every database must be there, with tables if production has them. A different table count only warns (the schema may have changed since).
 
 </Step>
 <Step>
 
-**Deletes the copy**, whether Proof passed or failed.
+**Deletes the copy**, pass or fail.
 
 </Step>
 </Steps>
 
-Internally, and in task lists and logs, a Proof run is a `drill` task.
+In task lists and logs, a Proof run is a `drill`.
 
 ## Results
 
-The database's page shows "Proof passed Sunday" (or what failed), and **Proof history** lists every run. With the CLI:
+The database's page shows "Proof passed Sunday" (or what failed); **Proof history** lists every run with its backup, the time it **recovered to**, and how long it took. That duration is your best estimate of a real restore. CLI: `rowsafe proofs app`.
 
-```sh
-rowsafe proofs app
-```
-
-Each run shows its result, the backup it used, the time it **recovered to**, and how long it took. That duration is your best estimate of how long a real restore takes.
-
-If the latest Proof failed, or none has passed in 8 days, the database stops counting as [protected](/docs/concepts/protection-status) and you get an alert. `rowsafe task ID` has the full log.
+A failed Proof, or none passing in 8 days, means not [protected](/docs/concepts/protection-status) and an alert.
 
 ## Resources
 
-- **Disk:** about 1.3 × the database size + 1 GiB free in `/var/lib/rowsafe/drills` (change the location with `ROWSAFE_DRILL_DIR`).
-- **Memory:** the scratch copy uses about 128 MB of shared buffers, plus pgBackRest. A few hundred MB in all. If the server runs out of memory, the kernel stops Proof before production PostgreSQL.
-- **Time:** similar to a real restore of the same database.
+- **Disk:** about 1.3 × the database size + 1 GiB in `/var/lib/rowsafe/drills` (move it with `ROWSAFE_DRILL_DIR`).
+- **Memory:** a few hundred MB (about 128 MB shared buffers plus pgBackRest). Out of memory, the kernel stops Proof before production.
+- **Time:** about the same as a real restore.
 
-If Sunday evening is a busy time for you, move Proof in the database's settings, or:
+Not enough disk on the database's server? Run Proof [on another server](#where-restore-tests-run).
+
+Sunday evening busy? Move it in the database's settings, or:
 
 ```sh
 rowsafe set app --proof-schedule "0 4 * * 3"   # Wednesdays at 04:00 UTC
 ```
 
+## Where restore tests run
+
+On the database's **Proof** tab, **Where restore tests run** picks the server. Owners and admins change it.
+
+- **This server** (default).
+- **Another of my servers**, with the free disk and the same engine (for PostgreSQL, the same major version), the agent installed on the server itself (not in Docker) and up to date. You check its key's fingerprint when you pick it: Rowsafe hands it read access to the backups, sealed to that key, as for a [fork](/docs/guides/fork).
+- **A temporary Rowsafe Cloud server**, for PostgreSQL, MySQL and MariaDB, with pay as you go on. Rowsafe picks the smallest size with enough disk, shows the price per test (billed by the hour, usually about an hour), and deletes the server right after.
+
+While it's set, every Proof runs there, scheduled or **Run Proof now**. Results show in Proof history as usual, with the server it ran on. Your database isn't touched, and no new database is added or backed up.
+
+Works for PostgreSQL, MySQL, MariaDB, MongoDB, ClickHouse, Redis, Valkey and SQLite. Off the database's server, Proof can't ask production, so the checks that need it (like waiting for the newest changes to reach the bucket, or comparing row counts with production) are skipped. AI agents can't change this setting.
+
 <Accordions type="single">
 <Accordion title="Extensions loaded with shared_preload_libraries">
 
-Proof first starts the copy without production's `shared_preload_libraries`. If it doesn't start that way, it retries once with them loaded and adds a warning. Set `ROWSAFE_DRILL_PRELOAD=production` to always load them.
+Proof first starts without production's `shared_preload_libraries`. If that fails, it retries once with them and warns. Set `ROWSAFE_DRILL_PRELOAD=production` to always load them.
 
 </Accordion>
 <Accordion title="Does Proof read production data?">
 
-Yes. It restores your data from the bucket onto the same server that already holds it. The copy has no network listener and is deleted when Proof ends. Nothing leaves your server.
+Yes, on the same server that already holds it. No network listener; deleted at the end. Nothing leaves your server, unless you [run Proof elsewhere](#where-restore-tests-run): then the copy is restored on that server (or on the temporary Rowsafe Cloud server) and deleted the same way.
 
 </Accordion>
 </Accordions>

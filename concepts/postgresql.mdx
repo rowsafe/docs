@@ -1,25 +1,23 @@
 ---
 title: How PostgreSQL backups work
-description: WAL archiving with pgBackRest, the settings Rowsafe changes, and where everything lives on your server and in your bucket.
+description: WAL archiving with pgBackRest, the settings Rowsafe changes, and where files live.
 ---
 
-On PostgreSQL, Rowsafe uses [pgBackRest](https://pgbackrest.org), a widely used open-source backup tool, and PostgreSQL's own write-ahead log (WAL).
+On PostgreSQL, Rowsafe uses [pgBackRest](https://pgbackrest.org) (open source) and PostgreSQL's write-ahead log (WAL).
 
 ## WAL archiving
 
-PostgreSQL writes every change to its **write-ahead log** before it changes the data files. The log is split into 16 MB segments. With WAL archiving on, PostgreSQL hands each finished segment to an `archive_command`, and only recycles it once that command succeeds.
-
-Rowsafe sets `archive_command` to pgBackRest, which compresses and encrypts the segment and stores it in your bucket:
+PostgreSQL writes every change to its **WAL**, in 16 MB segments. With archiving on, it hands each finished segment to `archive_command` and only recycles it once that succeeds. Rowsafe's `archive_command` is pgBackRest, which compresses, encrypts and uploads it:
 
 ```text
 /usr/bin/pgbackrest --config=/etc/rowsafe/pgbackrest/app.conf --stanza=app archive-push %p
 ```
 
-**PostgreSQL archives the WAL itself.** The agent isn't involved, so archiving keeps working while the agent or the Rowsafe service is down.
+**PostgreSQL archives by itself**, so it keeps working while the agent or Rowsafe is down.
 
 ## The settings Rowsafe changes
 
-Adopting a database changes at most four settings, with `ALTER SYSTEM` (they are written to `postgresql.auto.conf`):
+At most four, with `ALTER SYSTEM` (in `postgresql.auto.conf`):
 
 | Setting | Changed to | When | Needs a restart |
 |---|---|---|---|
@@ -28,52 +26,45 @@ Adopting a database changes at most four settings, with `ALTER SYSTEM` (they are
 | `archive_timeout` | `60` (seconds) | if it is `0` or more than `60` | No |
 | `wal_level` | `replica` | only if it is `minimal` | Yes |
 
-Rowsafe then reloads the configuration. It never restarts PostgreSQL on its own: you restart it when it suits you, or say yes when the installer asks, or click **Restart** in the dashboard on a server where you allowed that. Rowsafe notices the restart by itself.
+Rowsafe reloads the configuration but never restarts on its own: restart when it suits you, at install, or with **Restart** in the dashboard if you allowed it. Rowsafe notices.
 
-`archive_timeout = 60` makes PostgreSQL switch to a new WAL segment at least every minute when there were changes, so a quiet database loses at most about a minute. The segments are compressed in your bucket, so a mostly empty one costs little.
-
-Databases set up when the default was `300` (5 minutes) keep it until you change it: **Health** shows "Backups can be up to 5 minutes behind", and **Apply fix** sets `60` with a reload, without a restart.
-
-If another tool already archives WAL (an `archive_command` or `archive_library` is set), the plan refuses to replace it unless you pass `--force`. See [Adopt an existing database](/docs/guides/adopt).
+- `archive_timeout = 60` means at most about a minute of loss on a quiet database. Mostly empty segments compress to little.
+- Older setups with `300` keep it until you click **Apply fix** on "Backups can be up to 5 minutes behind" (no restart).
+- If another tool already archives (`archive_command` or `archive_library` set), the plan refuses without `--force`. [Adopt an existing database](/docs/guides/adopt).
 
 ## Backups with pgBackRest
 
-Backups are taken with `pgbackrest backup` while PostgreSQL runs, without locking your tables. Each database in Rowsafe is one pgBackRest **stanza** with the same name.
+`pgbackrest backup` runs while PostgreSQL runs, without locking tables. Each database is one pgBackRest **stanza** of the same name, configured with:
 
-The configuration Rowsafe generates for pgBackRest uses:
-
-- `aes-256-cbc` encryption with your passphrase, on your server;
-- `zstd` compression, bundling and block-level incremental backups;
-- retention by count of full backups (`--retention-full`, default 2);
-- two parallel processes and low CPU and IO priority, so production comes first.
+- `aes-256-cbc` encryption with your passphrase, on your server
+- `zstd` compression, bundling and block-level incremental backups
+- retention by count of full backups (`--retention-full`, default 2)
+- two parallel processes at low CPU and IO priority
 
 ## Where things live
 
-**In your bucket**, each database has its own path, `/rowsafe/<name>` by default:
+**In your bucket**, each database under `/rowsafe/<name>` by default, all encrypted:
 
 ```text
 rowsafe/app/archive/   the WAL archive
 rowsafe/app/backup/    full and differential backups
 ```
 
-Every object there is encrypted.
-
 **On your server:**
 
 | Path | What |
 |---|---|
-| `/etc/rowsafe/agent.env` | The agent's settings, including the bucket keys and the passphrase. Mode 0600, owned by `postgres`. |
-| `/etc/rowsafe/pgbackrest/<name>.conf` | The generated pgBackRest configuration. Mode 0600. Rewritten before every task, so local edits are lost. |
-| `/var/lib/rowsafe/` | The agent's identity and state, and Proof's scratch copies while they run. |
+| `/etc/rowsafe/agent.env` | Agent settings, including bucket keys and passphrase. Mode 0600, owned by `postgres`. |
+| `/etc/rowsafe/pgbackrest/<name>.conf` | Generated pgBackRest config. Mode 0600. Rewritten before every task, so local edits are lost. |
+| `/var/lib/rowsafe/` | Agent identity and state, and Proof's scratch copies while they run. |
 | `/var/log/rowsafe/` | pgBackRest logs, rotated daily. |
-| `/opt/rowsafe/` | The agent's binaries. |
+| `/opt/rowsafe/` | Agent binaries. |
 
-See [Agent configuration](/docs/reference/agent-configuration) for every setting.
+Every setting: [Agent configuration](/docs/reference/agent-configuration).
 
 ## Requirements
 
 - PostgreSQL **13 to 18**, a **primary** (not a standby).
-- The agent connects as the `postgres` role over the Unix socket, with peer authentication. It needs superuser rights for `ALTER SYSTEM` and backups.
-- pgBackRest **2.55.0 or newer** for PostgreSQL 18. The installer installs pgBackRest if it is missing; Rowsafe is tested with the current release from [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt).
-
-In Docker, the official `postgres` images don't include pgBackRest, so the agent runs it in a sidecar container. See [Run the agent in Docker](/docs/guides/docker).
+- The agent connects as `postgres` over the Unix socket (peer authentication), with superuser rights.
+- pgBackRest **2.55.0 or newer** for PostgreSQL 18. The installer adds it if missing; tested with the current [apt.postgresql.org](https://wiki.postgresql.org/wiki/Apt) release.
+- In Docker, pgBackRest runs in a sidecar container. [Run the agent in Docker](/docs/guides/docker).
